@@ -2,9 +2,12 @@
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 
-use candle_core::{DType, Device, IndexOp, Tensor};
-use candle_nn::VarBuilder;
-use candle_transformers::models::whisper::{self, model::Whisper};
+use candle_core::{DType, Device, IndexOp, Tensor, D};
+use candle_nn::{
+    embedding, linear, linear_no_bias, Conv1d, Conv1dConfig, Embedding, LayerNorm, Linear, Module,
+    VarBuilder,
+};
+use candle_transformers::models::whisper::{self};
 use serde::Deserialize;
 #[cfg(test)]
 use text_transcripts::TranscriptWordContract;
@@ -113,6 +116,12 @@ struct WhisperDecodeDiagnostics {
     timestamp_tokens_requested: bool,
     timestamp_tokens_present: bool,
     decoded_token_ids: Vec<u32>,
+    decoder_prompt_prefill_count: usize,
+    decoder_cached_token_step_count: usize,
+    decoder_input_token_count: usize,
+    generated_token_count: usize,
+    decoder_self_attention_cache_reused: bool,
+    decoder_cross_attention_cache_reused: bool,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -134,6 +143,131 @@ struct WhisperDecodedSegment {
     start_seconds: f64,
     end_seconds: f64,
     token_ids: Vec<u32>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum WhisperDecoderInputKind {
+    PromptPrefill,
+    CachedTokenStep,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct WhisperDecoderInput {
+    token_ids: Vec<u32>,
+    position_offset: usize,
+    flush_cache: bool,
+    kind: WhisperDecoderInputKind,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct WhisperAutoregressiveRow {
+    tokens: Vec<u32>,
+    prompt_len: usize,
+    cache_position: usize,
+}
+
+impl WhisperAutoregressiveRow {
+    fn new(prompt_tokens: Vec<u32>) -> Self {
+        Self {
+            tokens: prompt_tokens,
+            prompt_len: 0,
+            cache_position: 0,
+        }
+        .with_prompt_len()
+    }
+
+    fn with_prompt_len(mut self) -> Self {
+        self.prompt_len = self.tokens.len();
+        self
+    }
+
+    fn next_decoder_input(&self) -> WhisperDecoderInput {
+        if self.cache_position == 0 {
+            return WhisperDecoderInput {
+                token_ids: self.tokens.clone(),
+                position_offset: 0,
+                flush_cache: true,
+                kind: WhisperDecoderInputKind::PromptPrefill,
+            };
+        }
+        let last_token = self
+            .tokens
+            .last()
+            .copied()
+            .expect("autoregressive row must retain at least the prompt token");
+        WhisperDecoderInput {
+            token_ids: vec![last_token],
+            position_offset: self.tokens.len() - 1,
+            flush_cache: false,
+            kind: WhisperDecoderInputKind::CachedTokenStep,
+        }
+    }
+
+    fn mark_forwarded(&mut self) {
+        self.cache_position = self.tokens.len();
+    }
+
+    fn generated_tokens(&self) -> &[u32] {
+        &self.tokens[self.prompt_len..]
+    }
+
+    fn accept(&mut self, token: u32) {
+        self.tokens.push(token);
+    }
+
+    fn into_generated_tokens(self) -> Vec<u32> {
+        self.tokens.into_iter().skip(self.prompt_len).collect()
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+struct WhisperGenerationStats {
+    prompt_prefill_count: usize,
+    cached_token_step_count: usize,
+    decoder_input_token_count: usize,
+    generated_token_count: usize,
+    decoder_self_attention_cache_reused: bool,
+    decoder_cross_attention_cache_reused: bool,
+}
+
+impl WhisperGenerationStats {
+    fn record_input(&mut self, input: &WhisperDecoderInput) {
+        match input.kind {
+            WhisperDecoderInputKind::PromptPrefill => self.prompt_prefill_count += 1,
+            WhisperDecoderInputKind::CachedTokenStep => self.cached_token_step_count += 1,
+        }
+        self.decoder_input_token_count += input.token_ids.len();
+    }
+
+    fn record_generated_token(&mut self) {
+        self.generated_token_count += 1;
+    }
+
+    fn record_decoder_stats(&mut self, stats: CachedWhisperDecoderStats) {
+        self.decoder_self_attention_cache_reused |= stats.self_attention_cache_reused;
+        self.decoder_cross_attention_cache_reused |= stats.cross_attention_cache_reused;
+    }
+
+    fn extend(self, diagnostics: &mut WhisperDecodeDiagnostics) {
+        diagnostics.decoder_prompt_prefill_count += self.prompt_prefill_count;
+        diagnostics.decoder_cached_token_step_count += self.cached_token_step_count;
+        diagnostics.decoder_input_token_count += self.decoder_input_token_count;
+        diagnostics.generated_token_count += self.generated_token_count;
+        diagnostics.decoder_self_attention_cache_reused |= self.decoder_self_attention_cache_reused;
+        diagnostics.decoder_cross_attention_cache_reused |=
+            self.decoder_cross_attention_cache_reused;
+    }
+}
+
+impl WhisperDecodeDiagnostics {
+    fn add_generation_counts_from(&mut self, other: &Self) {
+        self.decoder_prompt_prefill_count += other.decoder_prompt_prefill_count;
+        self.decoder_cached_token_step_count += other.decoder_cached_token_step_count;
+        self.decoder_input_token_count += other.decoder_input_token_count;
+        self.generated_token_count += other.generated_token_count;
+        self.decoder_self_attention_cache_reused |= other.decoder_self_attention_cache_reused;
+        self.decoder_cross_attention_cache_reused |= other.decoder_cross_attention_cache_reused;
+    }
 }
 
 pub(crate) fn transcribe(
@@ -372,10 +506,408 @@ pub(crate) fn resolve_whisper_bundle_paths(bundle: &Path) -> Result<WhisperBundl
     })
 }
 
+#[derive(Debug, Clone)]
+struct CachedWhisperAttention {
+    query: Linear,
+    key: Linear,
+    value: Linear,
+    out: Linear,
+    n_head: usize,
+    kv_cache: Option<(Tensor, Tensor)>,
+}
+
+impl CachedWhisperAttention {
+    fn load(n_state: usize, n_head: usize, vb: VarBuilder) -> candle_core::Result<Self> {
+        Ok(Self {
+            query: linear(n_state, n_state, vb.pp("q_proj"))?,
+            key: linear_no_bias(n_state, n_state, vb.pp("k_proj"))?,
+            value: linear(n_state, n_state, vb.pp("v_proj"))?,
+            out: linear(n_state, n_state, vb.pp("out_proj"))?,
+            n_head,
+            kv_cache: None,
+        })
+    }
+
+    fn forward(
+        &mut self,
+        x: &Tensor,
+        xa: Option<&Tensor>,
+        mask: Option<&Tensor>,
+        flush_cache: bool,
+    ) -> candle_core::Result<(Tensor, bool)> {
+        let q = self.query.forward(x)?;
+        let (k, v, cache_reused) = match xa {
+            None => {
+                if flush_cache {
+                    self.kv_cache = None;
+                }
+                let current_k = self.key.forward(x)?;
+                let current_v = self.value.forward(x)?;
+                if let Some((cached_k, cached_v)) = &self.kv_cache {
+                    let k = Tensor::cat(&[cached_k, &current_k], 1)?;
+                    let v = Tensor::cat(&[cached_v, &current_v], 1)?;
+                    self.kv_cache = Some((k.clone(), v.clone()));
+                    (k, v, true)
+                } else {
+                    self.kv_cache = Some((current_k.clone(), current_v.clone()));
+                    (current_k, current_v, false)
+                }
+            }
+            Some(x) => {
+                if flush_cache {
+                    self.kv_cache = None;
+                }
+                if let Some((k, v)) = &self.kv_cache {
+                    (k.clone(), v.clone(), true)
+                } else {
+                    let k = self.key.forward(x)?;
+                    let v = self.value.forward(x)?;
+                    self.kv_cache = Some((k.clone(), v.clone()));
+                    (k, v, false)
+                }
+            }
+        };
+        let wv = self.qkv_attention(&q, &k, &v, mask)?;
+        Ok((self.out.forward(&wv)?, cache_reused))
+    }
+
+    fn reshape_head(&self, x: &Tensor) -> candle_core::Result<Tensor> {
+        let (n_batch, n_ctx, n_state) = x.dims3()?;
+        let target_dims = &[n_batch, n_ctx, self.n_head, n_state / self.n_head];
+        x.reshape(target_dims)?.transpose(1, 2)
+    }
+
+    fn qkv_attention(
+        &self,
+        q: &Tensor,
+        k: &Tensor,
+        v: &Tensor,
+        mask: Option<&Tensor>,
+    ) -> candle_core::Result<Tensor> {
+        let (_, _, n_state) = q.dims3()?;
+        let scale = ((n_state / self.n_head) as f64).powf(-0.25);
+        let q = (self.reshape_head(q)? * scale)?;
+        let k = (self.reshape_head(k)?.transpose(2, 3)? * scale)?;
+        let v = self.reshape_head(v)?.contiguous()?;
+        let mut qk = q.matmul(&k)?;
+        if let Some(mask) = mask {
+            qk = qk.broadcast_add(mask)?;
+        }
+        let w = candle_nn::ops::softmax_last_dim(&qk)?;
+        w.matmul(&v)?.transpose(1, 2)?.flatten_from(2)
+    }
+
+    fn reset_kv_cache(&mut self) {
+        self.kv_cache = None;
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+struct CachedWhisperBlockStats {
+    self_cache_reused: bool,
+    cross_cache_reused: bool,
+}
+
+#[derive(Debug, Clone)]
+struct CachedWhisperBlock {
+    attn: CachedWhisperAttention,
+    attn_ln: LayerNorm,
+    cross_attn: Option<(CachedWhisperAttention, LayerNorm)>,
+    mlp_linear1: Linear,
+    mlp_linear2: Linear,
+    mlp_ln: LayerNorm,
+}
+
+impl CachedWhisperBlock {
+    fn load(
+        n_state: usize,
+        n_head: usize,
+        cross_attention: bool,
+        vb: VarBuilder,
+    ) -> candle_core::Result<Self> {
+        let cross_attn = if cross_attention {
+            Some((
+                CachedWhisperAttention::load(n_state, n_head, vb.pp("encoder_attn"))?,
+                layer_norm(n_state, vb.pp("encoder_attn_layer_norm"))?,
+            ))
+        } else {
+            None
+        };
+        Ok(Self {
+            attn: CachedWhisperAttention::load(n_state, n_head, vb.pp("self_attn"))?,
+            attn_ln: layer_norm(n_state, vb.pp("self_attn_layer_norm"))?,
+            cross_attn,
+            mlp_linear1: linear(n_state, n_state * 4, vb.pp("fc1"))?,
+            mlp_linear2: linear(n_state * 4, n_state, vb.pp("fc2"))?,
+            mlp_ln: layer_norm(n_state, vb.pp("final_layer_norm"))?,
+        })
+    }
+
+    fn forward(
+        &mut self,
+        x: &Tensor,
+        xa: Option<&Tensor>,
+        mask: Option<&Tensor>,
+        flush_kv_cache: bool,
+    ) -> candle_core::Result<(Tensor, CachedWhisperBlockStats)> {
+        let (attn, self_cache_reused) =
+            self.attn
+                .forward(&self.attn_ln.forward(x)?, None, mask, flush_kv_cache)?;
+        let mut x = (x + attn)?;
+        let mut stats = CachedWhisperBlockStats {
+            self_cache_reused,
+            cross_cache_reused: false,
+        };
+        if let Some((attn, ln)) = &mut self.cross_attn {
+            let (cross, cross_cache_reused) =
+                attn.forward(&ln.forward(&x)?, xa, None, flush_kv_cache)?;
+            x = (&x + cross)?;
+            stats.cross_cache_reused = cross_cache_reused;
+        }
+        let mlp = self.mlp_linear2.forward(
+            &self
+                .mlp_linear1
+                .forward(&self.mlp_ln.forward(&x)?)?
+                .gelu()?,
+        )?;
+        Ok(((x + mlp)?, stats))
+    }
+
+    fn reset_kv_cache(&mut self) {
+        self.attn.reset_kv_cache();
+        if let Some((attn, _)) = &mut self.cross_attn {
+            attn.reset_kv_cache();
+        }
+    }
+}
+
+#[derive(Debug, Clone)]
+struct CachedWhisperEncoder {
+    conv1: Conv1d,
+    conv2: Conv1d,
+    positional_embedding: Tensor,
+    blocks: Vec<CachedWhisperBlock>,
+    ln_post: LayerNorm,
+}
+
+impl CachedWhisperEncoder {
+    fn load(vb: VarBuilder, cfg: &whisper::Config) -> candle_core::Result<Self> {
+        let cfg1 = Conv1dConfig {
+            padding: 1,
+            stride: 1,
+            groups: 1,
+            dilation: 1,
+            cudnn_fwd_algo: None,
+        };
+        let cfg2 = Conv1dConfig {
+            padding: 1,
+            stride: 2,
+            groups: 1,
+            dilation: 1,
+            cudnn_fwd_algo: None,
+        };
+        let n_state = cfg.d_model;
+        let n_head = cfg.encoder_attention_heads;
+        let conv1 = conv1d(cfg.num_mel_bins, n_state, 3, cfg1, vb.pp("conv1"))?;
+        let conv2 = conv1d(n_state, n_state, 3, cfg2, vb.pp("conv2"))?;
+        let positional_embedding = sinusoids(cfg.max_source_positions, n_state, vb.device())?;
+        let blocks = (0..cfg.encoder_layers)
+            .map(|index| {
+                CachedWhisperBlock::load(n_state, n_head, false, vb.pp(format!("layers.{index}")))
+            })
+            .collect::<candle_core::Result<Vec<_>>>()?;
+        Ok(Self {
+            conv1,
+            conv2,
+            positional_embedding,
+            blocks,
+            ln_post: layer_norm(n_state, vb.pp("layer_norm"))?,
+        })
+    }
+
+    fn forward(&mut self, x: &Tensor, flush_kv_cache: bool) -> candle_core::Result<Tensor> {
+        let x = self.conv1.forward(x)?.gelu()?;
+        let x = self.conv2.forward(&x)?.gelu()?;
+        let x = x.transpose(1, 2)?;
+        let (_, seq_len, _) = x.dims3()?;
+        let positional_embedding = self.positional_embedding.narrow(0, 0, seq_len)?;
+        let mut x = x.broadcast_add(&positional_embedding)?;
+        for block in self.blocks.iter_mut() {
+            x = block.forward(&x, None, None, flush_kv_cache)?.0;
+        }
+        self.ln_post.forward(&x)
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+struct CachedWhisperDecoderStats {
+    self_attention_cache_reused: bool,
+    cross_attention_cache_reused: bool,
+}
+
+impl CachedWhisperDecoderStats {
+    fn merge_block(&mut self, block: CachedWhisperBlockStats) {
+        self.self_attention_cache_reused |= block.self_cache_reused;
+        self.cross_attention_cache_reused |= block.cross_cache_reused;
+    }
+}
+
+#[derive(Debug, Clone)]
+struct CachedWhisperDecoder {
+    token_embedding: Embedding,
+    positional_embedding: Tensor,
+    blocks: Vec<CachedWhisperBlock>,
+    ln: LayerNorm,
+}
+
+impl CachedWhisperDecoder {
+    fn load(vb: VarBuilder, cfg: &whisper::Config) -> candle_core::Result<Self> {
+        let n_state = cfg.d_model;
+        let n_head = cfg.decoder_attention_heads;
+        let token_embedding = embedding(cfg.vocab_size, n_state, vb.pp("embed_tokens"))?;
+        let positional_embedding = vb.get(
+            (cfg.max_target_positions, n_state),
+            "embed_positions.weight",
+        )?;
+        let blocks = (0..cfg.decoder_layers)
+            .map(|index| {
+                CachedWhisperBlock::load(n_state, n_head, true, vb.pp(format!("layers.{index}")))
+            })
+            .collect::<candle_core::Result<Vec<_>>>()?;
+        Ok(Self {
+            token_embedding,
+            positional_embedding,
+            blocks,
+            ln: layer_norm(n_state, vb.pp("layer_norm"))?,
+        })
+    }
+
+    fn forward(
+        &mut self,
+        x: &Tensor,
+        xa: &Tensor,
+        position_offset: usize,
+        flush_kv_cache: bool,
+    ) -> candle_core::Result<(Tensor, CachedWhisperDecoderStats)> {
+        let token_count = x.dim(D::Minus1)?;
+        let token_embedding = self.token_embedding.forward(x)?;
+        let positional_embedding =
+            self.positional_embedding
+                .narrow(0, position_offset, token_count)?;
+        let mut x = token_embedding.broadcast_add(&positional_embedding)?;
+        let mask = decoder_causal_mask(
+            token_count,
+            position_offset + token_count,
+            position_offset,
+            x.device(),
+        )?;
+        let mut stats = CachedWhisperDecoderStats::default();
+        for block in self.blocks.iter_mut() {
+            let (next, block_stats) = block.forward(&x, Some(xa), Some(&mask), flush_kv_cache)?;
+            stats.merge_block(block_stats);
+            x = next;
+        }
+        Ok((self.ln.forward(&x)?, stats))
+    }
+
+    fn final_linear(&self, x: &Tensor) -> candle_core::Result<Tensor> {
+        let batch_size = x.dim(0)?;
+        let weight = self
+            .token_embedding
+            .embeddings()
+            .broadcast_left(batch_size)?;
+        x.matmul(&weight.t()?)
+    }
+
+    fn reset_kv_cache(&mut self) {
+        for block in self.blocks.iter_mut() {
+            block.reset_kv_cache();
+        }
+    }
+}
+
+#[derive(Debug, Clone)]
+struct CachedWhisper {
+    encoder: CachedWhisperEncoder,
+    decoder: CachedWhisperDecoder,
+    config: whisper::Config,
+}
+
+impl CachedWhisper {
+    fn load(vb: &VarBuilder, config: whisper::Config) -> candle_core::Result<Self> {
+        Ok(Self {
+            encoder: CachedWhisperEncoder::load(vb.pp("model.encoder"), &config)?,
+            decoder: CachedWhisperDecoder::load(vb.pp("model.decoder"), &config)?,
+            config,
+        })
+    }
+
+    fn reset_kv_cache(&mut self) {
+        for block in self.encoder.blocks.iter_mut() {
+            block.reset_kv_cache();
+        }
+        self.decoder.reset_kv_cache();
+    }
+}
+
+fn conv1d(
+    in_channels: usize,
+    out_channels: usize,
+    kernel_size: usize,
+    config: Conv1dConfig,
+    vb: VarBuilder,
+) -> candle_core::Result<Conv1d> {
+    let weight = vb.get((out_channels, in_channels, kernel_size), "weight")?;
+    let bias = vb.get(out_channels, "bias")?;
+    Ok(Conv1d::new(weight, Some(bias), config))
+}
+
+fn layer_norm(size: usize, vb: VarBuilder) -> candle_core::Result<LayerNorm> {
+    let weight = vb.get(size, "weight")?;
+    let bias = vb.get(size, "bias")?;
+    Ok(LayerNorm::new(weight, bias, 1e-5))
+}
+
+fn sinusoids(length: usize, channels: usize, device: &Device) -> candle_core::Result<Tensor> {
+    let max_timescale = 10000f32;
+    let log_timescale_increment = max_timescale.ln() / (channels / 2 - 1) as f32;
+    let inv_timescales: Vec<_> = (0..channels / 2)
+        .map(|i| (i as f32 * (-log_timescale_increment)).exp())
+        .collect();
+    let inv_timescales = Tensor::new(inv_timescales.as_slice(), device)?.unsqueeze(0)?;
+    let arange = Tensor::arange(0, length as u32, device)?
+        .to_dtype(DType::F32)?
+        .unsqueeze(1)?;
+    let shape = (length, channels / 2);
+    let scaled_time = (arange.broadcast_as(shape)? * inv_timescales.broadcast_as(shape)?)?;
+    Tensor::cat(&[scaled_time.sin()?, scaled_time.cos()?], 1)
+}
+
+fn decoder_causal_mask(
+    query_len: usize,
+    key_len: usize,
+    position_offset: usize,
+    device: &Device,
+) -> candle_core::Result<Tensor> {
+    let values = (0..query_len)
+        .flat_map(|query_index| {
+            let absolute_query = position_offset + query_index;
+            (0..key_len).map(move |key_index| {
+                if key_index > absolute_query {
+                    f32::NEG_INFINITY
+                } else {
+                    0.0
+                }
+            })
+        })
+        .collect::<Vec<_>>();
+    Tensor::from_vec(values, (query_len, key_len), device)
+}
+
 struct CandleWhisperSession {
     setup: WhisperRunSetup,
     device: Device,
-    model: Whisper,
+    model: CachedWhisper,
     tokenizer: Tokenizer,
     generation: GenerationConfig,
     mel_filters: Vec<f32>,
@@ -412,7 +944,7 @@ impl CandleWhisperSession {
                 setup.bundle.model_safetensors.display()
             ))
         })?;
-        let model = Whisper::load(&vb, config.clone()).map_err(|error| {
+        let model = CachedWhisper::load(&vb, config.clone()).map_err(|error| {
             setup_error(format!(
                 "failed to construct Candle Whisper model from `{}`: {error}",
                 setup.bundle.root.display()
@@ -443,6 +975,12 @@ impl CandleWhisperSession {
         let mut timestamp_tokens_present = false;
         let mut rejected_timestamp_segments = false;
         let mut timing_fallbacks = Vec::new();
+        let mut decoder_prompt_prefill_count = 0_usize;
+        let mut decoder_cached_token_step_count = 0_usize;
+        let mut decoder_input_token_count = 0_usize;
+        let mut generated_token_count = 0_usize;
+        let mut decoder_self_attention_cache_reused = false;
+        let mut decoder_cross_attention_cache_reused = false;
         let batch_size = candle_batch_size(options, request.chunks.len());
         for batch in request.chunks.chunks(batch_size) {
             for chunk in batch {
@@ -457,6 +995,15 @@ impl CandleWhisperSession {
                     )?;
                     timestamp_tokens_requested |= timed.diagnostics.timestamp_tokens_requested;
                     timestamp_tokens_present |= timed.diagnostics.timestamp_tokens_present;
+                    decoder_prompt_prefill_count += timed.diagnostics.decoder_prompt_prefill_count;
+                    decoder_cached_token_step_count +=
+                        timed.diagnostics.decoder_cached_token_step_count;
+                    decoder_input_token_count += timed.diagnostics.decoder_input_token_count;
+                    generated_token_count += timed.diagnostics.generated_token_count;
+                    decoder_self_attention_cache_reused |=
+                        timed.diagnostics.decoder_self_attention_cache_reused;
+                    decoder_cross_attention_cache_reused |=
+                        timed.diagnostics.decoder_cross_attention_cache_reused;
                     if let Some(reason) = timed.fallback_reason {
                         if !timing_fallbacks.contains(&reason) {
                             timing_fallbacks.push(reason);
@@ -529,6 +1076,21 @@ impl CandleWhisperSession {
         diagnostics.push(format!(
             "timestampSegmentsRejected={rejected_timestamp_segments}"
         ));
+        diagnostics.extend([
+            "generation=autoregressive-kv-cache".to_string(),
+            format!("decoderPromptPrefillCount={decoder_prompt_prefill_count}"),
+            format!("decoderCachedTokenStepCount={decoder_cached_token_step_count}"),
+            format!("decoderInputTokenCount={decoder_input_token_count}"),
+            format!("generatedTokenCount={generated_token_count}"),
+            format!(
+                "decoderSelfAttentionCacheReused={}",
+                decoder_self_attention_cache_reused
+            ),
+            format!(
+                "decoderCrossAttentionCacheReused={}",
+                decoder_cross_attention_cache_reused
+            ),
+        ]);
         diagnostics.extend(
             timing_fallbacks
                 .into_iter()
@@ -580,7 +1142,14 @@ impl CandleWhisperSession {
                         WhisperDecodeTimingMode::NoTimestamps,
                     )?;
                     fallback.fallback_reason = Some("unstableTimestampSegments");
-                    fallback.diagnostics = diagnostics;
+                    fallback
+                        .diagnostics
+                        .add_generation_counts_from(&diagnostics);
+                    fallback.diagnostics.timestamp_tokens_requested =
+                        diagnostics.timestamp_tokens_requested;
+                    fallback.diagnostics.timestamp_tokens_present =
+                        diagnostics.timestamp_tokens_present;
+                    fallback.diagnostics.decoded_token_ids = diagnostics.decoded_token_ids;
                     return Ok(fallback);
                 }
                 let mut fallback = self.decode_window_with_timing_mode(
@@ -633,8 +1202,8 @@ impl CandleWhisperSession {
             self.model.encoder.forward(&mel, true).map_err(|error| {
                 model_output_mismatch(format!("Whisper encoder failed: {error}"))
             })?;
-        let token_ids = self.decode_tokens(&audio_features, mode)?;
-        let diagnostics = WhisperDecodeDiagnostics {
+        let (token_ids, generation_stats) = self.decode_tokens(&audio_features, mode)?;
+        let mut diagnostics = WhisperDecodeDiagnostics {
             timestamp_tokens_requested: mode == WhisperDecodeMode::TimestampTokens,
             timestamp_tokens_present: timestamp_spec_for_timing_mode(
                 &self.tokenizer,
@@ -646,7 +1215,9 @@ impl CandleWhisperSession {
                     .any(|token| timestamp_seconds(*token, &spec).is_some())
             }),
             decoded_token_ids: token_ids.clone(),
+            ..WhisperDecodeDiagnostics::default()
         };
+        generation_stats.extend(&mut diagnostics);
         match mode {
             WhisperDecodeMode::WithoutTimestamps => Ok(WhisperDecodeOutput {
                 window: WhisperDecodedWindow {
@@ -680,32 +1251,42 @@ impl CandleWhisperSession {
         &mut self,
         audio_features: &Tensor,
         mode: WhisperDecodeMode,
-    ) -> Result<Vec<u32>> {
-        let mut tokens = self.initial_tokens(mode)?;
+    ) -> Result<(Vec<u32>, WhisperGenerationStats)> {
+        self.model.reset_kv_cache();
+        let mut row = WhisperAutoregressiveRow::new(self.initial_tokens(mode)?);
         let eos = self.eos_token_id()?;
-        let prompt_len = tokens.len();
         let max_length = self
             .generation
             .max_length
             .unwrap_or(self.model.config.max_target_positions)
             .min(self.model.config.max_target_positions);
-        while tokens.len() < max_length {
-            let token_tensor = Tensor::new(tokens.as_slice(), &self.device)
+        let mut stats = WhisperGenerationStats::default();
+        while row.tokens.len() < max_length {
+            let input = row.next_decoder_input();
+            stats.record_input(&input);
+            let token_tensor = Tensor::new(input.token_ids.as_slice(), &self.device)
                 .and_then(|tensor| tensor.unsqueeze(0))
                 .map_err(|error| {
                     model_output_mismatch(format!("failed to build token tensor: {error}"))
                 })?;
-            let decoded = self
+            let (decoded, decoder_stats) = self
                 .model
                 .decoder
-                .forward(&token_tensor, audio_features, true)
+                .forward(
+                    &token_tensor,
+                    audio_features,
+                    input.position_offset,
+                    input.flush_cache,
+                )
                 .map_err(|error| {
                     model_output_mismatch(format!("Whisper decoder failed: {error}"))
                 })?;
+            stats.record_decoder_stats(decoder_stats);
+            row.mark_forwarded();
             let logits = self.model.decoder.final_linear(&decoded).map_err(|error| {
                 model_output_mismatch(format!("Whisper logits projection failed: {error}"))
             })?;
-            let seq_index = tokens.len() - 1;
+            let seq_index = input.token_ids.len() - 1;
             let mut next_logits = logits
                 .i((0, seq_index, ..))
                 .and_then(|logits| logits.to_dtype(DType::F32))
@@ -713,16 +1294,17 @@ impl CandleWhisperSession {
                 .map_err(|error| {
                     model_output_mismatch(format!("Whisper greedy decode failed: {error}"))
                 })?;
-            self.apply_logit_filters(&mut next_logits, mode, &tokens[prompt_len..])?;
+            self.apply_logit_filters(&mut next_logits, mode, row.generated_tokens())?;
             let next = argmax_finite(&next_logits).ok_or_else(|| {
                 model_output_mismatch("Whisper logits were fully suppressed during decode")
             })? as u32;
             if next == eos {
                 break;
             }
-            tokens.push(next);
+            row.accept(next);
+            stats.record_generated_token();
         }
-        Ok(tokens.into_iter().skip(prompt_len).collect())
+        Ok((row.into_generated_tokens(), stats))
     }
 
     fn apply_logit_filters(
@@ -1520,6 +2102,100 @@ mod tests {
             (actual - expected).abs() < 1e-9,
             "expected {expected}, got {actual}"
         );
+    }
+
+    #[test]
+    fn autoregressive_row_prefills_prompt_then_steps_with_last_token_position() {
+        let mut row = WhisperAutoregressiveRow::new(vec![1, 3, 5, 7]);
+
+        let prefill = row.next_decoder_input();
+        assert_eq!(prefill.token_ids, vec![1, 3, 5, 7]);
+        assert_eq!(prefill.position_offset, 0);
+        assert!(prefill.flush_cache);
+        assert_eq!(prefill.kind, WhisperDecoderInputKind::PromptPrefill);
+
+        row.mark_forwarded();
+        row.accept(42);
+        let step = row.next_decoder_input();
+
+        assert_eq!(step.token_ids, vec![42]);
+        assert_eq!(step.position_offset, 4);
+        assert!(!step.flush_cache);
+        assert_eq!(step.kind, WhisperDecoderInputKind::CachedTokenStep);
+        assert_eq!(row.generated_tokens(), &[42]);
+    }
+
+    #[test]
+    fn generation_stats_report_actual_decoder_cache_reuse() {
+        let mut stats = WhisperGenerationStats::default();
+        let prefill = WhisperDecoderInput {
+            token_ids: vec![1, 3, 5, 7],
+            position_offset: 0,
+            flush_cache: true,
+            kind: WhisperDecoderInputKind::PromptPrefill,
+        };
+        let step = WhisperDecoderInput {
+            token_ids: vec![42],
+            position_offset: 4,
+            flush_cache: false,
+            kind: WhisperDecoderInputKind::CachedTokenStep,
+        };
+        stats.record_input(&prefill);
+        stats.record_input(&step);
+        stats.record_generated_token();
+        stats.record_decoder_stats(CachedWhisperDecoderStats {
+            self_attention_cache_reused: true,
+            cross_attention_cache_reused: true,
+        });
+
+        let mut diagnostics = WhisperDecodeDiagnostics::default();
+        stats.extend(&mut diagnostics);
+
+        assert_eq!(diagnostics.decoder_prompt_prefill_count, 1);
+        assert_eq!(diagnostics.decoder_cached_token_step_count, 1);
+        assert_eq!(diagnostics.decoder_input_token_count, 5);
+        assert_eq!(diagnostics.generated_token_count, 1);
+        assert!(diagnostics.decoder_self_attention_cache_reused);
+        assert!(diagnostics.decoder_cross_attention_cache_reused);
+    }
+
+    #[test]
+    fn fallback_diagnostics_keep_timestamp_state_and_retry_generation_counts() {
+        let mut fallback = WhisperDecodeDiagnostics {
+            decoder_prompt_prefill_count: 1,
+            decoder_cached_token_step_count: 2,
+            decoder_input_token_count: 6,
+            generated_token_count: 2,
+            decoder_self_attention_cache_reused: true,
+            decoder_cross_attention_cache_reused: true,
+            ..WhisperDecodeDiagnostics::default()
+        };
+        let timestamp_attempt = WhisperDecodeDiagnostics {
+            timestamp_tokens_requested: true,
+            timestamp_tokens_present: true,
+            decoded_token_ids: vec![100, 10, 150],
+            decoder_prompt_prefill_count: 1,
+            decoder_cached_token_step_count: 1,
+            decoder_input_token_count: 5,
+            generated_token_count: 1,
+            decoder_self_attention_cache_reused: true,
+            decoder_cross_attention_cache_reused: true,
+        };
+
+        fallback.add_generation_counts_from(&timestamp_attempt);
+        fallback.timestamp_tokens_requested = timestamp_attempt.timestamp_tokens_requested;
+        fallback.timestamp_tokens_present = timestamp_attempt.timestamp_tokens_present;
+        fallback.decoded_token_ids = timestamp_attempt.decoded_token_ids;
+
+        assert!(fallback.timestamp_tokens_requested);
+        assert!(fallback.timestamp_tokens_present);
+        assert_eq!(fallback.decoded_token_ids, vec![100, 10, 150]);
+        assert_eq!(fallback.decoder_prompt_prefill_count, 2);
+        assert_eq!(fallback.decoder_cached_token_step_count, 3);
+        assert_eq!(fallback.decoder_input_token_count, 11);
+        assert_eq!(fallback.generated_token_count, 3);
+        assert!(fallback.decoder_self_attention_cache_reused);
+        assert!(fallback.decoder_cross_attention_cache_reused);
     }
 
     #[test]

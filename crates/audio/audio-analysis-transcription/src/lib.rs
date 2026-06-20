@@ -27,6 +27,9 @@ use text_transcripts::{
 };
 use video_analysis_core::{DetectError, Result};
 
+const CANDLE_WHISPER_AUTOREGRESSIVE_KV_CACHE_EXECUTION: &str =
+    "candle-whisper-autoregressive-kv-cache";
+
 pub use audio_analysis_speakers::{
     AudioRuntime, SpeakerDiarizationOptions, SpeakerDiarizationResponse, SpeakerSegmentPrediction,
     SpeakerTranscriptAssignmentPolicy,
@@ -971,7 +974,7 @@ impl AudioTranscriptionProvider for CandleWhisperTranscriber {
             response.diagnostics.extend(candle_batch_diagnostics(
                 &self.options,
                 chunk_count,
-                "candle-whisper-sequential",
+                CANDLE_WHISPER_AUTOREGRESSIVE_KV_CACHE_EXECUTION,
             ));
             Ok(response)
         }
@@ -1232,7 +1235,7 @@ pub fn run_transcription_pipeline_with_observer(
             asr_response.diagnostics.extend(candle_batch_diagnostics(
                 options,
                 vad_response.segments.len(),
-                "candle-whisper-sequential",
+                CANDLE_WHISPER_AUTOREGRESSIVE_KV_CACHE_EXECUTION,
             ));
         }
     }
@@ -3019,7 +3022,7 @@ mod tests {
         assert!(response
             .diagnostics
             .iter()
-            .any(|item| item == "batchExecution=candle-whisper-sequential"));
+            .any(|item| item == "batchExecution=candle-whisper-autoregressive-kv-cache"));
     }
 
     #[test]
@@ -3081,7 +3084,7 @@ mod tests {
         assert!(response
             .diagnostics
             .iter()
-            .any(|item| item == "batchExecution=candle-whisper-sequential"));
+            .any(|item| item == "batchExecution=candle-whisper-autoregressive-kv-cache"));
     }
 
     #[test]
