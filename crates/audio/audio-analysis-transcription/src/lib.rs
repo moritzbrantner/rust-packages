@@ -1003,9 +1003,11 @@ impl AudioTranscriptionProvider for CandleWhisperTranscriber {
         {
             let chunk_count = request.chunks.len();
             let mut response = native_whisper::transcribe(&self.options, request)?;
-            response
-                .diagnostics
-                .extend(candle_batch_diagnostics(&self.options, chunk_count));
+            extend_missing_candle_batch_diagnostics(
+                &mut response.diagnostics,
+                &self.options,
+                chunk_count,
+            );
             Ok(response)
         }
         #[cfg(not(feature = "candle"))]
@@ -1262,10 +1264,11 @@ pub fn run_transcription_pipeline_with_observer(
         .any(|diagnostic| diagnostic.starts_with("batchChunks="))
     {
         if let TranscriptionProviderSelection::CandleWhisper(options) = &request.provider {
-            asr_response.diagnostics.extend(candle_batch_diagnostics(
+            extend_missing_candle_batch_diagnostics(
+                &mut asr_response.diagnostics,
                 options,
                 vad_response.segments.len(),
-            ));
+            );
         }
     }
     let mut transcript = normalize_transcription_contract(asr_response.transcript)
@@ -1515,8 +1518,26 @@ pub(crate) fn candle_batch_diagnostics(
                 .unwrap_or_else(|| "unbounded".to_string())
         ),
         format!("batchCount={}", candle_batch_count(options, chunk_count)),
-        format!("batchExecution={}", options.decode_runtime.execution_id()),
+        format!("batchExecution={CANDLE_WHISPER_AUTOREGRESSIVE_KV_CACHE_EXECUTION}"),
     ]
+}
+
+fn extend_missing_candle_batch_diagnostics(
+    diagnostics: &mut Vec<String>,
+    options: &CandleWhisperOptions,
+    chunk_count: usize,
+) {
+    for diagnostic in candle_batch_diagnostics(options, chunk_count) {
+        let Some((key, _)) = diagnostic.split_once('=') else {
+            diagnostics.push(diagnostic);
+            continue;
+        };
+        let prefix = format!("{key}=");
+        if diagnostics.iter().any(|item| item.starts_with(&prefix)) {
+            continue;
+        }
+        diagnostics.push(diagnostic);
+    }
 }
 
 pub(crate) fn validate_asr_request(request: &AsrRequest) -> Result<()> {
@@ -3147,6 +3168,56 @@ mod tests {
             .diagnostics
             .iter()
             .any(|item| item == "batchExecution=candle-whisper-autoregressive-kv-cache"));
+    }
+
+    #[test]
+    fn requested_active_row_runtime_reports_fallback_execution_without_native_proof() {
+        let mut vad = FixedVadProvider {
+            segments: batch_test_chunks(),
+        };
+        let mut asr = MockAsrProvider;
+        let response = run_transcription_pipeline(
+            batch_test_request(CandleWhisperOptions {
+                decode_runtime: CandleWhisperDecodeRuntime::ActiveRowTensorBatch,
+                batch_chunks: true,
+                max_batch_size: Some(3),
+                ..CandleWhisperOptions::default()
+            }),
+            &mut vad,
+            &mut asr,
+            None,
+            None,
+        )
+        .unwrap();
+
+        assert!(response
+            .diagnostics
+            .iter()
+            .any(|item| item == "batchExecution=candle-whisper-autoregressive-kv-cache"));
+        assert!(!response
+            .diagnostics
+            .iter()
+            .any(|item| item == "batchExecution=candle-whisper-active-row-tensor-batch"));
+    }
+
+    #[test]
+    fn public_batch_diagnostics_do_not_claim_active_row_execution_by_request() {
+        let diagnostics = candle_batch_diagnostics(
+            &CandleWhisperOptions {
+                decode_runtime: CandleWhisperDecodeRuntime::ActiveRowTensorBatch,
+                batch_chunks: true,
+                max_batch_size: Some(4),
+                ..CandleWhisperOptions::default()
+            },
+            3,
+        );
+
+        assert!(diagnostics
+            .iter()
+            .any(|item| item == "batchExecution=candle-whisper-autoregressive-kv-cache"));
+        assert!(!diagnostics
+            .iter()
+            .any(|item| item == "batchExecution=candle-whisper-active-row-tensor-batch"));
     }
 
     #[test]

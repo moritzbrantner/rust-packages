@@ -121,7 +121,10 @@ struct WhisperDecodeDiagnostics {
     decoder_cached_token_step_count: usize,
     decoder_input_token_count: usize,
     generated_token_count: usize,
+    decoder_completed_row_count: usize,
     decoder_max_active_row_batch_size: usize,
+    decoder_effective_active_batch_sizes: Vec<usize>,
+    decoder_active_row_compaction_count: usize,
     decoder_self_attention_cache_reused: bool,
     decoder_cross_attention_cache_reused: bool,
 }
@@ -229,13 +232,16 @@ impl WhisperAutoregressiveRow {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
 struct WhisperGenerationStats {
     prompt_prefill_count: usize,
     cached_token_step_count: usize,
     decoder_input_token_count: usize,
     generated_token_count: usize,
+    completed_row_count: usize,
     max_active_row_batch_size: usize,
+    effective_active_batch_sizes: Vec<usize>,
+    active_row_compaction_count: usize,
     decoder_self_attention_cache_reused: bool,
     decoder_cross_attention_cache_reused: bool,
 }
@@ -255,6 +261,15 @@ impl WhisperGenerationStats {
 
     fn record_active_row_batch_size(&mut self, batch_size: usize) {
         self.max_active_row_batch_size = self.max_active_row_batch_size.max(batch_size);
+        self.effective_active_batch_sizes.push(batch_size);
+    }
+
+    fn record_active_row_compaction(&mut self) {
+        self.active_row_compaction_count += 1;
+    }
+
+    fn record_completed_row(&mut self) {
+        self.completed_row_count = 1;
     }
 
     fn record_decoder_stats(&mut self, stats: CachedWhisperDecoderStats) {
@@ -267,9 +282,14 @@ impl WhisperGenerationStats {
         diagnostics.decoder_cached_token_step_count += self.cached_token_step_count;
         diagnostics.decoder_input_token_count += self.decoder_input_token_count;
         diagnostics.generated_token_count += self.generated_token_count;
+        diagnostics.decoder_completed_row_count += self.completed_row_count;
         diagnostics.decoder_max_active_row_batch_size = diagnostics
             .decoder_max_active_row_batch_size
             .max(self.max_active_row_batch_size);
+        diagnostics
+            .decoder_effective_active_batch_sizes
+            .extend(self.effective_active_batch_sizes);
+        diagnostics.decoder_active_row_compaction_count += self.active_row_compaction_count;
         diagnostics.decoder_self_attention_cache_reused |= self.decoder_self_attention_cache_reused;
         diagnostics.decoder_cross_attention_cache_reused |=
             self.decoder_cross_attention_cache_reused;
@@ -282,9 +302,13 @@ impl WhisperDecodeDiagnostics {
         self.decoder_cached_token_step_count += other.decoder_cached_token_step_count;
         self.decoder_input_token_count += other.decoder_input_token_count;
         self.generated_token_count += other.generated_token_count;
+        self.decoder_completed_row_count += other.decoder_completed_row_count;
         self.decoder_max_active_row_batch_size = self
             .decoder_max_active_row_batch_size
             .max(other.decoder_max_active_row_batch_size);
+        self.decoder_effective_active_batch_sizes
+            .extend(other.decoder_effective_active_batch_sizes.iter().copied());
+        self.decoder_active_row_compaction_count += other.decoder_active_row_compaction_count;
         self.decoder_self_attention_cache_reused |= other.decoder_self_attention_cache_reused;
         self.decoder_cross_attention_cache_reused |= other.decoder_cross_attention_cache_reused;
     }
@@ -1024,7 +1048,10 @@ impl CandleWhisperSession {
         let mut decoder_cached_token_step_count = 0_usize;
         let mut decoder_input_token_count = 0_usize;
         let mut generated_token_count = 0_usize;
+        let mut decoder_completed_row_count = 0_usize;
         let mut decoder_max_active_row_batch_size = 0_usize;
+        let mut decoder_effective_active_batch_sizes = Vec::new();
+        let mut decoder_active_row_compaction_count = 0_usize;
         let mut decoder_self_attention_cache_reused = false;
         let mut decoder_cross_attention_cache_reused = false;
         let batch_size = candle_batch_size(options, request.chunks.len());
@@ -1055,8 +1082,18 @@ impl CandleWhisperSession {
                     timed.diagnostics.decoder_cached_token_step_count;
                 decoder_input_token_count += timed.diagnostics.decoder_input_token_count;
                 generated_token_count += timed.diagnostics.generated_token_count;
+                decoder_completed_row_count += timed.diagnostics.decoder_completed_row_count;
                 decoder_max_active_row_batch_size = decoder_max_active_row_batch_size
                     .max(timed.diagnostics.decoder_max_active_row_batch_size);
+                decoder_effective_active_batch_sizes.extend(
+                    timed
+                        .diagnostics
+                        .decoder_effective_active_batch_sizes
+                        .iter()
+                        .copied(),
+                );
+                decoder_active_row_compaction_count +=
+                    timed.diagnostics.decoder_active_row_compaction_count;
                 decoder_self_attention_cache_reused |=
                     timed.diagnostics.decoder_self_attention_cache_reused;
                 decoder_cross_attention_cache_reused |=
@@ -1122,6 +1159,10 @@ impl CandleWhisperSession {
         if let Some(language) = &self.setup.language {
             diagnostics.push(format!("language={language}"));
         }
+        let observed_batch_execution = observed_candle_batch_execution(
+            options.decode_runtime,
+            decoder_max_active_row_batch_size,
+        );
         if used_timestamp_word_projection {
             diagnostics.push("wordTiming=whisperTimestampProjection".to_string());
         }
@@ -1133,12 +1174,42 @@ impl CandleWhisperSession {
             "timestampSegmentsRejected={rejected_timestamp_segments}"
         ));
         diagnostics.extend([
-            format!("generation={}", generation_label(options.decode_runtime)),
+            format!("batchExecution={observed_batch_execution}"),
+            format!("generation={}", generation_label(observed_batch_execution)),
+            format!("completedRowCount={decoder_completed_row_count}"),
+            format!("effectiveActiveBatchSize={decoder_max_active_row_batch_size}"),
+            format!(
+                "effectiveActiveBatchSizes={}",
+                format_effective_active_batch_sizes(&decoder_effective_active_batch_sizes)
+            ),
+            format!("effectiveMaxBatchSize={decoder_max_active_row_batch_size}"),
+            format!(
+                "activeRowCompaction={}",
+                decoder_active_row_compaction_count > 0
+            ),
+            format!("activeRowCompactionCount={decoder_active_row_compaction_count}"),
+            format!(
+                "cacheReuse={}",
+                format_cache_reuse(
+                    decoder_self_attention_cache_reused,
+                    decoder_cross_attention_cache_reused
+                )
+            ),
             format!("decoderPromptPrefillCount={decoder_prompt_prefill_count}"),
             format!("decoderCachedTokenStepCount={decoder_cached_token_step_count}"),
             format!("decoderInputTokenCount={decoder_input_token_count}"),
             format!("generatedTokenCount={generated_token_count}"),
+            format!("decoderCompletedRowCount={decoder_completed_row_count}"),
             format!("decoderMaxActiveRowBatchSize={decoder_max_active_row_batch_size}"),
+            format!(
+                "decoderEffectiveActiveBatchSizes={}",
+                format_effective_active_batch_sizes(&decoder_effective_active_batch_sizes)
+            ),
+            format!("decoderActiveRowCompactionCount={decoder_active_row_compaction_count}"),
+            format!(
+                "decoderActiveRowCompactionOccurred={}",
+                decoder_active_row_compaction_count > 0
+            ),
             format!(
                 "decoderSelfAttentionCacheReused={}",
                 decoder_self_attention_cache_reused
@@ -1546,12 +1617,15 @@ impl CandleWhisperSession {
                 })? as u32;
                 next_tokens.push((active, next));
             }
-            let (survivors, survivor_indices) =
+            let (mut survivors, survivor_indices) =
                 apply_active_row_decisions(next_tokens, eos, &mut completed)?;
             if survivors.is_empty() {
                 break;
             }
             if survivors.len() < active_len_before_step {
+                if let Some(survivor) = survivors.first_mut() {
+                    survivor.stats.record_active_row_compaction();
+                }
                 let row_indices = Tensor::new(survivor_indices.as_slice(), &self.device)
                     .and_then(|indices| indices.to_dtype(DType::I64))
                     .map_err(|error| {
@@ -1579,7 +1653,8 @@ impl CandleWhisperSession {
             active_rows = survivors;
         }
 
-        for active in active_rows {
+        for mut active in active_rows {
+            active.stats.record_completed_row();
             completed[active.original_index] =
                 Some((active.row.into_generated_tokens(), active.stats));
         }
@@ -1795,10 +1870,45 @@ fn candle_batch_size(options: &CandleWhisperOptions, chunk_count: usize) -> usiz
     options.max_batch_size.unwrap_or(chunk_count.max(1)).max(1)
 }
 
-fn generation_label(runtime: CandleWhisperDecodeRuntime) -> &'static str {
-    match runtime {
-        CandleWhisperDecodeRuntime::AutoregressiveKvCache => "autoregressive-kv-cache",
-        CandleWhisperDecodeRuntime::ActiveRowTensorBatch => "active-row-tensor-batch",
+fn generation_label(observed_batch_execution: &str) -> &'static str {
+    match observed_batch_execution {
+        crate::CANDLE_WHISPER_ACTIVE_ROW_TENSOR_BATCH_EXECUTION => "active-row-tensor-batch",
+        _ => "autoregressive-kv-cache",
+    }
+}
+
+fn observed_candle_batch_execution(
+    runtime: CandleWhisperDecodeRuntime,
+    decoder_max_active_row_batch_size: usize,
+) -> &'static str {
+    if runtime == CandleWhisperDecodeRuntime::ActiveRowTensorBatch
+        && decoder_max_active_row_batch_size > 1
+    {
+        return crate::CANDLE_WHISPER_ACTIVE_ROW_TENSOR_BATCH_EXECUTION;
+    }
+    crate::CANDLE_WHISPER_AUTOREGRESSIVE_KV_CACHE_EXECUTION
+}
+
+fn format_effective_active_batch_sizes(sizes: &[usize]) -> String {
+    if sizes.is_empty() {
+        return "none".to_string();
+    }
+    let mut sizes = sizes.to_vec();
+    sizes.sort_unstable();
+    sizes.dedup();
+    sizes
+        .into_iter()
+        .map(|size| size.to_string())
+        .collect::<Vec<_>>()
+        .join(",")
+}
+
+fn format_cache_reuse(self_attention: bool, cross_attention: bool) -> &'static str {
+    match (self_attention, cross_attention) {
+        (true, true) => "self-and-cross-attention",
+        (true, false) => "self-attention",
+        (false, true) => "cross-attention",
+        (false, false) => "none",
     }
 }
 
@@ -1829,6 +1939,7 @@ fn apply_active_row_decisions(
                     "Whisper active row completed outside the result range",
                 ));
             }
+            active.stats.record_completed_row();
             completed[original_index] = Some((active.row.into_generated_tokens(), active.stats));
         } else {
             active.row.accept(next);
@@ -2479,6 +2590,8 @@ mod tests {
         stats.record_input(&step);
         stats.record_generated_token();
         stats.record_active_row_batch_size(3);
+        stats.record_active_row_compaction();
+        stats.record_completed_row();
         stats.record_decoder_stats(CachedWhisperDecoderStats {
             self_attention_cache_reused: true,
             cross_attention_cache_reused: true,
@@ -2491,9 +2604,45 @@ mod tests {
         assert_eq!(diagnostics.decoder_cached_token_step_count, 1);
         assert_eq!(diagnostics.decoder_input_token_count, 5);
         assert_eq!(diagnostics.generated_token_count, 1);
+        assert_eq!(diagnostics.decoder_completed_row_count, 1);
         assert_eq!(diagnostics.decoder_max_active_row_batch_size, 3);
+        assert_eq!(diagnostics.decoder_effective_active_batch_sizes, vec![3]);
+        assert_eq!(diagnostics.decoder_active_row_compaction_count, 1);
         assert!(diagnostics.decoder_self_attention_cache_reused);
         assert!(diagnostics.decoder_cross_attention_cache_reused);
+    }
+
+    #[test]
+    fn observed_batch_execution_requires_real_multi_row_decoder_call() {
+        assert_eq!(
+            observed_candle_batch_execution(CandleWhisperDecodeRuntime::ActiveRowTensorBatch, 3),
+            crate::CANDLE_WHISPER_ACTIVE_ROW_TENSOR_BATCH_EXECUTION
+        );
+        assert_eq!(
+            observed_candle_batch_execution(CandleWhisperDecodeRuntime::ActiveRowTensorBatch, 1),
+            crate::CANDLE_WHISPER_AUTOREGRESSIVE_KV_CACHE_EXECUTION
+        );
+        assert_eq!(
+            observed_candle_batch_execution(CandleWhisperDecodeRuntime::AutoregressiveKvCache, 3),
+            crate::CANDLE_WHISPER_AUTOREGRESSIVE_KV_CACHE_EXECUTION
+        );
+    }
+
+    #[test]
+    fn effective_active_batch_sizes_are_sorted_and_deduplicated() {
+        assert_eq!(format_effective_active_batch_sizes(&[]), "none");
+        assert_eq!(
+            format_effective_active_batch_sizes(&[3, 2, 3, 1, 2]),
+            "1,2,3"
+        );
+    }
+
+    #[test]
+    fn cache_reuse_diagnostic_names_observed_cache_modes() {
+        assert_eq!(format_cache_reuse(true, true), "self-and-cross-attention");
+        assert_eq!(format_cache_reuse(true, false), "self-attention");
+        assert_eq!(format_cache_reuse(false, true), "cross-attention");
+        assert_eq!(format_cache_reuse(false, false), "none");
     }
 
     #[test]
@@ -2598,7 +2747,10 @@ mod tests {
             decoder_cached_token_step_count: 1,
             decoder_input_token_count: 5,
             generated_token_count: 1,
+            decoder_completed_row_count: 0,
             decoder_max_active_row_batch_size: 2,
+            decoder_effective_active_batch_sizes: vec![2],
+            decoder_active_row_compaction_count: 0,
             decoder_self_attention_cache_reused: true,
             decoder_cross_attention_cache_reused: true,
         };
@@ -2615,7 +2767,10 @@ mod tests {
         assert_eq!(fallback.decoder_cached_token_step_count, 3);
         assert_eq!(fallback.decoder_input_token_count, 11);
         assert_eq!(fallback.generated_token_count, 3);
+        assert_eq!(fallback.decoder_completed_row_count, 0);
         assert_eq!(fallback.decoder_max_active_row_batch_size, 2);
+        assert_eq!(fallback.decoder_effective_active_batch_sizes, vec![2]);
+        assert_eq!(fallback.decoder_active_row_compaction_count, 0);
         assert!(fallback.decoder_self_attention_cache_reused);
         assert!(fallback.decoder_cross_attention_cache_reused);
     }
