@@ -1439,11 +1439,7 @@ impl CandleWhisperSession {
         windows: &[ChunkWindow],
         mode: WhisperDecodeMode,
     ) -> Result<Vec<WhisperDecodeOutput>> {
-        let mel = self.mel_tensor_batch(windows)?;
-        let audio_features =
-            self.model.encoder.forward(&mel, true).map_err(|error| {
-                model_output_mismatch(format!("Whisper encoder failed: {error}"))
-            })?;
+        let audio_features = self.encode_window_batch(windows)?;
         let token_outputs = self.decode_tokens_batch(&audio_features, windows.len(), mode)?;
         token_outputs
             .into_iter()
@@ -1451,6 +1447,34 @@ impl CandleWhisperSession {
                 self.tokens_to_decode_output(token_ids, generation_stats, mode)
             })
             .collect()
+    }
+
+    fn encode_window_batch(&mut self, windows: &[ChunkWindow]) -> Result<Tensor> {
+        if should_microbatch_encoder(&self.setup.resolved_device, windows.len()) {
+            return self.encode_windows_individually(windows);
+        }
+        let mel = self.mel_tensor_batch(windows)?;
+        self.model
+            .encoder
+            .forward(&mel, true)
+            .map_err(|error| {
+                model_output_mismatch(format!("Whisper encoder failed: {error}"))
+            })
+    }
+
+    fn encode_windows_individually(&mut self, windows: &[ChunkWindow]) -> Result<Tensor> {
+        let mut encoded = Vec::with_capacity(windows.len());
+        for window in windows {
+            let mel = self.mel_tensor_batch(std::slice::from_ref(window))?;
+            let features = self.model.encoder.forward(&mel, true).map_err(|error| {
+                model_output_mismatch(format!("Whisper encoder failed: {error}"))
+            })?;
+            encoded.push(features);
+        }
+        let encoded = encoded.iter().collect::<Vec<_>>();
+        Tensor::cat(&encoded, 0).map_err(|error| {
+            model_output_mismatch(format!("failed to stack Whisper encoder features: {error}"))
+        })
     }
 
     fn mel_tensor_batch(&self, windows: &[ChunkWindow]) -> Result<Tensor> {
@@ -2355,6 +2379,10 @@ fn device_is_cuda(resolved: &ResolvedNativeDevice) -> bool {
     }
 }
 
+fn should_microbatch_encoder(resolved: &ResolvedNativeDevice, window_count: usize) -> bool {
+    window_count > 1 && device_is_cuda(resolved)
+}
+
 #[derive(Debug, Clone)]
 struct ChunkWindow {
     samples: Vec<f32>,
@@ -2626,6 +2654,18 @@ mod tests {
             observed_candle_batch_execution(CandleWhisperDecodeRuntime::AutoregressiveKvCache, 3),
             crate::CANDLE_WHISPER_AUTOREGRESSIVE_KV_CACHE_EXECUTION
         );
+    }
+
+    #[test]
+    fn encoder_microbatching_is_cuda_only_for_multi_window_batches() {
+        assert!(!should_microbatch_encoder(&ResolvedNativeDevice::Cpu, 1));
+        assert!(!should_microbatch_encoder(&ResolvedNativeDevice::Cpu, 2));
+
+        #[cfg(feature = "cuda")]
+        {
+            assert!(!should_microbatch_encoder(&ResolvedNativeDevice::Cuda(0), 1));
+            assert!(should_microbatch_encoder(&ResolvedNativeDevice::Cuda(0), 2));
+        }
     }
 
     #[test]
