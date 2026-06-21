@@ -1,5 +1,5 @@
 [package]
-name = "moritzbrantner-image-analysis-detection-wasm"
+name = "moenarch-image-analysis-detection-wasm"
 version.workspace = true
 edition.workspace = true
 license.workspace = true

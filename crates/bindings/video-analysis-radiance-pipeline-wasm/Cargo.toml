@@ -1,5 +1,5 @@
 [package]
-name = "moritzbrantner-video-analysis-radiance-pipeline-wasm"
+name = "moenarch-video-analysis-radiance-pipeline-wasm"
 version.workspace = true
 edition.workspace = true
 license.workspace = true

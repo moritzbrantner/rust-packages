@@ -1,5 +1,5 @@
 [package]
-name = "moritzbrantner-video-analysis-dataset"
+name = "moenarch-video-analysis-dataset"
 version.workspace = true
 edition.workspace = true
 license.workspace = true

@@ -1,5 +1,5 @@
 [package]
-name = "moritzbrantner-text-analysis-cli"
+name = "moenarch-text-analysis-cli"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
@@ -23,4 +23,4 @@ path = "src/main.rs"
 runtime-core.workspace = true
 clap.workspace = true
 serde_json.workspace = true
-text-analysis = { package = "moritzbrantner-text-analysis", version = "0.1.0", path = "../text-analysis" }
+text-analysis = { package = "moenarch-text-analysis", version = "0.1.0", path = "../text-analysis" }

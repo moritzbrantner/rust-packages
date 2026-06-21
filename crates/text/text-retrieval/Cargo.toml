@@ -1,5 +1,5 @@
 [package]
-name = "moritzbrantner-text-retrieval"
+name = "moenarch-text-retrieval"
 version.workspace = true
 edition.workspace = true
 license.workspace = true

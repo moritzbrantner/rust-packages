@@ -1,5 +1,5 @@
 [package]
-name = "moritzbrantner-text-analysis"
+name = "moenarch-text-analysis"
 version.workspace = true
 edition.workspace = true
 license.workspace = true

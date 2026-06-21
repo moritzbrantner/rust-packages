@@ -1,5 +1,5 @@
 [package]
-name = "moritzbrantner-video-analysis-recognition-wasm"
+name = "moenarch-video-analysis-recognition-wasm"
 version.workspace = true
 edition.workspace = true
 license.workspace = true

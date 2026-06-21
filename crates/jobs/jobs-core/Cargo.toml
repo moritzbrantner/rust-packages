@@ -1,5 +1,5 @@
 [package]
-name = "moritzbrantner-jobs-core"
+name = "moenarch-jobs-core"
 version = "0.1.1"
 edition.workspace = true
 license.workspace = true

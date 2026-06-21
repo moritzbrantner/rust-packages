@@ -1,5 +1,5 @@
 [package]
-name = "moritzbrantner-video-analysis-segmentation-cli"
+name = "moenarch-video-analysis-segmentation-cli"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
@@ -23,4 +23,4 @@ path = "src/main.rs"
 runtime-core.workspace = true
 clap.workspace = true
 serde_json.workspace = true
-video-analysis-segmentation = { package = "moritzbrantner-video-analysis-segmentation", version = "0.1.0", path = "../video-analysis-segmentation" }
+video-analysis-segmentation = { package = "moenarch-video-analysis-segmentation", version = "0.1.0", path = "../video-analysis-segmentation" }

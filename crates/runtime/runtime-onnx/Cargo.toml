@@ -1,5 +1,5 @@
 [package]
-name = "moritzbrantner-runtime-onnx"
+name = "moenarch-runtime-onnx"
 version.workspace = true
 edition.workspace = true
 license.workspace = true

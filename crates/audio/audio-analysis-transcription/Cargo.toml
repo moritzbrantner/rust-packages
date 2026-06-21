@@ -1,6 +1,6 @@
 [package]
-name = "moritzbrantner-audio-analysis-transcription"
-version = "0.1.7"
+name = "moenarch-audio-analysis-transcription"
+version = "0.1.8"
 edition.workspace = true
 license.workspace = true
 rust-version.workspace = true
@@ -30,7 +30,7 @@ text-model-runtime = { workspace = true, optional = true }
 tokenizers = { workspace = true, optional = true }
 video-analysis-core.workspace = true
 audio-analysis-io = { workspace = true, optional = true }
-audio-analysis-speakers = { package = "moritzbrantner-audio-analysis-speakers", version = "0.1.3", path = "../audio-analysis-speakers" }
+audio-analysis-speakers = { package = "moenarch-audio-analysis-speakers", version = "0.1.3", path = "../audio-analysis-speakers" }
 
 [features]
 default = []

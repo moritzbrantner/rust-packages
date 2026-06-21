@@ -1,5 +1,5 @@
 [package]
-name = "moritzbrantner-math-signal-core-wasm"
+name = "moenarch-math-signal-core-wasm"
 version.workspace = true
 edition.workspace = true
 license.workspace = true

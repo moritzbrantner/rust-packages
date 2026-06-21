@@ -1,5 +1,5 @@
 [package]
-name = "moritzbrantner-video-analysis-sfm-cli"
+name = "moenarch-video-analysis-sfm-cli"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
@@ -23,4 +23,4 @@ path = "src/main.rs"
 runtime-core.workspace = true
 clap.workspace = true
 serde_json.workspace = true
-video-analysis-sfm = { package = "moritzbrantner-video-analysis-sfm", version = "0.1.0", path = "../video-analysis-sfm" }
+video-analysis-sfm = { package = "moenarch-video-analysis-sfm", version = "0.1.0", path = "../video-analysis-sfm" }

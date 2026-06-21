@@ -1,5 +1,5 @@
 [package]
-name = "moritzbrantner-text-classification"
+name = "moenarch-text-classification"
 version.workspace = true
 edition.workspace = true
 license.workspace = true

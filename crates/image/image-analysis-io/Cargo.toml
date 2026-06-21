@@ -1,5 +1,5 @@
 [package]
-name = "moritzbrantner-image-analysis-io"
+name = "moenarch-image-analysis-io"
 version.workspace = true
 edition.workspace = true
 license.workspace = true

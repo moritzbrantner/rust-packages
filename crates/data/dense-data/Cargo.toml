@@ -1,5 +1,5 @@
 [package]
-name = "moritzbrantner-dense-data"
+name = "moenarch-dense-data"
 version.workspace = true
 edition.workspace = true
 license.workspace = true

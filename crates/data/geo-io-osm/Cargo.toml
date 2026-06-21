@@ -1,5 +1,5 @@
 [package]
-name = "moritzbrantner-geo-io-osm"
+name = "moenarch-geo-io-osm"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
@@ -8,7 +8,7 @@ description = "OpenStreetMap PBF import adapters for geo-core domain types."
 readme = "README.md"
 repository.workspace = true
 homepage.workspace = true
-documentation = "https://docs.rs/moritzbrantner-geo-io-osm"
+documentation = "https://docs.rs/moenarch-geo-io-osm"
 keywords = ["geo", "geospatial", "osm", "openstreetmap"]
 categories = ["science::geo", "parser-implementations", "encoding"]
 

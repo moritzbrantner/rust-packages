@@ -1,5 +1,5 @@
 [package]
-name = "moritzbrantner-video-analysis-gaussian-splatting-cli"
+name = "moenarch-video-analysis-gaussian-splatting-cli"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
@@ -23,4 +23,4 @@ path = "src/main.rs"
 runtime-core.workspace = true
 clap.workspace = true
 serde_json.workspace = true
-video-analysis-gaussian-splatting = { package = "moritzbrantner-video-analysis-gaussian-splatting", version = "0.1.0", path = "../video-analysis-gaussian-splatting" }
+video-analysis-gaussian-splatting = { package = "moenarch-video-analysis-gaussian-splatting", version = "0.1.0", path = "../video-analysis-gaussian-splatting" }

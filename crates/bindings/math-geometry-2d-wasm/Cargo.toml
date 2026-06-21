@@ -1,5 +1,5 @@
 [package]
-name = "moritzbrantner-math-geometry-2d-wasm"
+name = "moenarch-math-geometry-2d-wasm"
 version.workspace = true
 edition.workspace = true
 license.workspace = true

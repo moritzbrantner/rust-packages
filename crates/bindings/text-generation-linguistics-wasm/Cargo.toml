@@ -1,5 +1,5 @@
 [package]
-name = "moritzbrantner-text-generation-linguistics-wasm"
+name = "moenarch-text-generation-linguistics-wasm"
 version.workspace = true
 edition.workspace = true
 license.workspace = true

@@ -1,5 +1,5 @@
 [package]
-name = "moritzbrantner-math-statistics-wasm"
+name = "moenarch-math-statistics-wasm"
 version.workspace = true
 edition.workspace = true
 license.workspace = true

@@ -1,5 +1,5 @@
 [package]
-name = "moritzbrantner-video-analysis-ffmpeg"
+name = "moenarch-video-analysis-ffmpeg"
 version.workspace = true
 edition.workspace = true
 license.workspace = true

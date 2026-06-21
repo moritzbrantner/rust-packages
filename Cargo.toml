@@ -1,5 +1,5 @@
 [package]
-name = "moritzbrantner-video-analysis"
+name = "moenarch-video-analysis"
 version = "0.1.0"
 edition = "2021"
 license = "MIT OR Apache-2.0"
@@ -8,7 +8,7 @@ readme = "README.md"
 rust-version = "1.95"
 repository = "https://github.com/moritzbrantner/rust-packages"
 homepage = "https://github.com/moritzbrantner/rust-packages"
-documentation = "https://docs.rs/moritzbrantner-video-analysis"
+documentation = "https://docs.rs/moenarch-video-analysis"
 keywords = ["video", "audio", "image", "multimodal", "analysis"]
 categories = ["multimedia", "computer-vision", "science", "algorithms"]
 
@@ -45,7 +45,7 @@ license = "MIT OR Apache-2.0"
 rust-version = "1.95"
 repository = "https://github.com/moritzbrantner/rust-packages"
 homepage = "https://github.com/moritzbrantner/rust-packages"
-documentation = "https://docs.rs/moritzbrantner-video-analysis"
+documentation = "https://docs.rs/moenarch-video-analysis"
 keywords = ["video", "audio", "image", "multimodal", "analysis"]
 categories = ["multimedia", "computer-vision", "science", "algorithms"]
 
@@ -84,102 +84,102 @@ candle-core = "0.10.2"
 candle-nn = "0.10.2"
 candle-transformers = "0.10.2"
 image = { version = "0.25", default-features = false, features = ["png", "jpeg", "webp"] }
-animation-core = { package = "moritzbrantner-animation-core", version = "0.1.0", path = "crates/animation/animation-core" }
-comfyui-data = { package = "moritzbrantner-comfyui-data", version = "0.1.0", path = "crates/comfyui/comfyui-data" }
-comfyui-latents = { package = "moritzbrantner-comfyui-latents", version = "0.1.0", path = "crates/comfyui/comfyui-latents" }
-comfyui-models = { package = "moritzbrantner-comfyui-models", version = "0.1.0", path = "crates/comfyui/comfyui-models" }
-data-inversion-core = { package = "moritzbrantner-data-inversion-core", version = "0.1.0", path = "crates/data/data-inversion-core" }
-graph-analysis-core = { package = "moritzbrantner-graph-analysis-core", version = "0.1.0", path = "crates/data/graph-analysis-core" }
-geo-core = { package = "moritzbrantner-geo-core", version = "0.1.0", path = "crates/data/geo-core" }
-geo-io-geojson = { package = "moritzbrantner-geo-io-geojson", version = "0.1.0", path = "crates/data/geo-io-geojson" }
-geo-io-osm = { package = "moritzbrantner-geo-io-osm", version = "0.1.0", path = "crates/data/geo-io-osm" }
-geo-clustering = { package = "moritzbrantner-geo-clustering", version = "0.1.0", path = "crates/data/geo-clustering" }
-geo-viz = { package = "moritzbrantner-geo-viz", version = "0.1.0", path = "crates/data/geo-viz" }
-dense-data = { package = "moritzbrantner-dense-data", version = "0.1.0", path = "crates/data/dense-data" }
-numbers-core = { package = "moritzbrantner-numbers-core", version = "0.1.0", path = "crates/data/numbers-core" }
-tensor-data = { package = "moritzbrantner-tensor-data", version = "0.1.0", path = "crates/data/tensor-data" }
-jobs-core = { package = "moritzbrantner-jobs-core", version = "0.1.1", path = "crates/jobs/jobs-core" }
-model-runtime = { package = "moritzbrantner-model-runtime", version = "0.1.0", path = "crates/runtime/model-runtime" }
-runtime-core = { package = "moritzbrantner-runtime-core", version = "0.2.0", path = "crates/runtime/runtime-core" }
-runtime-onnx = { package = "moritzbrantner-runtime-onnx", version = "0.1.0", path = "crates/runtime/runtime-onnx" }
-maps-kernels-core = { package = "moritzbrantner-maps-kernels-core", version = "0.1.0", path = "crates/math/maps-kernels-core" }
-math-geometry-2d = { package = "moritzbrantner-math-geometry-2d", version = "0.1.0", path = "crates/math/math-geometry-2d" }
-math-linear = { package = "moritzbrantner-math-linear", version = "0.1.0", path = "crates/math/math-linear" }
-math-signal-core = { package = "moritzbrantner-math-signal-core", version = "0.1.0", path = "crates/math/math-signal-core" }
-math-sparse-data = { package = "moritzbrantner-math-sparse-data", version = "0.1.0", path = "crates/math/math-sparse-data" }
-math-statistics = { package = "moritzbrantner-math-statistics", version = "0.1.0", path = "crates/math/math-statistics" }
-audio-analysis-core = { package = "moritzbrantner-audio-analysis-core", version = "0.1.0", path = "crates/audio/audio-analysis-core" }
-audio-generation-midi = { package = "moritzbrantner-audio-generation-midi", version = "0.1.0", path = "crates/audio/audio-generation-midi" }
-audio-generation-tts = { package = "moritzbrantner-audio-generation-tts", version = "0.1.0", path = "crates/audio/audio-generation-tts" }
-audio-analysis-fourier = { package = "moritzbrantner-audio-analysis-fourier", version = "0.1.0", path = "crates/audio/audio-analysis-fourier" }
-audio-analysis-io = { package = "moritzbrantner-audio-analysis-io", version = "0.1.0", path = "crates/audio/audio-analysis-io" }
-audio-analysis-pitch = { package = "moritzbrantner-audio-analysis-pitch", version = "0.1.0", path = "crates/audio/audio-analysis-pitch" }
-audio-analysis-processing = { package = "moritzbrantner-audio-analysis-processing", version = "0.1.0", path = "crates/audio/audio-analysis-processing" }
-audio-analysis-recognition = { package = "moritzbrantner-audio-analysis-recognition", version = "0.1.0", path = "crates/audio/audio-analysis-recognition" }
-audio-analysis-rhythm = { package = "moritzbrantner-audio-analysis-rhythm", version = "0.1.0", path = "crates/audio/audio-analysis-rhythm" }
-audio-analysis-separation = { package = "moritzbrantner-audio-analysis-separation", version = "0.1.0", path = "crates/audio/audio-analysis-separation" }
-audio-analysis-speakers = { package = "moritzbrantner-audio-analysis-speakers", version = "0.1.3", path = "crates/audio/audio-analysis-speakers" }
-audio-analysis-synthesis = { package = "moritzbrantner-audio-analysis-synthesis", version = "0.1.0", path = "crates/audio/audio-analysis-synthesis" }
-audio-analysis-transcription = { package = "moritzbrantner-audio-analysis-transcription", version = "0.1.7", path = "crates/audio/audio-analysis-transcription" }
-audio-analysis-test-support = { package = "moritzbrantner-audio-analysis-test-support", version = "0.1.0", path = "crates/audio/audio-analysis-test-support" }
-video-analysis-test-support = { package = "moritzbrantner-video-analysis-test-support", version = "0.1.0", path = "crates/test-support/video-analysis-test-support" }
-image-analysis-core = { package = "moritzbrantner-image-analysis-core", version = "0.1.0", path = "crates/image/image-analysis-core" }
-image-analysis-captioning = { package = "moritzbrantner-image-analysis-captioning", version = "0.1.0", path = "crates/image/image-analysis-captioning" }
-image-analysis-classification = { package = "moritzbrantner-image-analysis-classification", version = "0.1.0", path = "crates/image/image-analysis-classification" }
-image-analysis-comfyui = { package = "moritzbrantner-image-analysis-comfyui", version = "0.1.0", path = "crates/image/image-analysis-comfyui" }
-image-analysis-detection = { package = "moritzbrantner-image-analysis-detection", version = "0.1.0", path = "crates/image/image-analysis-detection" }
-image-analysis-embeddings = { package = "moritzbrantner-image-analysis-embeddings", version = "0.1.0", path = "crates/image/image-analysis-embeddings" }
-image-analysis-io = { package = "moritzbrantner-image-analysis-io", version = "0.1.0", path = "crates/image/image-analysis-io" }
-image-analysis-ocr = { package = "moritzbrantner-image-analysis-ocr", version = "0.1.0", path = "crates/image/image-analysis-ocr" }
-image-analysis-processing = { package = "moritzbrantner-image-analysis-processing", version = "0.1.0", path = "crates/image/image-analysis-processing" }
-image-analysis-segmentation = { package = "moritzbrantner-image-analysis-segmentation", version = "0.1.0", path = "crates/image/image-analysis-segmentation" }
-image-analysis-synthesis = { package = "moritzbrantner-image-analysis-synthesis", version = "0.1.0", path = "crates/image/image-analysis-synthesis" }
-text-core = { package = "moritzbrantner-text-core", version = "0.1.0", path = "crates/text/text-core" }
-text-analysis = { package = "moritzbrantner-text-analysis", version = "0.1.0", path = "crates/text/text-analysis" }
-text-classification = { package = "moritzbrantner-text-classification", version = "0.1.0", path = "crates/text/text-classification" }
-text-lexical = { package = "moritzbrantner-text-lexical", version = "0.1.0", path = "crates/text/text-lexical" }
-text-linguistics = { package = "moritzbrantner-text-linguistics", version = "0.1.0", path = "crates/text/text-linguistics" }
-text-model-runtime = { package = "moritzbrantner-text-model-runtime", version = "0.1.0", path = "crates/text/text-model-runtime" }
-text-question-answering = { package = "moritzbrantner-text-question-answering", version = "0.1.0", path = "crates/text/text-question-answering" }
-text-generation = { package = "moritzbrantner-text-generation", version = "0.1.0", path = "crates/text/text-generation" }
-text-generation-linguistics = { package = "moritzbrantner-text-generation-linguistics", version = "0.1.0", path = "crates/text/text-generation-linguistics" }
-text-index = { package = "moritzbrantner-text-index", version = "0.1.0", path = "crates/text/text-index" }
-text-retrieval = { package = "moritzbrantner-text-retrieval", version = "0.1.0", path = "crates/text/text-retrieval" }
-text-embeddings = { package = "moritzbrantner-text-embeddings", version = "0.1.0", path = "crates/text/text-embeddings" }
-text-transcripts = { package = "moritzbrantner-text-transcripts", version = "0.1.1", path = "crates/text/text-transcripts" }
-vector-analysis-core = { package = "moritzbrantner-vector-analysis-core", version = "0.1.0", path = "crates/vector/vector-analysis-core" }
-vector-analysis-index = { package = "moritzbrantner-vector-analysis-index", version = "0.1.0", path = "crates/vector/vector-analysis-index" }
-vision-core = { package = "moritzbrantner-vision-core", version = "0.1.0", path = "crates/vision/vision-core" }
-three-d-processing-core = { package = "moritzbrantner-three-d-processing-core", version = "0.1.0", path = "crates/three-d/three-d-processing-core" }
-three-d-processing-io = { package = "moritzbrantner-three-d-processing-io", version = "0.1.0", path = "crates/three-d/three-d-processing-io" }
-three-d-processing-mesh = { package = "moritzbrantner-three-d-processing-mesh", version = "0.1.0", path = "crates/three-d/three-d-processing-mesh" }
-three-d-scene-svg = { package = "moritzbrantner-three-d-scene-svg", version = "0.1.0", path = "crates/three-d/three-d-scene-svg" }
-video-analysis-core = { package = "moritzbrantner-video-analysis-core", version = "0.1.3", path = "crates/video/video-analysis-core" }
-video-analysis-data = { package = "moritzbrantner-video-analysis-data", version = "0.1.0", path = "crates/video/video-analysis-data" }
-video-analysis-dataset = { package = "moritzbrantner-video-analysis-dataset", version = "0.1.0", path = "crates/video/video-analysis-dataset" }
-video-analysis-detectors = { package = "moritzbrantner-video-analysis-detectors", version = "0.1.0", path = "crates/video/video-analysis-detectors" }
-video-analysis-editing = { package = "moritzbrantner-video-analysis-editing", version = "0.1.0", path = "crates/video/video-analysis-editing" }
-video-analysis-features = { package = "moritzbrantner-video-analysis-features", version = "0.1.0", path = "crates/video/video-analysis-features" }
-video-analysis-ffmpeg = { package = "moritzbrantner-video-analysis-ffmpeg", version = "0.1.0", path = "crates/video/video-analysis-ffmpeg" }
-video-analysis-gaussian-splatting = { package = "moritzbrantner-video-analysis-gaussian-splatting", version = "0.1.0", path = "crates/video/video-analysis-gaussian-splatting" }
-video-analysis-ingest = { package = "moritzbrantner-video-analysis-ingest", version = "0.1.0", path = "crates/video/video-analysis-ingest" }
-video-analysis-mvs = { package = "moritzbrantner-video-analysis-mvs", version = "0.1.0", path = "crates/video/video-analysis-mvs" }
-video-analysis-output = { package = "moritzbrantner-video-analysis-output", version = "0.1.0", path = "crates/video/video-analysis-output" }
-video-analysis-posture = { package = "moritzbrantner-video-analysis-posture", version = "0.1.0", path = "crates/video/video-analysis-posture" }
-video-analysis-posture-io = { package = "moritzbrantner-video-analysis-posture-io", version = "0.1.0", path = "crates/video/video-analysis-posture-io" }
-video-analysis-radiance-fields = { package = "moritzbrantner-video-analysis-radiance-fields", version = "0.1.0", path = "crates/video/video-analysis-radiance-fields" }
-video-analysis-radiance-io = { package = "moritzbrantner-video-analysis-radiance-io", version = "0.1.0", path = "crates/video/video-analysis-radiance-io" }
-video-analysis-radiance-pipeline = { package = "moritzbrantner-video-analysis-radiance-pipeline", version = "0.1.0", path = "crates/video/video-analysis-radiance-pipeline" }
-video-analysis-recognition = { package = "moritzbrantner-video-analysis-recognition", version = "0.1.0", path = "crates/video/video-analysis-recognition" }
-video-analysis-reconstruction = { package = "moritzbrantner-video-analysis-reconstruction", version = "0.1.0", path = "crates/video/video-analysis-reconstruction" }
-video-analysis-sfm = { package = "moritzbrantner-video-analysis-sfm", version = "0.1.0", path = "crates/video/video-analysis-sfm" }
-video-analysis-split = { package = "moritzbrantner-video-analysis-split", version = "0.1.0", path = "crates/video/video-analysis-split" }
-video-analysis-storage = { package = "moritzbrantner-video-analysis-storage", version = "0.1.0", path = "crates/video/video-analysis-storage" }
-video-analysis-synthesis = { package = "moritzbrantner-video-analysis-synthesis", version = "0.1.0", path = "crates/video/video-analysis-synthesis" }
-video-analysis-segmentation = { package = "moritzbrantner-video-analysis-segmentation", version = "0.1.0", path = "crates/video/video-analysis-segmentation" }
-video-analysis-tracking = { package = "moritzbrantner-video-analysis-tracking", version = "0.1.0", path = "crates/video/video-analysis-tracking" }
-video-analysis-transform = { package = "moritzbrantner-video-analysis-transform", version = "0.1.0", path = "crates/video/video-analysis-transform" }
-video-analysis-use-cases = { package = "moritzbrantner-video-analysis-use-cases", version = "0.1.0", path = "prototypes/rust/video-analysis-use-cases" }
+animation-core = { package = "moenarch-animation-core", version = "0.1.0", path = "crates/animation/animation-core" }
+comfyui-data = { package = "moenarch-comfyui-data", version = "0.1.0", path = "crates/comfyui/comfyui-data" }
+comfyui-latents = { package = "moenarch-comfyui-latents", version = "0.1.0", path = "crates/comfyui/comfyui-latents" }
+comfyui-models = { package = "moenarch-comfyui-models", version = "0.1.0", path = "crates/comfyui/comfyui-models" }
+data-inversion-core = { package = "moenarch-data-inversion-core", version = "0.1.0", path = "crates/data/data-inversion-core" }
+graph-analysis-core = { package = "moenarch-graph-analysis-core", version = "0.1.0", path = "crates/data/graph-analysis-core" }
+geo-core = { package = "moenarch-geo-core", version = "0.1.0", path = "crates/data/geo-core" }
+geo-io-geojson = { package = "moenarch-geo-io-geojson", version = "0.1.0", path = "crates/data/geo-io-geojson" }
+geo-io-osm = { package = "moenarch-geo-io-osm", version = "0.1.0", path = "crates/data/geo-io-osm" }
+geo-clustering = { package = "moenarch-geo-clustering", version = "0.1.0", path = "crates/data/geo-clustering" }
+geo-viz = { package = "moenarch-geo-viz", version = "0.1.0", path = "crates/data/geo-viz" }
+dense-data = { package = "moenarch-dense-data", version = "0.1.0", path = "crates/data/dense-data" }
+numbers-core = { package = "moenarch-numbers-core", version = "0.1.0", path = "crates/data/numbers-core" }
+tensor-data = { package = "moenarch-tensor-data", version = "0.1.0", path = "crates/data/tensor-data" }
+jobs-core = { package = "moenarch-jobs-core", version = "0.1.1", path = "crates/jobs/jobs-core" }
+model-runtime = { package = "moenarch-model-runtime", version = "0.1.0", path = "crates/runtime/model-runtime" }
+runtime-core = { package = "moenarch-runtime-core", version = "0.2.0", path = "crates/runtime/runtime-core" }
+runtime-onnx = { package = "moenarch-runtime-onnx", version = "0.1.0", path = "crates/runtime/runtime-onnx" }
+maps-kernels-core = { package = "moenarch-maps-kernels-core", version = "0.1.0", path = "crates/math/maps-kernels-core" }
+math-geometry-2d = { package = "moenarch-math-geometry-2d", version = "0.1.0", path = "crates/math/math-geometry-2d" }
+math-linear = { package = "moenarch-math-linear", version = "0.1.0", path = "crates/math/math-linear" }
+math-signal-core = { package = "moenarch-math-signal-core", version = "0.1.0", path = "crates/math/math-signal-core" }
+math-sparse-data = { package = "moenarch-math-sparse-data", version = "0.1.0", path = "crates/math/math-sparse-data" }
+math-statistics = { package = "moenarch-math-statistics", version = "0.1.0", path = "crates/math/math-statistics" }
+audio-analysis-core = { package = "moenarch-audio-analysis-core", version = "0.1.0", path = "crates/audio/audio-analysis-core" }
+audio-generation-midi = { package = "moenarch-audio-generation-midi", version = "0.1.0", path = "crates/audio/audio-generation-midi" }
+audio-generation-tts = { package = "moenarch-audio-generation-tts", version = "0.1.0", path = "crates/audio/audio-generation-tts" }
+audio-analysis-fourier = { package = "moenarch-audio-analysis-fourier", version = "0.1.0", path = "crates/audio/audio-analysis-fourier" }
+audio-analysis-io = { package = "moenarch-audio-analysis-io", version = "0.1.0", path = "crates/audio/audio-analysis-io" }
+audio-analysis-pitch = { package = "moenarch-audio-analysis-pitch", version = "0.1.0", path = "crates/audio/audio-analysis-pitch" }
+audio-analysis-processing = { package = "moenarch-audio-analysis-processing", version = "0.1.0", path = "crates/audio/audio-analysis-processing" }
+audio-analysis-recognition = { package = "moenarch-audio-analysis-recognition", version = "0.1.0", path = "crates/audio/audio-analysis-recognition" }
+audio-analysis-rhythm = { package = "moenarch-audio-analysis-rhythm", version = "0.1.0", path = "crates/audio/audio-analysis-rhythm" }
+audio-analysis-separation = { package = "moenarch-audio-analysis-separation", version = "0.1.0", path = "crates/audio/audio-analysis-separation" }
+audio-analysis-speakers = { package = "moenarch-audio-analysis-speakers", version = "0.1.3", path = "crates/audio/audio-analysis-speakers" }
+audio-analysis-synthesis = { package = "moenarch-audio-analysis-synthesis", version = "0.1.0", path = "crates/audio/audio-analysis-synthesis" }
+audio-analysis-transcription = { package = "moenarch-audio-analysis-transcription", version = "0.1.8", path = "crates/audio/audio-analysis-transcription" }
+audio-analysis-test-support = { package = "moenarch-audio-analysis-test-support", version = "0.1.0", path = "crates/audio/audio-analysis-test-support" }
+video-analysis-test-support = { package = "moenarch-video-analysis-test-support", version = "0.1.0", path = "crates/test-support/video-analysis-test-support" }
+image-analysis-core = { package = "moenarch-image-analysis-core", version = "0.1.0", path = "crates/image/image-analysis-core" }
+image-analysis-captioning = { package = "moenarch-image-analysis-captioning", version = "0.1.0", path = "crates/image/image-analysis-captioning" }
+image-analysis-classification = { package = "moenarch-image-analysis-classification", version = "0.1.0", path = "crates/image/image-analysis-classification" }
+image-analysis-comfyui = { package = "moenarch-image-analysis-comfyui", version = "0.1.0", path = "crates/image/image-analysis-comfyui" }
+image-analysis-detection = { package = "moenarch-image-analysis-detection", version = "0.1.0", path = "crates/image/image-analysis-detection" }
+image-analysis-embeddings = { package = "moenarch-image-analysis-embeddings", version = "0.1.0", path = "crates/image/image-analysis-embeddings" }
+image-analysis-io = { package = "moenarch-image-analysis-io", version = "0.1.0", path = "crates/image/image-analysis-io" }
+image-analysis-ocr = { package = "moenarch-image-analysis-ocr", version = "0.1.0", path = "crates/image/image-analysis-ocr" }
+image-analysis-processing = { package = "moenarch-image-analysis-processing", version = "0.1.0", path = "crates/image/image-analysis-processing" }
+image-analysis-segmentation = { package = "moenarch-image-analysis-segmentation", version = "0.1.0", path = "crates/image/image-analysis-segmentation" }
+image-analysis-synthesis = { package = "moenarch-image-analysis-synthesis", version = "0.1.0", path = "crates/image/image-analysis-synthesis" }
+text-core = { package = "moenarch-text-core", version = "0.1.0", path = "crates/text/text-core" }
+text-analysis = { package = "moenarch-text-analysis", version = "0.1.0", path = "crates/text/text-analysis" }
+text-classification = { package = "moenarch-text-classification", version = "0.1.0", path = "crates/text/text-classification" }
+text-lexical = { package = "moenarch-text-lexical", version = "0.1.0", path = "crates/text/text-lexical" }
+text-linguistics = { package = "moenarch-text-linguistics", version = "0.1.0", path = "crates/text/text-linguistics" }
+text-model-runtime = { package = "moenarch-text-model-runtime", version = "0.1.0", path = "crates/text/text-model-runtime" }
+text-question-answering = { package = "moenarch-text-question-answering", version = "0.1.0", path = "crates/text/text-question-answering" }
+text-generation = { package = "moenarch-text-generation", version = "0.1.0", path = "crates/text/text-generation" }
+text-generation-linguistics = { package = "moenarch-text-generation-linguistics", version = "0.1.0", path = "crates/text/text-generation-linguistics" }
+text-index = { package = "moenarch-text-index", version = "0.1.0", path = "crates/text/text-index" }
+text-retrieval = { package = "moenarch-text-retrieval", version = "0.1.0", path = "crates/text/text-retrieval" }
+text-embeddings = { package = "moenarch-text-embeddings", version = "0.1.0", path = "crates/text/text-embeddings" }
+text-transcripts = { package = "moenarch-text-transcripts", version = "0.1.1", path = "crates/text/text-transcripts" }
+vector-analysis-core = { package = "moenarch-vector-analysis-core", version = "0.1.0", path = "crates/vector/vector-analysis-core" }
+vector-analysis-index = { package = "moenarch-vector-analysis-index", version = "0.1.0", path = "crates/vector/vector-analysis-index" }
+vision-core = { package = "moenarch-vision-core", version = "0.1.0", path = "crates/vision/vision-core" }
+three-d-processing-core = { package = "moenarch-three-d-processing-core", version = "0.1.0", path = "crates/three-d/three-d-processing-core" }
+three-d-processing-io = { package = "moenarch-three-d-processing-io", version = "0.1.0", path = "crates/three-d/three-d-processing-io" }
+three-d-processing-mesh = { package = "moenarch-three-d-processing-mesh", version = "0.1.0", path = "crates/three-d/three-d-processing-mesh" }
+three-d-scene-svg = { package = "moenarch-three-d-scene-svg", version = "0.1.0", path = "crates/three-d/three-d-scene-svg" }
+video-analysis-core = { package = "moenarch-video-analysis-core", version = "0.1.3", path = "crates/video/video-analysis-core" }
+video-analysis-data = { package = "moenarch-video-analysis-data", version = "0.1.0", path = "crates/video/video-analysis-data" }
+video-analysis-dataset = { package = "moenarch-video-analysis-dataset", version = "0.1.0", path = "crates/video/video-analysis-dataset" }
+video-analysis-detectors = { package = "moenarch-video-analysis-detectors", version = "0.1.0", path = "crates/video/video-analysis-detectors" }
+video-analysis-editing = { package = "moenarch-video-analysis-editing", version = "0.1.0", path = "crates/video/video-analysis-editing" }
+video-analysis-features = { package = "moenarch-video-analysis-features", version = "0.1.0", path = "crates/video/video-analysis-features" }
+video-analysis-ffmpeg = { package = "moenarch-video-analysis-ffmpeg", version = "0.1.0", path = "crates/video/video-analysis-ffmpeg" }
+video-analysis-gaussian-splatting = { package = "moenarch-video-analysis-gaussian-splatting", version = "0.1.0", path = "crates/video/video-analysis-gaussian-splatting" }
+video-analysis-ingest = { package = "moenarch-video-analysis-ingest", version = "0.1.0", path = "crates/video/video-analysis-ingest" }
+video-analysis-mvs = { package = "moenarch-video-analysis-mvs", version = "0.1.0", path = "crates/video/video-analysis-mvs" }
+video-analysis-output = { package = "moenarch-video-analysis-output", version = "0.1.0", path = "crates/video/video-analysis-output" }
+video-analysis-posture = { package = "moenarch-video-analysis-posture", version = "0.1.0", path = "crates/video/video-analysis-posture" }
+video-analysis-posture-io = { package = "moenarch-video-analysis-posture-io", version = "0.1.0", path = "crates/video/video-analysis-posture-io" }
+video-analysis-radiance-fields = { package = "moenarch-video-analysis-radiance-fields", version = "0.1.0", path = "crates/video/video-analysis-radiance-fields" }
+video-analysis-radiance-io = { package = "moenarch-video-analysis-radiance-io", version = "0.1.0", path = "crates/video/video-analysis-radiance-io" }
+video-analysis-radiance-pipeline = { package = "moenarch-video-analysis-radiance-pipeline", version = "0.1.0", path = "crates/video/video-analysis-radiance-pipeline" }
+video-analysis-recognition = { package = "moenarch-video-analysis-recognition", version = "0.1.0", path = "crates/video/video-analysis-recognition" }
+video-analysis-reconstruction = { package = "moenarch-video-analysis-reconstruction", version = "0.1.0", path = "crates/video/video-analysis-reconstruction" }
+video-analysis-sfm = { package = "moenarch-video-analysis-sfm", version = "0.1.0", path = "crates/video/video-analysis-sfm" }
+video-analysis-split = { package = "moenarch-video-analysis-split", version = "0.1.0", path = "crates/video/video-analysis-split" }
+video-analysis-storage = { package = "moenarch-video-analysis-storage", version = "0.1.0", path = "crates/video/video-analysis-storage" }
+video-analysis-synthesis = { package = "moenarch-video-analysis-synthesis", version = "0.1.0", path = "crates/video/video-analysis-synthesis" }
+video-analysis-segmentation = { package = "moenarch-video-analysis-segmentation", version = "0.1.0", path = "crates/video/video-analysis-segmentation" }
+video-analysis-tracking = { package = "moenarch-video-analysis-tracking", version = "0.1.0", path = "crates/video/video-analysis-tracking" }
+video-analysis-transform = { package = "moenarch-video-analysis-transform", version = "0.1.0", path = "crates/video/video-analysis-transform" }
+video-analysis-use-cases = { package = "moenarch-video-analysis-use-cases", version = "0.1.0", path = "prototypes/rust/video-analysis-use-cases" }
 
 [lib]
 name = "video_analysis"
@@ -457,32 +457,32 @@ comfyui-models.workspace = true
 num-rational.workspace = true
 tensor-data.workspace = true
 video-analysis-test-support.workspace = true
-text-core-cli = { package = "moritzbrantner-text-core-cli", path = "crates/text/text-core-cli" }
-text-core-server = { package = "moritzbrantner-text-core-server", path = "crates/text/text-core-server" }
-text-classification-cli = { package = "moritzbrantner-text-classification-cli", path = "crates/text/text-classification-cli" }
-text-classification-server = { package = "moritzbrantner-text-classification-server", path = "crates/text/text-classification-server" }
-text-embeddings-cli = { package = "moritzbrantner-text-embeddings-cli", path = "crates/text/text-embeddings-cli" }
-text-embeddings-server = { package = "moritzbrantner-text-embeddings-server", path = "crates/text/text-embeddings-server" }
-text-generation-cli = { package = "moritzbrantner-text-generation-cli", path = "crates/text/text-generation-cli" }
-text-generation-server = { package = "moritzbrantner-text-generation-server", path = "crates/text/text-generation-server" }
-text-generation-linguistics-cli = { package = "moritzbrantner-text-generation-linguistics-cli", path = "crates/text/text-generation-linguistics-cli" }
-text-generation-linguistics-server = { package = "moritzbrantner-text-generation-linguistics-server", path = "crates/text/text-generation-linguistics-server" }
-text-lexical-cli = { package = "moritzbrantner-text-lexical-cli", path = "crates/text/text-lexical-cli" }
-text-lexical-server = { package = "moritzbrantner-text-lexical-server", path = "crates/text/text-lexical-server" }
-text-analysis-cli = { package = "moritzbrantner-text-analysis-cli", path = "crates/text/text-analysis-cli" }
-text-analysis-server = { package = "moritzbrantner-text-analysis-server", path = "crates/text/text-analysis-server" }
-text-index-cli = { package = "moritzbrantner-text-index-cli", path = "crates/text/text-index-cli" }
-text-index-server = { package = "moritzbrantner-text-index-server", path = "crates/text/text-index-server" }
-text-linguistics-cli = { package = "moritzbrantner-text-linguistics-cli", path = "crates/text/text-linguistics-cli" }
-text-linguistics-server = { package = "moritzbrantner-text-linguistics-server", path = "crates/text/text-linguistics-server" }
-text-model-runtime-cli = { package = "moritzbrantner-text-model-runtime-cli", path = "crates/text/text-model-runtime-cli" }
-text-model-runtime-server = { package = "moritzbrantner-text-model-runtime-server", path = "crates/text/text-model-runtime-server" }
-text-question-answering-cli = { package = "moritzbrantner-text-question-answering-cli", path = "crates/text/text-question-answering-cli" }
-text-question-answering-server = { package = "moritzbrantner-text-question-answering-server", path = "crates/text/text-question-answering-server" }
-text-retrieval-cli = { package = "moritzbrantner-text-retrieval-cli", path = "crates/text/text-retrieval-cli" }
-text-retrieval-server = { package = "moritzbrantner-text-retrieval-server", path = "crates/text/text-retrieval-server" }
-text-transcripts-cli = { package = "moritzbrantner-text-transcripts-cli", path = "crates/text/text-transcripts-cli" }
-text-transcripts-server = { package = "moritzbrantner-text-transcripts-server", path = "crates/text/text-transcripts-server" }
-audio-generation-tts-cli = { package = "moritzbrantner-audio-generation-tts-cli", path = "crates/audio/audio-generation-tts-cli" }
-audio-generation-tts-server = { package = "moritzbrantner-audio-generation-tts-server", path = "crates/audio/audio-generation-tts-server" }
-audio-generation-tts-wasm = { package = "moritzbrantner-audio-generation-tts-wasm", path = "crates/bindings/audio-generation-tts-wasm" }
+text-core-cli = { package = "moenarch-text-core-cli", path = "crates/text/text-core-cli" }
+text-core-server = { package = "moenarch-text-core-server", path = "crates/text/text-core-server" }
+text-classification-cli = { package = "moenarch-text-classification-cli", path = "crates/text/text-classification-cli" }
+text-classification-server = { package = "moenarch-text-classification-server", path = "crates/text/text-classification-server" }
+text-embeddings-cli = { package = "moenarch-text-embeddings-cli", path = "crates/text/text-embeddings-cli" }
+text-embeddings-server = { package = "moenarch-text-embeddings-server", path = "crates/text/text-embeddings-server" }
+text-generation-cli = { package = "moenarch-text-generation-cli", path = "crates/text/text-generation-cli" }
+text-generation-server = { package = "moenarch-text-generation-server", path = "crates/text/text-generation-server" }
+text-generation-linguistics-cli = { package = "moenarch-text-generation-linguistics-cli", path = "crates/text/text-generation-linguistics-cli" }
+text-generation-linguistics-server = { package = "moenarch-text-generation-linguistics-server", path = "crates/text/text-generation-linguistics-server" }
+text-lexical-cli = { package = "moenarch-text-lexical-cli", path = "crates/text/text-lexical-cli" }
+text-lexical-server = { package = "moenarch-text-lexical-server", path = "crates/text/text-lexical-server" }
+text-analysis-cli = { package = "moenarch-text-analysis-cli", path = "crates/text/text-analysis-cli" }
+text-analysis-server = { package = "moenarch-text-analysis-server", path = "crates/text/text-analysis-server" }
+text-index-cli = { package = "moenarch-text-index-cli", path = "crates/text/text-index-cli" }
+text-index-server = { package = "moenarch-text-index-server", path = "crates/text/text-index-server" }
+text-linguistics-cli = { package = "moenarch-text-linguistics-cli", path = "crates/text/text-linguistics-cli" }
+text-linguistics-server = { package = "moenarch-text-linguistics-server", path = "crates/text/text-linguistics-server" }
+text-model-runtime-cli = { package = "moenarch-text-model-runtime-cli", path = "crates/text/text-model-runtime-cli" }
+text-model-runtime-server = { package = "moenarch-text-model-runtime-server", path = "crates/text/text-model-runtime-server" }
+text-question-answering-cli = { package = "moenarch-text-question-answering-cli", path = "crates/text/text-question-answering-cli" }
+text-question-answering-server = { package = "moenarch-text-question-answering-server", path = "crates/text/text-question-answering-server" }
+text-retrieval-cli = { package = "moenarch-text-retrieval-cli", path = "crates/text/text-retrieval-cli" }
+text-retrieval-server = { package = "moenarch-text-retrieval-server", path = "crates/text/text-retrieval-server" }
+text-transcripts-cli = { package = "moenarch-text-transcripts-cli", path = "crates/text/text-transcripts-cli" }
+text-transcripts-server = { package = "moenarch-text-transcripts-server", path = "crates/text/text-transcripts-server" }
+audio-generation-tts-cli = { package = "moenarch-audio-generation-tts-cli", path = "crates/audio/audio-generation-tts-cli" }
+audio-generation-tts-server = { package = "moenarch-audio-generation-tts-server", path = "crates/audio/audio-generation-tts-server" }
+audio-generation-tts-wasm = { package = "moenarch-audio-generation-tts-wasm", path = "crates/bindings/audio-generation-tts-wasm" }

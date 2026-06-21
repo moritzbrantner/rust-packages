@@ -1,5 +1,5 @@
 [package]
-name = "moritzbrantner-video-analysis-cli"
+name = "moenarch-video-analysis-cli"
 version.workspace = true
 edition.workspace = true
 license.workspace = true

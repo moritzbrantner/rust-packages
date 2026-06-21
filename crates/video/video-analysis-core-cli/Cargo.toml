@@ -1,5 +1,5 @@
 [package]
-name = "moritzbrantner-video-analysis-core-cli"
+name = "moenarch-video-analysis-core-cli"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
@@ -23,4 +23,4 @@ path = "src/main.rs"
 runtime-core.workspace = true
 clap.workspace = true
 serde_json.workspace = true
-video-analysis-core = { package = "moritzbrantner-video-analysis-core", version = "0.1.2", path = "../video-analysis-core" }
+video-analysis-core = { package = "moenarch-video-analysis-core", version = "0.1.2", path = "../video-analysis-core" }

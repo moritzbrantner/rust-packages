@@ -1,5 +1,5 @@
 [package]
-name = "moritzbrantner-math-sparse-data"
+name = "moenarch-math-sparse-data"
 version.workspace = true
 edition.workspace = true
 license.workspace = true

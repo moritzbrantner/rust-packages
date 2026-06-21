@@ -1,5 +1,5 @@
 [package]
-name = "moritzbrantner-text-analysis-wasm"
+name = "moenarch-text-analysis-wasm"
 version.workspace = true
 edition.workspace = true
 license.workspace = true

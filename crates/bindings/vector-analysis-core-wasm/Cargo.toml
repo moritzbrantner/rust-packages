@@ -1,5 +1,5 @@
 [package]
-name = "moritzbrantner-vector-analysis-core-wasm"
+name = "moenarch-vector-analysis-core-wasm"
 version.workspace = true
 edition.workspace = true
 license.workspace = true

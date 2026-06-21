@@ -1,5 +1,5 @@
 [package]
-name = "moritzbrantner-image-analysis-segmentation"
+name = "moenarch-image-analysis-segmentation"
 version.workspace = true
 edition.workspace = true
 license.workspace = true

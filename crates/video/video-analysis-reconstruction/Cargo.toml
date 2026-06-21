@@ -1,5 +1,5 @@
 [package]
-name = "moritzbrantner-video-analysis-reconstruction"
+name = "moenarch-video-analysis-reconstruction"
 version.workspace = true
 edition.workspace = true
 license.workspace = true

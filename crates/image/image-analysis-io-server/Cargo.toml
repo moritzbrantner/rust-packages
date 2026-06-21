@@ -1,5 +1,5 @@
 [package]
-name = "moritzbrantner-image-analysis-io-server"
+name = "moenarch-image-analysis-io-server"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
@@ -23,4 +23,4 @@ path = "src/main.rs"
 runtime-core.workspace = true
 clap.workspace = true
 serde_json.workspace = true
-image-analysis-io = { package = "moritzbrantner-image-analysis-io", version = "0.1.0", path = "../image-analysis-io" }
+image-analysis-io = { package = "moenarch-image-analysis-io", version = "0.1.0", path = "../image-analysis-io" }

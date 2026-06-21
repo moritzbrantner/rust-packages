@@ -1,5 +1,5 @@
 [package]
-name = "moritzbrantner-animation-core"
+name = "moenarch-animation-core"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
