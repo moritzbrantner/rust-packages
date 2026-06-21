@@ -18,7 +18,8 @@ use video_analysis_core::Result;
 use crate::native_device::{resolve_native_device, ResolvedNativeDevice};
 use crate::{
     candle_batch_count, invalid_request, model_output_mismatch, setup_error, validate_asr_request,
-    AsrRequest, AsrResponse, CandleWhisperOptions, SpeechActivitySegment, TranscriptionTask,
+    AsrRequest, AsrResponse, CandleWhisperDecodeRuntime, CandleWhisperOptions,
+    SpeechActivitySegment, TranscriptionTask,
 };
 
 const REQUIRED_WHISPER_FILES: &[&str] = &[
@@ -1496,6 +1497,12 @@ struct WhisperDecodeOutput {
 }
 
 fn candle_batch_size(options: &CandleWhisperOptions, chunk_count: usize) -> usize {
+    match options.decode_runtime {
+        CandleWhisperDecodeRuntime::AutoregressiveKvCache => {}
+        CandleWhisperDecodeRuntime::ActiveRowTensorBatch => {
+            return options.max_batch_size.unwrap_or(chunk_count.max(1)).max(1);
+        }
+    }
     if !options.batch_chunks {
         return 1;
     }

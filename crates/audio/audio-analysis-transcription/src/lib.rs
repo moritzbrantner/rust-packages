@@ -29,6 +29,8 @@ use video_analysis_core::{DetectError, Result};
 
 const CANDLE_WHISPER_AUTOREGRESSIVE_KV_CACHE_EXECUTION: &str =
     "candle-whisper-autoregressive-kv-cache";
+const CANDLE_WHISPER_ACTIVE_ROW_TENSOR_BATCH_EXECUTION: &str =
+    "candle-whisper-active-row-tensor-batch";
 
 pub use audio_analysis_speakers::{
     AudioRuntime, SpeakerDiarizationOptions, SpeakerDiarizationResponse, SpeakerSegmentPrediction,
@@ -217,6 +219,8 @@ pub struct CandleWhisperOptions {
     pub batch_chunks: bool,
     #[serde(default)]
     pub max_batch_size: Option<usize>,
+    #[serde(default)]
+    pub decode_runtime: CandleWhisperDecodeRuntime,
 }
 
 impl Default for CandleWhisperOptions {
@@ -231,12 +235,37 @@ impl Default for CandleWhisperOptions {
             model_cache_only: false,
             batch_chunks: true,
             max_batch_size: Some(4),
+            decode_runtime: CandleWhisperDecodeRuntime::AutoregressiveKvCache,
         }
     }
 }
 
 fn default_candle_whisper_model() -> String {
     "openai/whisper-large-v3-turbo".to_string()
+}
+
+/// Native Candle Whisper chunk decode runtime.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum CandleWhisperDecodeRuntime {
+    /// Existing safe per-window autoregressive decode with KV-cache reuse inside each window.
+    #[default]
+    AutoregressiveKvCache,
+    /// Future true tensor-batched active-row decode path.
+    ActiveRowTensorBatch,
+}
+
+impl CandleWhisperDecodeRuntime {
+    pub fn execution_id(self) -> &'static str {
+        match self {
+            Self::AutoregressiveKvCache => CANDLE_WHISPER_AUTOREGRESSIVE_KV_CACHE_EXECUTION,
+            Self::ActiveRowTensorBatch => CANDLE_WHISPER_ACTIVE_ROW_TENSOR_BATCH_EXECUTION,
+        }
+    }
+
+    pub fn is_supported(self) -> bool {
+        matches!(self, Self::AutoregressiveKvCache)
+    }
 }
 
 /// Options for native whisper.cpp compatibility.
@@ -971,11 +1000,9 @@ impl AudioTranscriptionProvider for CandleWhisperTranscriber {
         {
             let chunk_count = request.chunks.len();
             let mut response = native_whisper::transcribe(&self.options, request)?;
-            response.diagnostics.extend(candle_batch_diagnostics(
-                &self.options,
-                chunk_count,
-                CANDLE_WHISPER_AUTOREGRESSIVE_KV_CACHE_EXECUTION,
-            ));
+            response
+                .diagnostics
+                .extend(candle_batch_diagnostics(&self.options, chunk_count));
             Ok(response)
         }
         #[cfg(not(feature = "candle"))]
@@ -1235,7 +1262,6 @@ pub fn run_transcription_pipeline_with_observer(
             asr_response.diagnostics.extend(candle_batch_diagnostics(
                 options,
                 vad_response.segments.len(),
-                CANDLE_WHISPER_AUTOREGRESSIVE_KV_CACHE_EXECUTION,
             ));
         }
     }
@@ -1357,6 +1383,8 @@ pub fn candle_whisper_provider_plan() -> TranscriptionProviderPlan {
             "Candle Whisper is the primary planned Rust-native ASR and translate-to-English provider.".to_string(),
             "Set task=translate for native Whisper translation; wav2vec2/CTC alignment is not supported for translated output.".to_string(),
             "Default tests do not download models or require CUDA.".to_string(),
+            "Default decodeRuntime=autoregressiveKvCache preserves the safe per-window KV-cache path.".to_string(),
+            "decodeRuntime=activeRowTensorBatch is reserved for the future true tensor-batched active-row path and is rejected until implemented.".to_string(),
         ],
     }
 }
@@ -1438,6 +1466,24 @@ pub(crate) fn validate_candle_batch_options(options: &CandleWhisperOptions) -> R
             "Candle Whisper max_batch_size must be greater than zero",
         ));
     }
+    if matches!(
+        options.decode_runtime,
+        CandleWhisperDecodeRuntime::ActiveRowTensorBatch
+    ) {
+        if !options.batch_chunks {
+            return Err(invalid_request(
+                "Candle Whisper activeRowTensorBatch decodeRuntime requires batch_chunks=true",
+            ));
+        }
+        if options.max_batch_size == Some(1) {
+            return Err(invalid_request(
+                "Candle Whisper activeRowTensorBatch decodeRuntime requires max_batch_size greater than one or unbounded batching",
+            ));
+        }
+        return Err(unsupported_runtime(
+            "Candle Whisper decodeRuntime=activeRowTensorBatch is reserved for the future true tensor-batched active-row decode path and is not implemented in this crate yet",
+        ));
+    }
     Ok(())
 }
 
@@ -1457,7 +1503,6 @@ pub(crate) fn candle_batch_count(options: &CandleWhisperOptions, chunk_count: us
 pub(crate) fn candle_batch_diagnostics(
     options: &CandleWhisperOptions,
     chunk_count: usize,
-    execution: &str,
 ) -> Vec<String> {
     vec![
         format!("chunkCount={chunk_count}"),
@@ -1470,7 +1515,7 @@ pub(crate) fn candle_batch_diagnostics(
                 .unwrap_or_else(|| "unbounded".to_string())
         ),
         format!("batchCount={}", candle_batch_count(options, chunk_count)),
-        format!("batchExecution={execution}"),
+        format!("batchExecution={}", options.decode_runtime.execution_id()),
     ]
 }
 
@@ -2954,6 +2999,89 @@ mod tests {
         let error = result.unwrap_err().to_string();
         assert!(error.contains("invalid_request"));
         assert!(error.contains("max_batch_size"));
+    }
+
+    #[test]
+    fn candle_decode_runtime_defaults_to_autoregressive_kv_cache() {
+        let options = CandleWhisperOptions::default();
+
+        assert_eq!(
+            options.decode_runtime,
+            CandleWhisperDecodeRuntime::AutoregressiveKvCache
+        );
+        assert_eq!(
+            options.decode_runtime.execution_id(),
+            "candle-whisper-autoregressive-kv-cache"
+        );
+        validate_candle_batch_options(&options).unwrap();
+    }
+
+    #[test]
+    fn candle_decode_runtime_deserializes_active_row_tensor_batch() {
+        let options: CandleWhisperOptions = serde_json::from_value(serde_json::json!({
+            "decodeRuntime": "activeRowTensorBatch",
+            "batchChunks": true,
+            "maxBatchSize": 4
+        }))
+        .unwrap();
+
+        assert_eq!(
+            options.decode_runtime,
+            CandleWhisperDecodeRuntime::ActiveRowTensorBatch
+        );
+        assert_eq!(
+            options.decode_runtime.execution_id(),
+            "candle-whisper-active-row-tensor-batch"
+        );
+    }
+
+    #[test]
+    fn candle_active_row_decode_runtime_is_rejected_until_implemented() {
+        let options = CandleWhisperOptions {
+            decode_runtime: CandleWhisperDecodeRuntime::ActiveRowTensorBatch,
+            batch_chunks: true,
+            max_batch_size: Some(4),
+            ..CandleWhisperOptions::default()
+        };
+
+        let error = validate_candle_batch_options(&options)
+            .unwrap_err()
+            .to_string();
+        assert!(error.contains("unsupported_runtime"));
+        assert!(error.contains("activeRowTensorBatch"));
+        assert!(error.contains("not implemented"));
+    }
+
+    #[test]
+    fn candle_active_row_decode_runtime_requires_chunk_batching() {
+        let options = CandleWhisperOptions {
+            decode_runtime: CandleWhisperDecodeRuntime::ActiveRowTensorBatch,
+            batch_chunks: false,
+            max_batch_size: Some(4),
+            ..CandleWhisperOptions::default()
+        };
+
+        let error = validate_candle_batch_options(&options)
+            .unwrap_err()
+            .to_string();
+        assert!(error.contains("invalid_request"));
+        assert!(error.contains("requires batch_chunks=true"));
+    }
+
+    #[test]
+    fn candle_active_row_decode_runtime_rejects_single_row_batching() {
+        let options = CandleWhisperOptions {
+            decode_runtime: CandleWhisperDecodeRuntime::ActiveRowTensorBatch,
+            batch_chunks: true,
+            max_batch_size: Some(1),
+            ..CandleWhisperOptions::default()
+        };
+
+        let error = validate_candle_batch_options(&options)
+            .unwrap_err()
+            .to_string();
+        assert!(error.contains("invalid_request"));
+        assert!(error.contains("max_batch_size greater than one"));
     }
 
     #[test]

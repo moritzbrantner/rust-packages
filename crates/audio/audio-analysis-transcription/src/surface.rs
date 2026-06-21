@@ -9,9 +9,9 @@ use serde::Deserialize;
 use crate::{
     candle_whisper_provider_plan, import_whisperx_json, setup_error, transcribe,
     transcription_provider_plans, whisper_cpp_provider_plan, whisperx_provider_plan,
-    AlignmentOptions, CandleWhisperOptions, DiarizationOptions, NativeDevicePreference,
-    TranscriptionPipelineRequest, TranscriptionProviderSelection, TranscriptionSource,
-    TranscriptionTask, VadOptions, WhisperXCommandOptions, WhisperXDevice,
+    AlignmentOptions, CandleWhisperDecodeRuntime, CandleWhisperOptions, DiarizationOptions,
+    NativeDevicePreference, TranscriptionPipelineRequest, TranscriptionProviderSelection,
+    TranscriptionSource, TranscriptionTask, VadOptions, WhisperXCommandOptions, WhisperXDevice,
 };
 
 /// Returns the package surface exposed by every transport wrapper.
@@ -375,6 +375,7 @@ fn plan_value(input: serde_json::Value) -> serde_json::Value {
         "vadProvider": "energy-vad",
         "alignmentProvider": "ctc-forced-aligner",
         "diarizationProvider": "audio-analysis-speakers-native-baseline",
+        "candleWhisperDecode": candle_whisper_decode_runtime_plan(),
         "providers": transcription_provider_plans(),
         "input": input
     })
@@ -396,6 +397,7 @@ fn model_plan_value(input: serde_json::Value) -> serde_json::Value {
         },
         "normalizationOwner": "moritzbrantner-text-transcripts",
         "asr": candle_whisper_provider_plan(),
+        "candleWhisperDecode": candle_whisper_decode_runtime_plan(),
         "compatibility": [whisper_cpp_provider_plan(), whisperx_provider_plan()],
         "models": [
             "openai/whisper-large-v3",
@@ -404,6 +406,27 @@ fn model_plan_value(input: serde_json::Value) -> serde_json::Value {
             "pyannote/speaker-diarization-3.1"
         ],
         "input": input
+    })
+}
+
+fn candle_whisper_decode_runtime_plan() -> serde_json::Value {
+    serde_json::json!({
+        "default": "autoregressiveKvCache",
+        "options": [
+            {
+                "id": "autoregressiveKvCache",
+                "execution": CandleWhisperDecodeRuntime::AutoregressiveKvCache.execution_id(),
+                "supported": true,
+                "batchSemantics": "semantic chunk grouping with per-window autoregressive decode and KV-cache reuse"
+            },
+            {
+                "id": "activeRowTensorBatch",
+                "execution": CandleWhisperDecodeRuntime::ActiveRowTensorBatch.execution_id(),
+                "supported": false,
+                "batchSemantics": "future true tensor-batched active-row decode",
+                "requires": ["batchChunks=true", "maxBatchSize greater than one or unbounded"]
+            }
+        ]
     })
 }
 
@@ -736,6 +759,36 @@ mod tests {
             response.value["result"]["translation"]["alignmentSupported"],
             false
         );
+        assert_eq!(
+            response.value["result"]["candleWhisperDecode"]["default"],
+            "autoregressiveKvCache"
+        );
+        assert_eq!(
+            response.value["result"]["candleWhisperDecode"]["options"][0]["execution"],
+            "candle-whisper-autoregressive-kv-cache"
+        );
+    }
+
+    #[test]
+    fn model_plan_exposes_future_active_row_decode_runtime_as_unsupported() {
+        let response = run_surface_operation(SurfaceRequest {
+            operation: OperationId::new("audio.transcription.modelPlan"),
+            input: serde_json::json!({}),
+        })
+        .expect("model plan");
+
+        let options = response.value["result"]["candleWhisperDecode"]["options"]
+            .as_array()
+            .unwrap();
+        let active_row = options
+            .iter()
+            .find(|option| option["id"] == "activeRowTensorBatch")
+            .unwrap();
+        assert_eq!(
+            active_row["execution"],
+            "candle-whisper-active-row-tensor-batch"
+        );
+        assert_eq!(active_row["supported"], false);
     }
 
     #[test]
