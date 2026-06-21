@@ -1,5 +1,5 @@
 [package]
-name = "moritzbrantner-audio-analysis-core"
+name = "moenarch-audio-analysis-core"
 version.workspace = true
 edition.workspace = true
 license.workspace = true

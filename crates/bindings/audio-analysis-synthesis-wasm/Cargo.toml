@@ -1,5 +1,5 @@
 [package]
-name = "moritzbrantner-audio-analysis-synthesis-wasm"
+name = "moenarch-audio-analysis-synthesis-wasm"
 version.workspace = true
 edition.workspace = true
 license.workspace = true

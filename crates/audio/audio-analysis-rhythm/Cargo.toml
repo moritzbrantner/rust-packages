@@ -1,5 +1,5 @@
 [package]
-name = "moritzbrantner-audio-analysis-rhythm"
+name = "moenarch-audio-analysis-rhythm"
 version.workspace = true
 edition.workspace = true
 license.workspace = true

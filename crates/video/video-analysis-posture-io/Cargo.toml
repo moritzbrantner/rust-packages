@@ -1,5 +1,5 @@
 [package]
-name = "moritzbrantner-video-analysis-posture-io"
+name = "moenarch-video-analysis-posture-io"
 version.workspace = true
 edition.workspace = true
 license.workspace = true

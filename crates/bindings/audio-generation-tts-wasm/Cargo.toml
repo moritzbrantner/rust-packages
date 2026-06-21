@@ -1,5 +1,5 @@
 [package]
-name = "moritzbrantner-audio-generation-tts-wasm"
+name = "moenarch-audio-generation-tts-wasm"
 version.workspace = true
 edition.workspace = true
 license.workspace = true

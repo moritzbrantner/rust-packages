@@ -1,5 +1,5 @@
 [package]
-name = "moritzbrantner-graph-analysis-core-cli"
+name = "moenarch-graph-analysis-core-cli"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
@@ -23,4 +23,4 @@ path = "src/main.rs"
 runtime-core.workspace = true
 clap.workspace = true
 serde_json.workspace = true
-graph-analysis-core = { package = "moritzbrantner-graph-analysis-core", version = "0.1.0", path = "../graph-analysis-core" }
+graph-analysis-core = { package = "moenarch-graph-analysis-core", version = "0.1.0", path = "../graph-analysis-core" }

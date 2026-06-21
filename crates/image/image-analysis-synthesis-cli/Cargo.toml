@@ -1,5 +1,5 @@
 [package]
-name = "moritzbrantner-image-analysis-synthesis-cli"
+name = "moenarch-image-analysis-synthesis-cli"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
@@ -23,4 +23,4 @@ path = "src/main.rs"
 runtime-core.workspace = true
 clap.workspace = true
 serde_json.workspace = true
-image-analysis-synthesis = { package = "moritzbrantner-image-analysis-synthesis", version = "0.1.0", path = "../image-analysis-synthesis" }
+image-analysis-synthesis = { package = "moenarch-image-analysis-synthesis", version = "0.1.0", path = "../image-analysis-synthesis" }

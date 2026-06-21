@@ -1,5 +1,5 @@
 [package]
-name = "moritzbrantner-video-analysis-storage-server"
+name = "moenarch-video-analysis-storage-server"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
@@ -23,4 +23,4 @@ path = "src/main.rs"
 runtime-core.workspace = true
 clap.workspace = true
 serde_json.workspace = true
-video-analysis-storage = { package = "moritzbrantner-video-analysis-storage", version = "0.1.0", path = "../video-analysis-storage" }
+video-analysis-storage = { package = "moenarch-video-analysis-storage", version = "0.1.0", path = "../video-analysis-storage" }

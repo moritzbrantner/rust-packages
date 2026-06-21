@@ -1,5 +1,5 @@
 [package]
-name = "moritzbrantner-audio-analysis-separation-wasm"
+name = "moenarch-audio-analysis-separation-wasm"
 version.workspace = true
 edition.workspace = true
 license.workspace = true

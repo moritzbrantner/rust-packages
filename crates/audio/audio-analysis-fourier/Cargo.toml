@@ -1,5 +1,5 @@
 [package]
-name = "moritzbrantner-audio-analysis-fourier"
+name = "moenarch-audio-analysis-fourier"
 version.workspace = true
 edition.workspace = true
 license.workspace = true

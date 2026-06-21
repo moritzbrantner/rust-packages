@@ -1,5 +1,5 @@
 [package]
-name = "moritzbrantner-three-d-processing-core-cli"
+name = "moenarch-three-d-processing-core-cli"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
@@ -23,4 +23,4 @@ path = "src/main.rs"
 runtime-core.workspace = true
 clap.workspace = true
 serde_json.workspace = true
-three-d-processing-core = { package = "moritzbrantner-three-d-processing-core", version = "0.1.0", path = "../three-d-processing-core" }
+three-d-processing-core = { package = "moenarch-three-d-processing-core", version = "0.1.0", path = "../three-d-processing-core" }

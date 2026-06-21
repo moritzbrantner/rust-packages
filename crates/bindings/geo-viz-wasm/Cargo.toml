@@ -1,5 +1,5 @@
 [package]
-name = "moritzbrantner-geo-viz-wasm"
+name = "moenarch-geo-viz-wasm"
 version.workspace = true
 edition.workspace = true
 license.workspace = true

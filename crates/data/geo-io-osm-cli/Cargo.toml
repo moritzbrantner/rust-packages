@@ -1,5 +1,5 @@
 [package]
-name = "moritzbrantner-geo-io-osm-cli"
+name = "moenarch-geo-io-osm-cli"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
@@ -22,7 +22,7 @@ path = "src/main.rs"
 [dependencies]
 clap.workspace = true
 geo-io-geojson.workspace = true
-geo-io-osm = { package = "moritzbrantner-geo-io-osm", version = "0.1.0", path = "../geo-io-osm" }
+geo-io-osm = { package = "moenarch-geo-io-osm", version = "0.1.0", path = "../geo-io-osm" }
 serde_json.workspace = true
 runtime-core.workspace = true
 

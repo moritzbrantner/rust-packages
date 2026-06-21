@@ -1,5 +1,5 @@
 [package]
-name = "moritzbrantner-three-d-processing-mesh"
+name = "moenarch-three-d-processing-mesh"
 version.workspace = true
 edition.workspace = true
 license.workspace = true

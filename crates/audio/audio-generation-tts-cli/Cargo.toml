@@ -1,5 +1,5 @@
 [package]
-name = "moritzbrantner-audio-generation-tts-cli"
+name = "moenarch-audio-generation-tts-cli"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
@@ -20,7 +20,7 @@ name = "audio-generation-tts-cli"
 path = "src/main.rs"
 
 [dependencies]
-audio-generation-tts = { package = "moritzbrantner-audio-generation-tts", version = "0.1.0", path = "../audio-generation-tts" }
+audio-generation-tts = { package = "moenarch-audio-generation-tts", version = "0.1.0", path = "../audio-generation-tts" }
 clap.workspace = true
 runtime-core.workspace = true
 serde_json.workspace = true

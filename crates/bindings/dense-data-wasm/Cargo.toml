@@ -1,5 +1,5 @@
 [package]
-name = "moritzbrantner-dense-data-wasm"
+name = "moenarch-dense-data-wasm"
 version.workspace = true
 edition.workspace = true
 license.workspace = true

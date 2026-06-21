@@ -1,5 +1,5 @@
 [package]
-name = "moritzbrantner-math-linear"
+name = "moenarch-math-linear"
 version.workspace = true
 edition.workspace = true
 license.workspace = true

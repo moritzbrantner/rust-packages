@@ -1,5 +1,5 @@
 [package]
-name = "moritzbrantner-animation-core-server"
+name = "moenarch-animation-core-server"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
@@ -23,4 +23,4 @@ path = "src/main.rs"
 runtime-core.workspace = true
 clap.workspace = true
 serde_json.workspace = true
-animation-core = { package = "moritzbrantner-animation-core", version = "0.1.0", path = "../animation-core" }
+animation-core = { package = "moenarch-animation-core", version = "0.1.0", path = "../animation-core" }

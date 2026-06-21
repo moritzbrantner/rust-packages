@@ -1,5 +1,5 @@
 [package]
-name = "moritzbrantner-vector-analysis-index"
+name = "moenarch-vector-analysis-index"
 version.workspace = true
 edition.workspace = true
 license.workspace = true

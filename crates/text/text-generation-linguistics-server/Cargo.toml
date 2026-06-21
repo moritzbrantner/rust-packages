@@ -1,5 +1,5 @@
 [package]
-name = "moritzbrantner-text-generation-linguistics-server"
+name = "moenarch-text-generation-linguistics-server"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
@@ -23,4 +23,4 @@ path = "src/main.rs"
 runtime-core.workspace = true
 clap.workspace = true
 serde_json.workspace = true
-text-generation-linguistics = { package = "moritzbrantner-text-generation-linguistics", version = "0.1.0", path = "../text-generation-linguistics" }
+text-generation-linguistics = { package = "moenarch-text-generation-linguistics", version = "0.1.0", path = "../text-generation-linguistics" }

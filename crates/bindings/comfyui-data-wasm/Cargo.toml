@@ -1,5 +1,5 @@
 [package]
-name = "moritzbrantner-comfyui-data-wasm"
+name = "moenarch-comfyui-data-wasm"
 version.workspace = true
 edition.workspace = true
 license.workspace = true

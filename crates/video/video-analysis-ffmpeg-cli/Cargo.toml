@@ -1,5 +1,5 @@
 [package]
-name = "moritzbrantner-video-analysis-ffmpeg-cli"
+name = "moenarch-video-analysis-ffmpeg-cli"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
@@ -23,4 +23,4 @@ path = "src/main.rs"
 runtime-core.workspace = true
 clap.workspace = true
 serde_json.workspace = true
-video-analysis-ffmpeg = { package = "moritzbrantner-video-analysis-ffmpeg", version = "0.1.0", path = "../video-analysis-ffmpeg" }
+video-analysis-ffmpeg = { package = "moenarch-video-analysis-ffmpeg", version = "0.1.0", path = "../video-analysis-ffmpeg" }

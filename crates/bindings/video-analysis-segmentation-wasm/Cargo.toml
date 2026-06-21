@@ -1,5 +1,5 @@
 [package]
-name = "moritzbrantner-video-analysis-segmentation-wasm"
+name = "moenarch-video-analysis-segmentation-wasm"
 version.workspace = true
 edition.workspace = true
 license.workspace = true

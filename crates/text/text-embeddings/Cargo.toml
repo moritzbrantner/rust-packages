@@ -1,5 +1,5 @@
 [package]
-name = "moritzbrantner-text-embeddings"
+name = "moenarch-text-embeddings"
 version.workspace = true
 edition.workspace = true
 license.workspace = true

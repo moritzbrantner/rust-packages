@@ -1,5 +1,5 @@
 [package]
-name = "moritzbrantner-video-analysis-use-cases"
+name = "moenarch-video-analysis-use-cases"
 version.workspace = true
 edition.workspace = true
 license.workspace = true

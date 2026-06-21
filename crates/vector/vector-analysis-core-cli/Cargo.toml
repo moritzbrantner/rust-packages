@@ -1,5 +1,5 @@
 [package]
-name = "moritzbrantner-vector-analysis-core-cli"
+name = "moenarch-vector-analysis-core-cli"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
@@ -23,4 +23,4 @@ path = "src/main.rs"
 runtime-core.workspace = true
 clap.workspace = true
 serde_json.workspace = true
-vector-analysis-core = { package = "moritzbrantner-vector-analysis-core", version = "0.1.0", path = "../vector-analysis-core" }
+vector-analysis-core = { package = "moenarch-vector-analysis-core", version = "0.1.0", path = "../vector-analysis-core" }

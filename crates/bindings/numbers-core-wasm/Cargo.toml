@@ -1,5 +1,5 @@
 [package]
-name = "moritzbrantner-numbers-core-wasm"
+name = "moenarch-numbers-core-wasm"
 version.workspace = true
 edition.workspace = true
 license.workspace = true

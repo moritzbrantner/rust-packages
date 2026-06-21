@@ -1,5 +1,5 @@
 [package]
-name = "moritzbrantner-text-lexical"
+name = "moenarch-text-lexical"
 version.workspace = true
 edition.workspace = true
 license.workspace = true

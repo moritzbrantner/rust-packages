@@ -1,5 +1,5 @@
 [package]
-name = "moritzbrantner-text-embeddings-wasm"
+name = "moenarch-text-embeddings-wasm"
 version.workspace = true
 edition.workspace = true
 license.workspace = true

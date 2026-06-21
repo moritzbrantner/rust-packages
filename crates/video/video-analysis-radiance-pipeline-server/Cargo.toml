@@ -1,5 +1,5 @@
 [package]
-name = "moritzbrantner-video-analysis-radiance-pipeline-server"
+name = "moenarch-video-analysis-radiance-pipeline-server"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
@@ -23,4 +23,4 @@ path = "src/main.rs"
 runtime-core.workspace = true
 clap.workspace = true
 serde_json.workspace = true
-video-analysis-radiance-pipeline = { package = "moritzbrantner-video-analysis-radiance-pipeline", version = "0.1.0", path = "../video-analysis-radiance-pipeline" }
+video-analysis-radiance-pipeline = { package = "moenarch-video-analysis-radiance-pipeline", version = "0.1.0", path = "../video-analysis-radiance-pipeline" }

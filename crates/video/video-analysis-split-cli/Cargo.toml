@@ -1,5 +1,5 @@
 [package]
-name = "moritzbrantner-video-analysis-split-cli"
+name = "moenarch-video-analysis-split-cli"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
@@ -23,4 +23,4 @@ path = "src/main.rs"
 runtime-core.workspace = true
 clap.workspace = true
 serde_json.workspace = true
-video-analysis-split = { package = "moritzbrantner-video-analysis-split", version = "0.1.0", path = "../video-analysis-split" }
+video-analysis-split = { package = "moenarch-video-analysis-split", version = "0.1.0", path = "../video-analysis-split" }

@@ -1,5 +1,5 @@
 [package]
-name = "moritzbrantner-graph-analysis-core"
+name = "moenarch-graph-analysis-core"
 version.workspace = true
 edition.workspace = true
 license.workspace = true

@@ -1,5 +1,5 @@
 [package]
-name = "moritzbrantner-geo-core"
+name = "moenarch-geo-core"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
@@ -8,7 +8,7 @@ description = "Format-agnostic geospatial domain types, geometry helpers, and tr
 readme = "README.md"
 repository.workspace = true
 homepage.workspace = true
-documentation = "https://docs.rs/moritzbrantner-geo-core"
+documentation = "https://docs.rs/moenarch-geo-core"
 keywords = ["geo", "geospatial", "geometry", "maps"]
 categories = ["science::geo", "data-structures", "algorithms"]
 
