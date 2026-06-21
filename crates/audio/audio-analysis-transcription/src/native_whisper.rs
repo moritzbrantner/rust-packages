@@ -121,6 +121,7 @@ struct WhisperDecodeDiagnostics {
     decoder_cached_token_step_count: usize,
     decoder_input_token_count: usize,
     generated_token_count: usize,
+    decoder_max_active_row_batch_size: usize,
     decoder_self_attention_cache_reused: bool,
     decoder_cross_attention_cache_reused: bool,
 }
@@ -165,6 +166,13 @@ struct WhisperAutoregressiveRow {
     tokens: Vec<u32>,
     prompt_len: usize,
     cache_position: usize,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct ActiveWhisperDecodeRow {
+    original_index: usize,
+    row: WhisperAutoregressiveRow,
+    stats: WhisperGenerationStats,
 }
 
 impl WhisperAutoregressiveRow {
@@ -227,6 +235,7 @@ struct WhisperGenerationStats {
     cached_token_step_count: usize,
     decoder_input_token_count: usize,
     generated_token_count: usize,
+    max_active_row_batch_size: usize,
     decoder_self_attention_cache_reused: bool,
     decoder_cross_attention_cache_reused: bool,
 }
@@ -244,6 +253,10 @@ impl WhisperGenerationStats {
         self.generated_token_count += 1;
     }
 
+    fn record_active_row_batch_size(&mut self, batch_size: usize) {
+        self.max_active_row_batch_size = self.max_active_row_batch_size.max(batch_size);
+    }
+
     fn record_decoder_stats(&mut self, stats: CachedWhisperDecoderStats) {
         self.decoder_self_attention_cache_reused |= stats.self_attention_cache_reused;
         self.decoder_cross_attention_cache_reused |= stats.cross_attention_cache_reused;
@@ -254,6 +267,9 @@ impl WhisperGenerationStats {
         diagnostics.decoder_cached_token_step_count += self.cached_token_step_count;
         diagnostics.decoder_input_token_count += self.decoder_input_token_count;
         diagnostics.generated_token_count += self.generated_token_count;
+        diagnostics.decoder_max_active_row_batch_size = diagnostics
+            .decoder_max_active_row_batch_size
+            .max(self.max_active_row_batch_size);
         diagnostics.decoder_self_attention_cache_reused |= self.decoder_self_attention_cache_reused;
         diagnostics.decoder_cross_attention_cache_reused |=
             self.decoder_cross_attention_cache_reused;
@@ -266,6 +282,9 @@ impl WhisperDecodeDiagnostics {
         self.decoder_cached_token_step_count += other.decoder_cached_token_step_count;
         self.decoder_input_token_count += other.decoder_input_token_count;
         self.generated_token_count += other.generated_token_count;
+        self.decoder_max_active_row_batch_size = self
+            .decoder_max_active_row_batch_size
+            .max(other.decoder_max_active_row_batch_size);
         self.decoder_self_attention_cache_reused |= other.decoder_self_attention_cache_reused;
         self.decoder_cross_attention_cache_reused |= other.decoder_cross_attention_cache_reused;
     }
@@ -601,6 +620,16 @@ impl CachedWhisperAttention {
     fn reset_kv_cache(&mut self) {
         self.kv_cache = None;
     }
+
+    fn select_kv_cache_rows(&mut self, row_indices: &Tensor) -> candle_core::Result<()> {
+        if let Some((cached_k, cached_v)) = &self.kv_cache {
+            self.kv_cache = Some((
+                cached_k.index_select(row_indices, 0)?,
+                cached_v.index_select(row_indices, 0)?,
+            ));
+        }
+        Ok(())
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
@@ -679,6 +708,14 @@ impl CachedWhisperBlock {
         if let Some((attn, _)) = &mut self.cross_attn {
             attn.reset_kv_cache();
         }
+    }
+
+    fn select_kv_cache_rows(&mut self, row_indices: &Tensor) -> candle_core::Result<()> {
+        self.attn.select_kv_cache_rows(row_indices)?;
+        if let Some((attn, _)) = &mut self.cross_attn {
+            attn.select_kv_cache_rows(row_indices)?;
+        }
+        Ok(())
     }
 }
 
@@ -824,6 +861,13 @@ impl CachedWhisperDecoder {
         for block in self.blocks.iter_mut() {
             block.reset_kv_cache();
         }
+    }
+
+    fn select_kv_cache_rows(&mut self, row_indices: &Tensor) -> candle_core::Result<()> {
+        for block in self.blocks.iter_mut() {
+            block.select_kv_cache_rows(row_indices)?;
+        }
+        Ok(())
     }
 }
 
@@ -980,66 +1024,77 @@ impl CandleWhisperSession {
         let mut decoder_cached_token_step_count = 0_usize;
         let mut decoder_input_token_count = 0_usize;
         let mut generated_token_count = 0_usize;
+        let mut decoder_max_active_row_batch_size = 0_usize;
         let mut decoder_self_attention_cache_reused = false;
         let mut decoder_cross_attention_cache_reused = false;
         let batch_size = candle_batch_size(options, request.chunks.len());
         for batch in request.chunks.chunks(batch_size) {
-            for chunk in batch {
-                for window in
-                    chunk_windows(&request.audio.samples, request.audio.sample_rate, chunk)?
-                {
-                    debug_assert!(window.chunk_start_seconds <= window.global_start_seconds);
-                    debug_assert!(window.local_start_seconds <= window.local_end_seconds);
-                    let timed = self.decode_window_with_timing_mode(
-                        &window.samples,
-                        WhisperDecodeTimingMode::Auto,
-                    )?;
-                    timestamp_tokens_requested |= timed.diagnostics.timestamp_tokens_requested;
-                    timestamp_tokens_present |= timed.diagnostics.timestamp_tokens_present;
-                    decoder_prompt_prefill_count += timed.diagnostics.decoder_prompt_prefill_count;
-                    decoder_cached_token_step_count +=
-                        timed.diagnostics.decoder_cached_token_step_count;
-                    decoder_input_token_count += timed.diagnostics.decoder_input_token_count;
-                    generated_token_count += timed.diagnostics.generated_token_count;
-                    decoder_self_attention_cache_reused |=
-                        timed.diagnostics.decoder_self_attention_cache_reused;
-                    decoder_cross_attention_cache_reused |=
-                        timed.diagnostics.decoder_cross_attention_cache_reused;
-                    if let Some(reason) = timed.fallback_reason {
-                        if !timing_fallbacks.contains(&reason) {
-                            timing_fallbacks.push(reason);
-                        }
-                        rejected_timestamp_segments |= reason == "unstableTimestampSegments";
+            let windows =
+                collect_chunk_windows(&request.audio.samples, request.audio.sample_rate, batch)?;
+            let timed_windows = match options.decode_runtime {
+                CandleWhisperDecodeRuntime::AutoregressiveKvCache => windows
+                    .iter()
+                    .map(|window| {
+                        self.decode_window_with_timing_mode(
+                            &window.samples,
+                            WhisperDecodeTimingMode::Auto,
+                        )
+                    })
+                    .collect::<Result<Vec<_>>>()?,
+                CandleWhisperDecodeRuntime::ActiveRowTensorBatch => {
+                    self.decode_windows_with_timing_mode(&windows, WhisperDecodeTimingMode::Auto)?
+                }
+            };
+            for (window, timed) in windows.iter().zip(timed_windows) {
+                debug_assert!(window.chunk_start_seconds <= window.global_start_seconds);
+                debug_assert!(window.local_start_seconds <= window.local_end_seconds);
+                timestamp_tokens_requested |= timed.diagnostics.timestamp_tokens_requested;
+                timestamp_tokens_present |= timed.diagnostics.timestamp_tokens_present;
+                decoder_prompt_prefill_count += timed.diagnostics.decoder_prompt_prefill_count;
+                decoder_cached_token_step_count +=
+                    timed.diagnostics.decoder_cached_token_step_count;
+                decoder_input_token_count += timed.diagnostics.decoder_input_token_count;
+                generated_token_count += timed.diagnostics.generated_token_count;
+                decoder_max_active_row_batch_size = decoder_max_active_row_batch_size
+                    .max(timed.diagnostics.decoder_max_active_row_batch_size);
+                decoder_self_attention_cache_reused |=
+                    timed.diagnostics.decoder_self_attention_cache_reused;
+                decoder_cross_attention_cache_reused |=
+                    timed.diagnostics.decoder_cross_attention_cache_reused;
+                if let Some(reason) = timed.fallback_reason {
+                    if !timing_fallbacks.contains(&reason) {
+                        timing_fallbacks.push(reason);
                     }
-                    if timed.timing == WhisperWindowTiming::ChunkWindow {
-                        if timed.decoded.text.trim().is_empty() {
-                            continue;
-                        }
-                        segments.push(window_fallback_segment(
-                            next_index,
-                            timed.decoded.text,
-                            window.global_start_seconds,
-                            window.global_end_seconds,
-                            self.setup.language.clone(),
-                        ));
-                        next_index += 1;
-                    } else {
-                        used_timestamp_tokens = true;
-                        let timestamp_segments = decoded_window_to_contract_segments(
-                            timed.decoded,
-                            &mut next_index,
-                            window.global_start_seconds,
-                            window.global_end_seconds,
-                            self.setup.language.clone(),
-                        );
-                        if timestamp_segments
-                            .iter()
-                            .any(|segment| !segment.words.is_empty())
-                        {
-                            used_timestamp_word_projection = true;
-                        }
-                        segments.extend(timestamp_segments);
+                    rejected_timestamp_segments |= reason == "unstableTimestampSegments";
+                }
+                if timed.timing == WhisperWindowTiming::ChunkWindow {
+                    if timed.decoded.text.trim().is_empty() {
+                        continue;
                     }
+                    segments.push(window_fallback_segment(
+                        next_index,
+                        timed.decoded.text,
+                        window.global_start_seconds,
+                        window.global_end_seconds,
+                        self.setup.language.clone(),
+                    ));
+                    next_index += 1;
+                } else {
+                    used_timestamp_tokens = true;
+                    let timestamp_segments = decoded_window_to_contract_segments(
+                        timed.decoded,
+                        &mut next_index,
+                        window.global_start_seconds,
+                        window.global_end_seconds,
+                        self.setup.language.clone(),
+                    );
+                    if timestamp_segments
+                        .iter()
+                        .any(|segment| !segment.words.is_empty())
+                    {
+                        used_timestamp_word_projection = true;
+                    }
+                    segments.extend(timestamp_segments);
                 }
             }
         }
@@ -1078,11 +1133,12 @@ impl CandleWhisperSession {
             "timestampSegmentsRejected={rejected_timestamp_segments}"
         ));
         diagnostics.extend([
-            "generation=autoregressive-kv-cache".to_string(),
+            format!("generation={}", generation_label(options.decode_runtime)),
             format!("decoderPromptPrefillCount={decoder_prompt_prefill_count}"),
             format!("decoderCachedTokenStepCount={decoder_cached_token_step_count}"),
             format!("decoderInputTokenCount={decoder_input_token_count}"),
             format!("generatedTokenCount={generated_token_count}"),
+            format!("decoderMaxActiveRowBatchSize={decoder_max_active_row_batch_size}"),
             format!(
                 "decoderSelfAttentionCacheReused={}",
                 decoder_self_attention_cache_reused
@@ -1179,31 +1235,183 @@ impl CandleWhisperSession {
         }
     }
 
+    fn decode_windows_with_timing_mode(
+        &mut self,
+        windows: &[ChunkWindow],
+        mode: WhisperDecodeTimingMode,
+    ) -> Result<Vec<WhisperTimedWindow>> {
+        if windows.is_empty() {
+            return Ok(Vec::new());
+        }
+        match mode {
+            WhisperDecodeTimingMode::NoTimestamps => self
+                .decode_window_batch(windows, WhisperDecodeMode::WithoutTimestamps)?
+                .into_iter()
+                .map(|decoded| {
+                    Ok(WhisperTimedWindow {
+                        decoded: decoded.window,
+                        timing: WhisperWindowTiming::ChunkWindow,
+                        fallback_reason: None,
+                        diagnostics: decoded.diagnostics,
+                    })
+                })
+                .collect(),
+            WhisperDecodeTimingMode::Auto => {
+                if timestamp_spec_for_timing_mode(&self.tokenizer, mode)?.is_none() {
+                    let mut fallback = self.decode_windows_with_timing_mode(
+                        windows,
+                        WhisperDecodeTimingMode::NoTimestamps,
+                    )?;
+                    for timed in &mut fallback {
+                        timed.fallback_reason = Some("missingTimestampMetadata");
+                    }
+                    return Ok(fallback);
+                }
+                let timestamp_decoded =
+                    self.decode_window_batch(windows, WhisperDecodeMode::TimestampTokens)?;
+                let mut results: Vec<Option<WhisperTimedWindow>> = vec![None; windows.len()];
+                let mut fallback_indices = Vec::new();
+                for (index, (window, decoded)) in windows
+                    .iter()
+                    .zip(timestamp_decoded.into_iter())
+                    .enumerate()
+                {
+                    let diagnostics = decoded.diagnostics.clone();
+                    if has_stable_timestamp_segments(&decoded.window, &window.samples) {
+                        results[index] = Some(WhisperTimedWindow {
+                            decoded: decoded.window,
+                            timing: WhisperWindowTiming::WhisperTimestampTokens,
+                            fallback_reason: None,
+                            diagnostics,
+                        });
+                    } else {
+                        fallback_indices.push((index, diagnostics));
+                    }
+                }
+                if !fallback_indices.is_empty() {
+                    let fallback_windows = fallback_indices
+                        .iter()
+                        .map(|(index, _)| windows[*index].clone())
+                        .collect::<Vec<_>>();
+                    let fallbacks = self.decode_windows_with_timing_mode(
+                        &fallback_windows,
+                        WhisperDecodeTimingMode::NoTimestamps,
+                    )?;
+                    for ((index, timestamp_diagnostics), mut fallback) in
+                        fallback_indices.into_iter().zip(fallbacks)
+                    {
+                        fallback.fallback_reason = Some("unstableTimestampSegments");
+                        fallback
+                            .diagnostics
+                            .add_generation_counts_from(&timestamp_diagnostics);
+                        fallback.diagnostics.timestamp_tokens_requested =
+                            timestamp_diagnostics.timestamp_tokens_requested;
+                        fallback.diagnostics.timestamp_tokens_present =
+                            timestamp_diagnostics.timestamp_tokens_present;
+                        fallback.diagnostics.decoded_token_ids =
+                            timestamp_diagnostics.decoded_token_ids;
+                        results[index] = Some(fallback);
+                    }
+                }
+                Ok(results
+                    .into_iter()
+                    .map(|result| result.expect("every batched Whisper window is decoded"))
+                    .collect())
+            }
+            WhisperDecodeTimingMode::TimestampTokensRequired => {
+                timestamp_spec_for_timing_mode(&self.tokenizer, mode)?;
+                let decoded =
+                    self.decode_window_batch(windows, WhisperDecodeMode::TimestampTokens)?;
+                decoded
+                    .into_iter()
+                    .zip(windows)
+                    .map(|(decoded, window)| {
+                        let diagnostics = decoded.diagnostics.clone();
+                        if !has_stable_timestamp_segments(&decoded.window, &window.samples) {
+                            return Err(model_output_mismatch(
+                                "Whisper timestamp-token decode produced no stable bounded text segments",
+                            ));
+                        }
+                        Ok(WhisperTimedWindow {
+                            decoded: decoded.window,
+                            timing: WhisperWindowTiming::WhisperTimestampTokens,
+                            fallback_reason: None,
+                            diagnostics,
+                        })
+                    })
+                    .collect()
+            }
+        }
+    }
+
     fn decode_window(
         &mut self,
         samples: &[f32],
         mode: WhisperDecodeMode,
     ) -> Result<WhisperDecodeOutput> {
-        let mel = whisper::audio::pcm_to_mel(&self.model.config, samples, &self.mel_filters);
-        let n_mel = self.model.config.num_mel_bins;
-        let mel_frames = mel.len() / n_mel;
-        let mut features = Vec::with_capacity(n_mel * whisper::N_FRAMES);
-        for mel_index in 0..n_mel {
-            let row_start = mel_index * mel_frames;
-            let available = mel_frames.min(whisper::N_FRAMES);
-            features.extend_from_slice(&mel[row_start..row_start + available]);
-            if available < whisper::N_FRAMES {
-                features.extend(std::iter::repeat_n(0.0, whisper::N_FRAMES - available));
-            }
-        }
-        let mel = Tensor::from_vec(features, (1, n_mel, whisper::N_FRAMES), &self.device).map_err(
-            |error| model_output_mismatch(format!("failed to build mel tensor: {error}")),
-        )?;
+        self.decode_window_batch(
+            &[ChunkWindow {
+                samples: samples.to_vec(),
+                chunk_start_seconds: 0.0,
+                local_start_seconds: 0.0,
+                local_end_seconds: samples.len() as f64 / whisper::SAMPLE_RATE as f64,
+                global_start_seconds: 0.0,
+                global_end_seconds: samples.len() as f64 / whisper::SAMPLE_RATE as f64,
+            }],
+            mode,
+        )
+        .map(|mut outputs| outputs.remove(0))
+    }
+
+    fn decode_window_batch(
+        &mut self,
+        windows: &[ChunkWindow],
+        mode: WhisperDecodeMode,
+    ) -> Result<Vec<WhisperDecodeOutput>> {
+        let mel = self.mel_tensor_batch(windows)?;
         let audio_features =
             self.model.encoder.forward(&mel, true).map_err(|error| {
                 model_output_mismatch(format!("Whisper encoder failed: {error}"))
             })?;
-        let (token_ids, generation_stats) = self.decode_tokens(&audio_features, mode)?;
+        let token_outputs = self.decode_tokens_batch(&audio_features, windows.len(), mode)?;
+        token_outputs
+            .into_iter()
+            .map(|(token_ids, generation_stats)| {
+                self.tokens_to_decode_output(token_ids, generation_stats, mode)
+            })
+            .collect()
+    }
+
+    fn mel_tensor_batch(&self, windows: &[ChunkWindow]) -> Result<Tensor> {
+        let n_mel = self.model.config.num_mel_bins;
+        let mut features = Vec::with_capacity(windows.len() * n_mel * whisper::N_FRAMES);
+        for window in windows {
+            let mel =
+                whisper::audio::pcm_to_mel(&self.model.config, &window.samples, &self.mel_filters);
+            let mel_frames = mel.len() / n_mel;
+            for mel_index in 0..n_mel {
+                let row_start = mel_index * mel_frames;
+                let available = mel_frames.min(whisper::N_FRAMES);
+                features.extend_from_slice(&mel[row_start..row_start + available]);
+                if available < whisper::N_FRAMES {
+                    features.extend(std::iter::repeat_n(0.0, whisper::N_FRAMES - available));
+                }
+            }
+        }
+        Tensor::from_vec(
+            features,
+            (windows.len(), n_mel, whisper::N_FRAMES),
+            &self.device,
+        )
+        .map_err(|error| model_output_mismatch(format!("failed to build mel tensor: {error}")))
+    }
+
+    fn tokens_to_decode_output(
+        &self,
+        token_ids: Vec<u32>,
+        generation_stats: WhisperGenerationStats,
+        mode: WhisperDecodeMode,
+    ) -> Result<WhisperDecodeOutput> {
         let mut diagnostics = WhisperDecodeDiagnostics {
             timestamp_tokens_requested: mode == WhisperDecodeMode::TimestampTokens,
             timestamp_tokens_present: timestamp_spec_for_timing_mode(
@@ -1248,64 +1456,139 @@ impl CandleWhisperSession {
         }
     }
 
-    fn decode_tokens(
+    fn decode_tokens_batch(
         &mut self,
         audio_features: &Tensor,
+        row_count: usize,
         mode: WhisperDecodeMode,
-    ) -> Result<(Vec<u32>, WhisperGenerationStats)> {
+    ) -> Result<Vec<(Vec<u32>, WhisperGenerationStats)>> {
         self.model.reset_kv_cache();
-        let mut row = WhisperAutoregressiveRow::new(self.initial_tokens(mode)?);
         let eos = self.eos_token_id()?;
         let max_length = self
             .generation
             .max_length
             .unwrap_or(self.model.config.max_target_positions)
             .min(self.model.config.max_target_positions);
-        let mut stats = WhisperGenerationStats::default();
-        while row.tokens.len() < max_length {
-            let input = row.next_decoder_input();
-            stats.record_input(&input);
-            let token_tensor = Tensor::new(input.token_ids.as_slice(), &self.device)
-                .and_then(|tensor| tensor.unsqueeze(0))
-                .map_err(|error| {
-                    model_output_mismatch(format!("failed to build token tensor: {error}"))
-                })?;
+        let initial_tokens = self.initial_tokens(mode)?;
+        let mut active_rows = (0..row_count)
+            .map(|original_index| ActiveWhisperDecodeRow {
+                original_index,
+                row: WhisperAutoregressiveRow::new(initial_tokens.clone()),
+                stats: WhisperGenerationStats::default(),
+            })
+            .collect::<Vec<_>>();
+        let mut active_features = audio_features.clone();
+        let mut completed: Vec<Option<(Vec<u32>, WhisperGenerationStats)>> = vec![None; row_count];
+
+        while !active_rows.is_empty() && active_rows[0].row.tokens.len() < max_length {
+            let active_len_before_step = active_rows.len();
+            let input = active_rows[0].row.next_decoder_input();
+            debug_assert!(active_rows.iter().all(|active| active
+                .row
+                .next_decoder_input()
+                .token_ids
+                .len()
+                == input.token_ids.len()));
+            for active in &mut active_rows {
+                active.stats.record_input(&input);
+                active
+                    .stats
+                    .record_active_row_batch_size(active_len_before_step);
+            }
+            let token_ids = active_rows
+                .iter()
+                .flat_map(|active| active.row.next_decoder_input().token_ids)
+                .collect::<Vec<_>>();
+            let token_tensor = Tensor::from_vec(
+                token_ids,
+                (active_rows.len(), input.token_ids.len()),
+                &self.device,
+            )
+            .map_err(|error| {
+                model_output_mismatch(format!("failed to build batched token tensor: {error}"))
+            })?;
             let (decoded, decoder_stats) = self
                 .model
                 .decoder
                 .forward(
                     &token_tensor,
-                    audio_features,
+                    &active_features,
                     input.position_offset,
                     input.flush_cache,
                 )
                 .map_err(|error| {
-                    model_output_mismatch(format!("Whisper decoder failed: {error}"))
+                    model_output_mismatch(format!("Whisper batched decoder failed: {error}"))
                 })?;
-            stats.record_decoder_stats(decoder_stats);
-            row.mark_forwarded();
+            for active in &mut active_rows {
+                active.stats.record_decoder_stats(decoder_stats);
+                active.row.mark_forwarded();
+            }
             let logits = self.model.decoder.final_linear(&decoded).map_err(|error| {
-                model_output_mismatch(format!("Whisper logits projection failed: {error}"))
+                model_output_mismatch(format!("Whisper batched logits projection failed: {error}"))
             })?;
             let seq_index = input.token_ids.len() - 1;
-            let mut next_logits = logits
-                .i((0, seq_index, ..))
-                .and_then(|logits| logits.to_dtype(DType::F32))
-                .and_then(|logits| logits.to_vec1::<f32>())
-                .map_err(|error| {
-                    model_output_mismatch(format!("Whisper greedy decode failed: {error}"))
-                })?;
-            self.apply_logit_filters(&mut next_logits, mode, row.generated_tokens())?;
-            let next = argmax_finite(&next_logits).ok_or_else(|| {
-                model_output_mismatch("Whisper logits were fully suppressed during decode")
-            })? as u32;
-            if next == eos {
+            let mut next_tokens = Vec::with_capacity(active_rows.len());
+            for (active_index, active) in std::mem::take(&mut active_rows).into_iter().enumerate() {
+                let mut next_logits = logits
+                    .i((active_index, seq_index, ..))
+                    .and_then(|logits| logits.to_dtype(DType::F32))
+                    .and_then(|logits| logits.to_vec1::<f32>())
+                    .map_err(|error| {
+                        model_output_mismatch(format!(
+                            "Whisper batched greedy decode failed: {error}"
+                        ))
+                    })?;
+                self.apply_logit_filters(&mut next_logits, mode, active.row.generated_tokens())?;
+                let next = argmax_finite(&next_logits).ok_or_else(|| {
+                    model_output_mismatch(
+                        "Whisper logits were fully suppressed during batched decode",
+                    )
+                })? as u32;
+                next_tokens.push((active, next));
+            }
+            let (survivors, survivor_indices) =
+                apply_active_row_decisions(next_tokens, eos, &mut completed)?;
+            if survivors.is_empty() {
                 break;
             }
-            row.accept(next);
-            stats.record_generated_token();
+            if survivors.len() < active_len_before_step {
+                let row_indices = Tensor::new(survivor_indices.as_slice(), &self.device)
+                    .and_then(|indices| indices.to_dtype(DType::I64))
+                    .map_err(|error| {
+                        model_output_mismatch(format!(
+                            "failed to build Whisper active-row index tensor: {error}"
+                        ))
+                    })?;
+                active_features =
+                    active_features
+                        .index_select(&row_indices, 0)
+                        .map_err(|error| {
+                            model_output_mismatch(format!(
+                                "failed to compact Whisper encoder features: {error}"
+                            ))
+                        })?;
+                self.model
+                    .decoder
+                    .select_kv_cache_rows(&row_indices)
+                    .map_err(|error| {
+                        model_output_mismatch(format!(
+                            "failed to compact Whisper decoder KV cache: {error}"
+                        ))
+                    })?;
+            }
+            active_rows = survivors;
         }
-        Ok((row.into_generated_tokens(), stats))
+
+        for active in active_rows {
+            completed[active.original_index] =
+                Some((active.row.into_generated_tokens(), active.stats));
+        }
+        completed
+            .into_iter()
+            .map(|result| {
+                result.ok_or_else(|| model_output_mismatch("missing Whisper batch row result"))
+            })
+            .collect()
     }
 
     fn apply_logit_filters(
@@ -1510,6 +1793,51 @@ fn candle_batch_size(options: &CandleWhisperOptions, chunk_count: usize) -> usiz
         return chunk_count.max(1);
     }
     options.max_batch_size.unwrap_or(chunk_count.max(1)).max(1)
+}
+
+fn generation_label(runtime: CandleWhisperDecodeRuntime) -> &'static str {
+    match runtime {
+        CandleWhisperDecodeRuntime::AutoregressiveKvCache => "autoregressive-kv-cache",
+        CandleWhisperDecodeRuntime::ActiveRowTensorBatch => "active-row-tensor-batch",
+    }
+}
+
+fn collect_chunk_windows(
+    samples: &[f32],
+    sample_rate: u32,
+    chunks: &[SpeechActivitySegment],
+) -> Result<Vec<ChunkWindow>> {
+    let mut windows = Vec::new();
+    for chunk in chunks {
+        windows.extend(chunk_windows(samples, sample_rate, chunk)?);
+    }
+    Ok(windows)
+}
+
+fn apply_active_row_decisions(
+    next_tokens: Vec<(ActiveWhisperDecodeRow, u32)>,
+    eos: u32,
+    completed: &mut [Option<(Vec<u32>, WhisperGenerationStats)>],
+) -> Result<(Vec<ActiveWhisperDecodeRow>, Vec<u32>)> {
+    let mut survivors = Vec::new();
+    let mut survivor_indices = Vec::new();
+    for (active_index, (mut active, next)) in next_tokens.into_iter().enumerate() {
+        if next == eos {
+            let original_index = active.original_index;
+            if completed.get(original_index).is_none() {
+                return Err(model_output_mismatch(
+                    "Whisper active row completed outside the result range",
+                ));
+            }
+            completed[original_index] = Some((active.row.into_generated_tokens(), active.stats));
+        } else {
+            active.row.accept(next);
+            active.stats.record_generated_token();
+            survivor_indices.push(active_index as u32);
+            survivors.push(active);
+        }
+    }
+    Ok((survivors, survivor_indices))
 }
 
 fn decode_timestamp_window(
@@ -2150,6 +2478,7 @@ mod tests {
         stats.record_input(&prefill);
         stats.record_input(&step);
         stats.record_generated_token();
+        stats.record_active_row_batch_size(3);
         stats.record_decoder_stats(CachedWhisperDecoderStats {
             self_attention_cache_reused: true,
             cross_attention_cache_reused: true,
@@ -2162,8 +2491,92 @@ mod tests {
         assert_eq!(diagnostics.decoder_cached_token_step_count, 1);
         assert_eq!(diagnostics.decoder_input_token_count, 5);
         assert_eq!(diagnostics.generated_token_count, 1);
+        assert_eq!(diagnostics.decoder_max_active_row_batch_size, 3);
         assert!(diagnostics.decoder_self_attention_cache_reused);
         assert!(diagnostics.decoder_cross_attention_cache_reused);
+    }
+
+    #[test]
+    fn active_row_decisions_compact_finished_rows_and_preserve_original_order() {
+        let eos = 2;
+        let rows = (0..3)
+            .map(|original_index| ActiveWhisperDecodeRow {
+                original_index,
+                row: WhisperAutoregressiveRow::new(vec![1]),
+                stats: WhisperGenerationStats::default(),
+            })
+            .collect::<Vec<_>>();
+        let mut completed = vec![None, None, None];
+
+        let (survivors, survivor_indices) = apply_active_row_decisions(
+            rows.into_iter().zip([10, eos, 12]).collect(),
+            eos,
+            &mut completed,
+        )
+        .unwrap();
+        assert_eq!(survivor_indices, vec![0, 2]);
+        assert_eq!(
+            survivors
+                .iter()
+                .map(|row| row.original_index)
+                .collect::<Vec<_>>(),
+            vec![0, 2]
+        );
+        assert_eq!(completed[1].as_ref().unwrap().0, Vec::<u32>::new());
+
+        let (survivors, survivor_indices) = apply_active_row_decisions(
+            survivors.into_iter().zip([eos, 14]).collect(),
+            eos,
+            &mut completed,
+        )
+        .unwrap();
+        assert_eq!(survivor_indices, vec![1]);
+        assert_eq!(survivors[0].original_index, 2);
+        assert_eq!(completed[0].as_ref().unwrap().0, vec![10]);
+
+        let (survivors, survivor_indices) = apply_active_row_decisions(
+            survivors.into_iter().zip([eos]).collect(),
+            eos,
+            &mut completed,
+        )
+        .unwrap();
+        assert!(survivors.is_empty());
+        assert!(survivor_indices.is_empty());
+
+        let completed_tokens = completed
+            .into_iter()
+            .map(|row| row.unwrap().0)
+            .collect::<Vec<_>>();
+        assert_eq!(completed_tokens, vec![vec![10], vec![], vec![12, 14]]);
+    }
+
+    #[test]
+    fn active_row_decisions_keep_per_row_generation_stats_isolated() {
+        let eos = 2;
+        let mut rows = (0..2)
+            .map(|original_index| ActiveWhisperDecodeRow {
+                original_index,
+                row: WhisperAutoregressiveRow::new(vec![1]),
+                stats: WhisperGenerationStats::default(),
+            })
+            .collect::<Vec<_>>();
+        rows[0].stats.decoder_input_token_count = 3;
+        rows[1].stats.decoder_input_token_count = 7;
+        let mut completed = vec![None, None];
+
+        let (survivors, _) = apply_active_row_decisions(
+            rows.into_iter().zip([42, eos]).collect(),
+            eos,
+            &mut completed,
+        )
+        .unwrap();
+        assert_eq!(survivors[0].stats.decoder_input_token_count, 3);
+        assert_eq!(survivors[0].stats.generated_token_count, 1);
+        assert_eq!(
+            completed[1].as_ref().unwrap().1.decoder_input_token_count,
+            7
+        );
+        assert_eq!(completed[1].as_ref().unwrap().1.generated_token_count, 0);
     }
 
     #[test]
@@ -2185,6 +2598,7 @@ mod tests {
             decoder_cached_token_step_count: 1,
             decoder_input_token_count: 5,
             generated_token_count: 1,
+            decoder_max_active_row_batch_size: 2,
             decoder_self_attention_cache_reused: true,
             decoder_cross_attention_cache_reused: true,
         };
@@ -2201,6 +2615,7 @@ mod tests {
         assert_eq!(fallback.decoder_cached_token_step_count, 3);
         assert_eq!(fallback.decoder_input_token_count, 11);
         assert_eq!(fallback.generated_token_count, 3);
+        assert_eq!(fallback.decoder_max_active_row_batch_size, 2);
         assert!(fallback.decoder_self_attention_cache_reused);
         assert!(fallback.decoder_cross_attention_cache_reused);
     }

@@ -264,7 +264,10 @@ impl CandleWhisperDecodeRuntime {
     }
 
     pub fn is_supported(self) -> bool {
-        matches!(self, Self::AutoregressiveKvCache)
+        matches!(
+            self,
+            Self::AutoregressiveKvCache | Self::ActiveRowTensorBatch
+        )
     }
 }
 
@@ -1384,7 +1387,7 @@ pub fn candle_whisper_provider_plan() -> TranscriptionProviderPlan {
             "Set task=translate for native Whisper translation; wav2vec2/CTC alignment is not supported for translated output.".to_string(),
             "Default tests do not download models or require CUDA.".to_string(),
             "Default decodeRuntime=autoregressiveKvCache preserves the safe per-window KV-cache path.".to_string(),
-            "decodeRuntime=activeRowTensorBatch is reserved for the future true tensor-batched active-row path and is rejected until implemented.".to_string(),
+            "decodeRuntime=activeRowTensorBatch enables true tensor-batched active-row decode for eligible multi-window native Candle Whisper input.".to_string(),
         ],
     }
 }
@@ -1480,9 +1483,6 @@ pub(crate) fn validate_candle_batch_options(options: &CandleWhisperOptions) -> R
                 "Candle Whisper activeRowTensorBatch decodeRuntime requires max_batch_size greater than one or unbounded batching",
             ));
         }
-        return Err(unsupported_runtime(
-            "Candle Whisper decodeRuntime=activeRowTensorBatch is reserved for the future true tensor-batched active-row decode path and is not implemented in this crate yet",
-        ));
     }
     Ok(())
 }
@@ -3036,7 +3036,7 @@ mod tests {
     }
 
     #[test]
-    fn candle_active_row_decode_runtime_is_rejected_until_implemented() {
+    fn candle_active_row_decode_runtime_is_supported_when_batching_is_enabled() {
         let options = CandleWhisperOptions {
             decode_runtime: CandleWhisperDecodeRuntime::ActiveRowTensorBatch,
             batch_chunks: true,
@@ -3044,12 +3044,8 @@ mod tests {
             ..CandleWhisperOptions::default()
         };
 
-        let error = validate_candle_batch_options(&options)
-            .unwrap_err()
-            .to_string();
-        assert!(error.contains("unsupported_runtime"));
-        assert!(error.contains("activeRowTensorBatch"));
-        assert!(error.contains("not implemented"));
+        validate_candle_batch_options(&options).unwrap();
+        assert!(options.decode_runtime.is_supported());
     }
 
     #[test]
