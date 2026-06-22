@@ -35,7 +35,7 @@ const WHISPER_TIMESTAMP_TOKEN_COUNT: u32 =
 const ASR_WINDOW_LEADING_CONTEXT_SECONDS: f64 = 0.25;
 const ASR_WINDOW_TRAILING_CONTEXT_SECONDS: f64 = 0.04;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct WhisperBundlePaths {
     pub root: PathBuf,
     pub config_json: PathBuf,
@@ -45,7 +45,7 @@ pub(crate) struct WhisperBundlePaths {
     pub model_safetensors: PathBuf,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 struct WhisperRunSetup {
     model_id: String,
     task: TranscriptionTask,
@@ -321,6 +321,39 @@ pub(crate) fn transcribe(
     let setup = WhisperRunSetup::from_options_and_request(options, &request)?;
     let mut session = CandleWhisperSession::load(setup)?;
     session.transcribe_chunks(options, request)
+}
+
+pub(crate) struct ReusableCandleWhisperSession {
+    session: CandleWhisperSession,
+}
+
+impl ReusableCandleWhisperSession {
+    pub(crate) fn transcribe(
+        current: &mut Option<Self>,
+        options: &CandleWhisperOptions,
+        request: AsrRequest,
+    ) -> Result<AsrResponse> {
+        let setup = WhisperRunSetup::from_options_and_request(options, &request)?;
+        let session_reused = match current.as_ref() {
+            Some(existing) if existing.session.setup == setup => true,
+            Some(_) | None => {
+                *current = Some(Self {
+                    session: CandleWhisperSession::load(setup)?,
+                });
+                false
+            }
+        };
+        let session = current
+            .as_mut()
+            .expect("reusable Candle Whisper session is loaded");
+        let mut response = session.session.transcribe_chunks(options, request)?;
+        response.diagnostics.push(if session_reused {
+            "asrModelSession=reused".to_string()
+        } else {
+            "asrModelSession=loaded".to_string()
+        });
+        Ok(response)
+    }
 }
 
 impl WhisperRunSetup {

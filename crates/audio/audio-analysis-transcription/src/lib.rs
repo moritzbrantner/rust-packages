@@ -1021,6 +1021,68 @@ impl AudioTranscriptionProvider for CandleWhisperTranscriber {
     }
 }
 
+/// Candle Whisper provider that keeps a compatible native model session loaded
+/// across transcription requests.
+#[derive(Default)]
+pub struct ReusableCandleWhisperTranscriber {
+    pub options: CandleWhisperOptions,
+    #[cfg(feature = "candle")]
+    session: Option<native_whisper::ReusableCandleWhisperSession>,
+}
+
+impl ReusableCandleWhisperTranscriber {
+    pub fn new(options: CandleWhisperOptions) -> Self {
+        Self {
+            options,
+            #[cfg(feature = "candle")]
+            session: None,
+        }
+    }
+}
+
+impl std::fmt::Debug for ReusableCandleWhisperTranscriber {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        formatter
+            .debug_struct("ReusableCandleWhisperTranscriber")
+            .field("options", &self.options)
+            .finish_non_exhaustive()
+    }
+}
+
+impl AudioTranscriptionProvider for ReusableCandleWhisperTranscriber {
+    fn provider_id(&self) -> &str {
+        "candle-whisper"
+    }
+
+    fn transcribe(&mut self, request: AsrRequest) -> Result<AsrResponse> {
+        validate_asr_request(&request)?;
+        validate_candle_setup(&self.options)?;
+        #[cfg(feature = "candle")]
+        {
+            let chunk_count = request.chunks.len();
+            let mut response = native_whisper::ReusableCandleWhisperSession::transcribe(
+                &mut self.session,
+                &self.options,
+                request,
+            )?;
+            extend_missing_candle_batch_diagnostics(
+                &mut response.diagnostics,
+                &self.options,
+                chunk_count,
+            );
+            Ok(response)
+        }
+        #[cfg(not(feature = "candle"))]
+        {
+            Err(unsupported_runtime(format!(
+                "Candle Whisper requested for `{}` but the binary lacks the `candle` feature; {}; build with `candle` for native execution and `model-bundles` for Hugging Face cache resolution",
+                request.model_id,
+                candle_whisper_setup_context(&self.options)
+            )))
+        }
+    }
+}
+
 fn candle_whisper_setup_context(options: &CandleWhisperOptions) -> String {
     let model_location = options
         .model_bundle
@@ -2313,8 +2375,8 @@ fn run_whisperx_command(
         )));
     }
 
-    let (transcript_path, transcript_bytes) = whisperx_json_bytes(&output_dir, &output.stdout)
-        .ok_or_else(|| {
+    let (transcript_path, transcript_bytes) =
+        whisperx_json_bytes(source_path, &output_dir, &output.stdout).ok_or_else(|| {
             model_output_mismatch(format!(
                 "WhisperX completed but no JSON transcript was found in `{}`",
                 output_dir.display()
@@ -2429,8 +2491,12 @@ fn whisperx_args(
     args
 }
 
-fn whisperx_json_bytes(output_dir: &Path, stdout: &[u8]) -> Option<(Option<PathBuf>, Vec<u8>)> {
-    let path = find_json_artifact(output_dir);
+fn whisperx_json_bytes(
+    source_path: &Path,
+    output_dir: &Path,
+    stdout: &[u8],
+) -> Option<(Option<PathBuf>, Vec<u8>)> {
+    let path = find_json_artifact_for_source(output_dir, source_path);
     if let Some(path) = path {
         return fs::read(&path).ok().map(|bytes| (Some(path), bytes));
     }
@@ -2455,7 +2521,16 @@ fn whisperx_stdout_vad_segments(stdout: &[u8]) -> Vec<SpeechActivitySegment> {
         .collect()
 }
 
-fn find_json_artifact(output_dir: &Path) -> Option<PathBuf> {
+fn find_json_artifact_for_source(output_dir: &Path, source_path: &Path) -> Option<PathBuf> {
+    let expected = source_path
+        .file_stem()
+        .and_then(|stem| stem.to_str())
+        .filter(|stem| !stem.is_empty())
+        .map(|stem| output_dir.join(format!("{stem}.json")));
+    if let Some(expected) = expected.filter(|path| path.is_file()) {
+        return Some(expected);
+    }
+
     let mut candidates = fs::read_dir(output_dir)
         .ok()?
         .filter_map(|entry| entry.ok().map(|entry| entry.path()))
@@ -4948,6 +5023,54 @@ mod tests {
         let error = result.unwrap_err().to_string();
         assert!(error.contains("setup_error"));
         assert!(error.contains("not found"));
+    }
+
+    #[test]
+    fn whisperx_json_bytes_prefers_current_source_stem() {
+        let temp = tempfile::tempdir().expect("tempdir");
+        fs::write(temp.path().join("a.json"), br#"{"text":"first"}"#).expect("a json");
+        fs::write(temp.path().join("b.json"), br#"{"text":"second"}"#).expect("b json");
+
+        let (path, bytes) =
+            whisperx_json_bytes(Path::new("audio/b.wav"), temp.path(), b"{}").expect("json");
+
+        assert_eq!(path, Some(temp.path().join("b.json")));
+        assert_eq!(bytes, br#"{"text":"second"}"#);
+    }
+
+    #[test]
+    fn reusable_candle_provider_reports_unsupported_without_candle_feature() {
+        #[cfg(not(feature = "candle"))]
+        {
+            let mut provider = ReusableCandleWhisperTranscriber::new(CandleWhisperOptions {
+                model_bundle: Some(PathBuf::from("bundle")),
+                ..CandleWhisperOptions::default()
+            });
+            let error = provider
+                .transcribe(AsrRequest {
+                    audio: LoadedAudio {
+                        samples: vec![0.0; 16],
+                        sample_rate: 16_000,
+                        channels: 1,
+                        source: None,
+                    },
+                    chunks: vec![SpeechActivitySegment::new(0.0, 0.001, 1.0).unwrap()],
+                    task: TranscriptionTask::Transcribe,
+                    language: Some("en".to_string()),
+                    model_id: "tiny.en".to_string(),
+                })
+                .unwrap_err()
+                .to_string();
+
+            assert!(
+                error.contains("unsupported_runtime") || error.contains("setup_error"),
+                "{error}"
+            );
+            assert!(
+                error.contains("candle") || error.contains("bundle"),
+                "{error}"
+            );
+        }
     }
 
     #[test]
