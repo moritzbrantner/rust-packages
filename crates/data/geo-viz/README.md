@@ -2,6 +2,16 @@
 
 Renderer-agnostic geographic visualization indexes for map views.
 
+## Legacy crate signpost
+
+`moritzbrantner-geo-viz` is superseded by `moenarch-geo-viz`, and its map
+kernel dependency `moritzbrantner-maps-kernels-core` is superseded by
+`moenarch-maps-kernels-core`. Active implementation ownership has moved to
+[`moritzbrantner/geo-analysis`](https://github.com/moritzbrantner/geo-analysis).
+This crate does not add an active compatibility wrapper, re-export shim, or
+runtime compatibility layer for the old name. npm package migration is
+deferred and is not part of this Rust-focused migration.
+
 This crate owns the data-side map aggregation surface used by
 `@moritzbrantner/viz-engine`. Rendering remains in downstream packages.
 
@@ -9,11 +19,11 @@ This crate owns the data-side map aggregation surface used by
 
 ```toml
 [dependencies]
-geo-core = { package = "moritzbrantner-geo-core", version = "0.1.0" }
-geo-io-geojson = { package = "moritzbrantner-geo-io-geojson", version = "0.1.0" }
-geo-clustering = { package = "moritzbrantner-geo-clustering", version = "0.1.0" }
-maps-kernels-core = "0.1.0"
-geo-viz = { package = "moritzbrantner-geo-viz", version = "0.1.0" }
+geo-core = { package = "moenarch-geo-core", version = "0.1.0" }
+geo-io-geojson = { package = "moenarch-geo-io-geojson", version = "0.1.0" }
+geo-clustering = { package = "moenarch-geo-clustering", version = "0.1.0" }
+maps-kernels-core = { package = "moenarch-maps-kernels-core", version = "0.1.0" }
+geo-viz = { package = "moenarch-geo-viz", version = "0.1.0" }
 ```
 
 ```rust
@@ -43,7 +53,7 @@ Runtime support: library, CLI, server, and WASM wrappers expose these operations
 Run the primary workflow through the CLI:
 
 ```bash
-cargo run -p moritzbrantner-geo-viz-cli -- run \
+cargo run -p moenarch-geo-viz-cli -- run \
   --operation geoViz.aggregateViewport \
   --json '{"points":[{"id":"a","latitude":49.0,"longitude":8.0}],"query":{"bounds":[7.0,48.0,9.0,50.0],"zoom":8}}'
 ```

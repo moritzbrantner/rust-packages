@@ -2,6 +2,15 @@
 
 GeoJSON import and export adapters for `geo-core`.
 
+## Legacy crate signpost
+
+`moritzbrantner-geo-io-geojson` is superseded by
+`moenarch-geo-io-geojson`. Active implementation ownership has moved to
+[`moritzbrantner/geo-analysis`](https://github.com/moritzbrantner/geo-analysis).
+This crate does not add an active compatibility wrapper, re-export shim, or
+runtime compatibility layer for the old name. npm package migration is
+deferred and is not part of this Rust-focused migration.
+
 This crate owns the `geojson` dependency. Algorithm and domain crates should
 depend on `geo-core` types instead of exposing `geojson` wire-format types.
 
@@ -9,8 +18,8 @@ depend on `geo-core` types instead of exposing `geojson` wire-format types.
 
 ```toml
 [dependencies]
-geo-core = { package = "moritzbrantner-geo-core", version = "0.1.0" }
-geo-io-geojson = { package = "moritzbrantner-geo-io-geojson", version = "0.1.0" }
+geo-core = { package = "moenarch-geo-core", version = "0.1.0" }
+geo-io-geojson = { package = "moenarch-geo-io-geojson", version = "0.1.0" }
 ```
 
 ```rust
@@ -37,7 +46,7 @@ Runtime support: library, CLI, server, and WASM wrappers expose these operations
 Run the primary workflow through the CLI:
 
 ```bash
-cargo run -p moritzbrantner-geo-io-geojson-cli -- run \
+cargo run -p moenarch-geo-io-geojson-cli -- run \
   --operation geoJson.bounds \
   --json '{"geoJson":{"coordinates":[8.0,49.0],"type":"Point"}}'
 ```
