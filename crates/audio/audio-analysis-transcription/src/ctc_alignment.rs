@@ -5,7 +5,8 @@ use video_analysis_core::Result;
 use crate::native_audio::validate_loaded_audio;
 use crate::{
     invalid_request, model_output_mismatch, setup_error, AlignedWord, AlignmentOptions,
-    AlignmentRequest, AlignmentResponse,
+    AlignmentRequest, AlignmentResponse, NoopTranscriptionPipelineObserver,
+    TranscriptionPipelineEvent, TranscriptionPipelineObserver,
 };
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -39,20 +40,48 @@ pub(crate) struct CtcAlignedWord {
     pub confidence: Option<f32>,
 }
 
+#[allow(dead_code)]
 pub(crate) fn align(
     options: &AlignmentOptions,
     request: AlignmentRequest,
+) -> Result<AlignmentResponse> {
+    let mut observer = NoopTranscriptionPipelineObserver;
+    align_with_observer(options, request, &mut observer)
+}
+
+pub(crate) fn align_with_observer(
+    options: &AlignmentOptions,
+    request: AlignmentRequest,
+    observer: &mut dyn TranscriptionPipelineObserver,
 ) -> Result<AlignmentResponse> {
     validate_loaded_audio(&request.audio)?;
     validate_transcript_ranges(&request)?;
     let resolved = resolve_alignment_model(options, &request.model_id)?;
     let resolved_device = crate::native_device::resolve_native_device(options.device)?;
-    let aligned = crate::native_wav2vec2::align_wav2vec2_ctc(
+    let model_id = resolved.model_id.clone();
+    let aligned = crate::native_wav2vec2::align_wav2vec2_ctc_with_load_observer(
         &resolved.bundle,
         &request,
         &resolved_device,
         options.interpolate_method,
         options.return_char_alignments,
+        |event| match event {
+            crate::native_wav2vec2::Wav2Vec2ModelLoadEvent::Start => {
+                observer.observe(TranscriptionPipelineEvent::ModelLoadStart {
+                    stage: "alignment".to_string(),
+                    provider: "ctc-forced-aligner".to_string(),
+                    model_id: model_id.clone(),
+                });
+            }
+            crate::native_wav2vec2::Wav2Vec2ModelLoadEvent::End { duration_seconds } => {
+                observer.observe(TranscriptionPipelineEvent::ModelLoadEnd {
+                    stage: "alignment".to_string(),
+                    provider: "ctc-forced-aligner".to_string(),
+                    model_id: model_id.clone(),
+                    duration_seconds,
+                });
+            }
+        },
     )?;
     Ok(AlignmentResponse {
         model_id: resolved.model_id,

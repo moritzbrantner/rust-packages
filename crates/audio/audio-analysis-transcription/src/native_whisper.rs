@@ -317,13 +317,30 @@ impl WhisperDecodeDiagnostics {
     }
 }
 
+#[allow(dead_code)]
 pub(crate) fn transcribe(
     options: &CandleWhisperOptions,
     request: AsrRequest,
 ) -> Result<AsrResponse> {
+    transcribe_with_load_observer(options, request, |_| {})
+}
+
+pub(crate) fn transcribe_with_load_observer(
+    options: &CandleWhisperOptions,
+    request: AsrRequest,
+    on_loaded: impl FnOnce(f64),
+) -> Result<AsrResponse> {
     let setup = WhisperRunSetup::from_options_and_request(options, &request)?;
+    let load_started = std::time::Instant::now();
     let mut session = CandleWhisperSession::load(setup)?;
+    on_loaded(load_started.elapsed().as_secs_f64());
     session.transcribe_chunks(options, request)
+}
+
+pub(crate) enum ReusableCandleWhisperSessionEvent {
+    LoadStart,
+    LoadEnd { duration_seconds: f64 },
+    Reuse,
 }
 
 pub(crate) struct ReusableCandleWhisperSession {
@@ -335,17 +352,26 @@ impl ReusableCandleWhisperSession {
         current: &mut Option<Self>,
         options: &CandleWhisperOptions,
         request: AsrRequest,
+        mut observe: impl FnMut(ReusableCandleWhisperSessionEvent),
     ) -> Result<AsrResponse> {
         let setup = WhisperRunSetup::from_options_and_request(options, &request)?;
         let session_reused = match current.as_ref() {
             Some(existing) if existing.session.setup == setup => true,
             Some(_) | None => {
+                observe(ReusableCandleWhisperSessionEvent::LoadStart);
+                let load_started = std::time::Instant::now();
                 *current = Some(Self {
                     session: CandleWhisperSession::load(setup)?,
+                });
+                observe(ReusableCandleWhisperSessionEvent::LoadEnd {
+                    duration_seconds: load_started.elapsed().as_secs_f64(),
                 });
                 false
             }
         };
+        if session_reused {
+            observe(ReusableCandleWhisperSessionEvent::Reuse);
+        }
         let session = current
             .as_mut()
             .expect("reusable Candle Whisper session is loaded");

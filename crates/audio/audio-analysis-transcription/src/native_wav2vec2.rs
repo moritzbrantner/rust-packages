@@ -49,6 +49,11 @@ pub(crate) struct Wav2Vec2Vocabulary {
     pub word_delimiter_token: Option<String>,
 }
 
+pub(crate) enum Wav2Vec2ModelLoadEvent {
+    Start,
+    End { duration_seconds: f64 },
+}
+
 #[derive(Debug, Deserialize)]
 struct RawWav2Vec2Config {
     #[serde(default)]
@@ -192,6 +197,7 @@ pub(crate) fn emit_wav2vec2_ctc(
         .collect())
 }
 
+#[allow(dead_code)]
 pub(crate) fn align_wav2vec2_ctc(
     bundle: &Path,
     request: &AlignmentRequest,
@@ -199,7 +205,26 @@ pub(crate) fn align_wav2vec2_ctc(
     interpolate_method: AlignmentInterpolationMethod,
     return_char_alignments: bool,
 ) -> Result<NativeAlignmentResult> {
-    let emission_segments = emit_wav2vec2_ctc_segments(bundle, request, device)?;
+    align_wav2vec2_ctc_with_load_observer(
+        bundle,
+        request,
+        device,
+        interpolate_method,
+        return_char_alignments,
+        |_| {},
+    )
+}
+
+pub(crate) fn align_wav2vec2_ctc_with_load_observer(
+    bundle: &Path,
+    request: &AlignmentRequest,
+    device: &ResolvedNativeDevice,
+    interpolate_method: AlignmentInterpolationMethod,
+    return_char_alignments: bool,
+    observe_load: impl FnMut(Wav2Vec2ModelLoadEvent),
+) -> Result<NativeAlignmentResult> {
+    let emission_segments =
+        emit_wav2vec2_ctc_segments_with_load_observer(bundle, request, device, observe_load)?;
     let mut aligned_words = Vec::new();
     let mut aligned_chars = Vec::new();
     for segment in emission_segments {
@@ -245,6 +270,15 @@ pub(crate) fn emit_wav2vec2_ctc_segments(
     request: &AlignmentRequest,
     device: &ResolvedNativeDevice,
 ) -> Result<Vec<Wav2Vec2CtcEmission>> {
+    emit_wav2vec2_ctc_segments_with_load_observer(bundle, request, device, |_| {})
+}
+
+pub(crate) fn emit_wav2vec2_ctc_segments_with_load_observer(
+    bundle: &Path,
+    request: &AlignmentRequest,
+    device: &ResolvedNativeDevice,
+    mut observe_load: impl FnMut(Wav2Vec2ModelLoadEvent),
+) -> Result<Vec<Wav2Vec2CtcEmission>> {
     let paths = resolve_wav2vec2_bundle_paths(bundle)?;
     let config = parse_wav2vec2_ctc_config(&paths.config_json)?;
     let preprocessor = parse_wav2vec2_preprocessor_config(&paths.preprocessor_config_json)?;
@@ -256,12 +290,17 @@ pub(crate) fn emit_wav2vec2_ctc_segments(
             config.vocab_size
         )));
     }
+    observe_load(Wav2Vec2ModelLoadEvent::Start);
+    let load_started = std::time::Instant::now();
     let model = crate::native_wav2vec2_model::Wav2Vec2ForCtc::load(
         &paths.model_safetensors,
         config,
         preprocessor,
         device.candle_device()?,
     )?;
+    observe_load(Wav2Vec2ModelLoadEvent::End {
+        duration_seconds: load_started.elapsed().as_secs_f64(),
+    });
     let mut segments = Vec::new();
     let audio_duration = request.audio.duration_seconds();
     for segment in &request.transcript.segments {
