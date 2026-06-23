@@ -45,21 +45,6 @@ flowchart LR
     crate_moritzbrantner_dense_data["moritzbrantner-dense-data"]:::crate
     crate_moritzbrantner_dense_data_cli["moritzbrantner-dense-data-cli"]:::crate
     crate_moritzbrantner_dense_data_server["moritzbrantner-dense-data-server"]:::crate
-    crate_moritzbrantner_geo_clustering["moritzbrantner-geo-clustering"]:::crate
-    crate_moritzbrantner_geo_clustering_cli["moritzbrantner-geo-clustering-cli"]:::crate
-    crate_moritzbrantner_geo_clustering_server["moritzbrantner-geo-clustering-server"]:::crate
-    crate_moritzbrantner_geo_core["moritzbrantner-geo-core"]:::crate
-    crate_moritzbrantner_geo_core_cli["moritzbrantner-geo-core-cli"]:::crate
-    crate_moritzbrantner_geo_core_server["moritzbrantner-geo-core-server"]:::crate
-    crate_moritzbrantner_geo_io_geojson["moritzbrantner-geo-io-geojson"]:::crate
-    crate_moritzbrantner_geo_io_geojson_cli["moritzbrantner-geo-io-geojson-cli"]:::crate
-    crate_moritzbrantner_geo_io_geojson_server["moritzbrantner-geo-io-geojson-server"]:::crate
-    crate_moritzbrantner_geo_io_osm["moritzbrantner-geo-io-osm"]:::crate
-    crate_moritzbrantner_geo_io_osm_cli["moritzbrantner-geo-io-osm-cli"]:::crate
-    crate_moritzbrantner_geo_io_osm_server["moritzbrantner-geo-io-osm-server"]:::crate
-    crate_moritzbrantner_geo_viz["moritzbrantner-geo-viz"]:::crate
-    crate_moritzbrantner_geo_viz_cli["moritzbrantner-geo-viz-cli"]:::crate
-    crate_moritzbrantner_geo_viz_server["moritzbrantner-geo-viz-server"]:::crate
     crate_moritzbrantner_graph_analysis_core["moritzbrantner-graph-analysis-core"]:::crate
     crate_moritzbrantner_graph_analysis_core_cli["moritzbrantner-graph-analysis-core-cli"]:::crate
     crate_moritzbrantner_graph_analysis_core_server["moritzbrantner-graph-analysis-core-server"]:::crate
@@ -73,9 +58,6 @@ flowchart LR
 
   subgraph group_math["Math"]
     direction TB
-    crate_moritzbrantner_maps_kernels_core["moritzbrantner-maps-kernels-core"]:::crate
-    crate_moritzbrantner_maps_kernels_core_cli["moritzbrantner-maps-kernels-core-cli"]:::crate
-    crate_moritzbrantner_maps_kernels_core_server["moritzbrantner-maps-kernels-core-server"]:::crate
     crate_moritzbrantner_math_geometry_2d["moritzbrantner-math-geometry-2d"]:::crate
     crate_moritzbrantner_math_geometry_2d_cli["moritzbrantner-math-geometry-2d-cli"]:::crate
     crate_moritzbrantner_math_geometry_2d_server["moritzbrantner-math-geometry-2d-server"]:::crate
@@ -357,11 +339,6 @@ flowchart LR
     crate_moritzbrantner_comfyui_models_wasm["moritzbrantner-comfyui-models-wasm"]:::crate
     crate_moritzbrantner_data_inversion_core_wasm["moritzbrantner-data-inversion-core-wasm"]:::crate
     crate_moritzbrantner_dense_data_wasm["moritzbrantner-dense-data-wasm"]:::crate
-    crate_moritzbrantner_geo_clustering_wasm["moritzbrantner-geo-clustering-wasm"]:::crate
-    crate_moritzbrantner_geo_core_wasm["moritzbrantner-geo-core-wasm"]:::crate
-    crate_moritzbrantner_geo_io_geojson_wasm["moritzbrantner-geo-io-geojson-wasm"]:::crate
-    crate_moritzbrantner_geo_io_osm_wasm["moritzbrantner-geo-io-osm-wasm"]:::crate
-    crate_moritzbrantner_geo_viz_wasm["moritzbrantner-geo-viz-wasm"]:::crate
     crate_moritzbrantner_graph_analysis_core_wasm["moritzbrantner-graph-analysis-core-wasm"]:::crate
     crate_moritzbrantner_image_analysis_captioning_wasm["moritzbrantner-image-analysis-captioning-wasm"]:::crate
     crate_moritzbrantner_image_analysis_classification_wasm["moritzbrantner-image-analysis-classification-wasm"]:::crate
@@ -375,7 +352,6 @@ flowchart LR
     crate_moritzbrantner_image_analysis_segmentation_wasm["moritzbrantner-image-analysis-segmentation-wasm"]:::crate
     crate_moritzbrantner_image_analysis_synthesis_wasm["moritzbrantner-image-analysis-synthesis-wasm"]:::crate
     crate_moritzbrantner_jobs_core_wasm["moritzbrantner-jobs-core-wasm"]:::crate
-    crate_moritzbrantner_maps_kernels_core_wasm["moritzbrantner-maps-kernels-core-wasm"]:::crate
     crate_moritzbrantner_math_geometry_2d_wasm["moritzbrantner-math-geometry-2d-wasm"]:::crate
     crate_moritzbrantner_math_linear_wasm["moritzbrantner-math-linear-wasm"]:::crate
     crate_moritzbrantner_math_signal_core_wasm["moritzbrantner-math-signal-core-wasm"]:::crate

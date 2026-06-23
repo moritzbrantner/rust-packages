@@ -44,10 +44,6 @@ fn shared_math_layer_connects_geometry_image_audio_text_and_statistics() {
 
 #[test]
 fn expanded_math_apis_interoperate_through_facade() {
-    let path = va::maps_kernels::densify_line_flat(&[0.0, 0.0, 3.0, 0.0], 1.0).unwrap();
-    let path_summary = va::maps_kernels::path_summary_flat(&path, false).unwrap();
-    assert_eq!(path_summary.point_count, 4);
-
     let left = va::geometry2d::RectF32::new(0.0, 0.0, 2.0, 2.0).unwrap();
     let right = va::geometry2d::RectF32::new(1.0, 1.0, 2.0, 2.0).unwrap();
     assert!(left.iou(right).unwrap() > 0.0);

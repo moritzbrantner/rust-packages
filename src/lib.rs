@@ -59,19 +59,53 @@ pub use data_inversion_core as inversion;
 /// Re-exports the dense API.
 pub use dense_data as dense;
 #[cfg(feature = "data")]
-/// Re-exports the geo data API.
-pub use geo_clustering;
-#[cfg(feature = "data")]
-pub use geo_core;
-#[cfg(feature = "data")]
-pub use geo_io_geojson;
-#[cfg(feature = "data")]
-pub use geo_io_osm;
-#[cfg(feature = "data")]
-pub use geo_viz;
-#[cfg(feature = "data")]
 /// Re-exports the graph core API.
 pub use graph_analysis_core as graph_core;
+
+#[deprecated(
+    note = "Geo APIs moved to moritzbrantner/geo-analysis and the moenarch-geo-core crate."
+)]
+pub mod geo_core {
+    //! Geo core APIs moved to
+    //! [`moritzbrantner/geo-analysis`](https://github.com/moritzbrantner/geo-analysis)
+    //! and the `moenarch-geo-core` crate.
+}
+
+#[deprecated(
+    note = "GeoJSON APIs moved to moritzbrantner/geo-analysis and the moenarch-geo-io-geojson crate."
+)]
+pub mod geo_io_geojson {
+    //! GeoJSON APIs moved to
+    //! [`moritzbrantner/geo-analysis`](https://github.com/moritzbrantner/geo-analysis)
+    //! and the `moenarch-geo-io-geojson` crate.
+}
+
+#[deprecated(
+    note = "OSM APIs moved to moritzbrantner/geo-analysis and the moenarch-geo-io-osm crate."
+)]
+pub mod geo_io_osm {
+    //! OSM APIs moved to
+    //! [`moritzbrantner/geo-analysis`](https://github.com/moritzbrantner/geo-analysis)
+    //! and the `moenarch-geo-io-osm` crate.
+}
+
+#[deprecated(
+    note = "Geo clustering APIs moved to moritzbrantner/geo-analysis and the moenarch-geo-clustering crate."
+)]
+pub mod geo_clustering {
+    //! Geo clustering APIs moved to
+    //! [`moritzbrantner/geo-analysis`](https://github.com/moritzbrantner/geo-analysis)
+    //! and the `moenarch-geo-clustering` crate.
+}
+
+#[deprecated(
+    note = "Geo visualization APIs moved to moritzbrantner/geo-analysis and the moenarch-geo-viz crate."
+)]
+pub mod geo_viz {
+    //! Geo visualization APIs moved to
+    //! [`moritzbrantner/geo-analysis`](https://github.com/moritzbrantner/geo-analysis)
+    //! and the `moenarch-geo-viz` crate.
+}
 
 #[deprecated(note = "Finance APIs moved to the finance-analysis repository.")]
 pub mod finance {
@@ -123,9 +157,6 @@ pub use image_analysis_synthesis as image_synthesis;
 /// Re-exports the reusable jobs API.
 pub use jobs_core as jobs;
 #[cfg(feature = "math")]
-/// Re-exports the map/kernel math API.
-pub use maps_kernels_core as maps_kernels;
-#[cfg(feature = "math")]
 /// Re-exports the geometry2d API.
 pub use math_geometry_2d as geometry2d;
 #[cfg(feature = "math")]
@@ -140,6 +171,14 @@ pub use math_sparse_data as sparse;
 #[cfg(feature = "math")]
 /// Re-exports the stats API.
 pub use math_statistics as stats;
+#[deprecated(
+    note = "Map kernel APIs moved to moritzbrantner/geo-analysis and the moenarch-maps-kernels-core crate."
+)]
+pub mod maps_kernels {
+    //! Map kernel APIs moved to
+    //! [`moritzbrantner/geo-analysis`](https://github.com/moritzbrantner/geo-analysis)
+    //! and the `moenarch-maps-kernels-core` crate.
+}
 #[cfg(feature = "runtime")]
 /// Re-exports the generic model runtime infrastructure API.
 pub use model_runtime;

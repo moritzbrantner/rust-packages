@@ -63,7 +63,6 @@ fn migrated_tranche_operation_metadata_is_complete() {
         audio_analysis_processing::surface::package_surface(),
         image_analysis_processing::surface::package_surface(),
         text_core::surface::package_surface(),
-        maps_kernels_core::surface::package_surface(),
         math_geometry_2d::surface::package_surface(),
         math_linear::surface::package_surface(),
         math_signal_core::surface::package_surface(),
@@ -82,13 +81,6 @@ fn migrated_tranche_operation_metadata_is_complete() {
     }
 
     for (surface, runner) in [
-        (
-            maps_kernels_core::surface::package_surface(),
-            maps_kernels_core::surface::run_surface_operation
-                as fn(
-                    runtime_core::SurfaceRequest,
-                ) -> Result<runtime_core::SurfaceResponse, String>,
-        ),
         (
             math_geometry_2d::surface::package_surface(),
             math_geometry_2d::surface::run_surface_operation
