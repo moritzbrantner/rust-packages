@@ -2,6 +2,15 @@
 
 Format-agnostic point clustering for `geo-core` coordinates.
 
+## Legacy crate signpost
+
+`moritzbrantner-geo-clustering` is superseded by
+`moenarch-geo-clustering`. Active implementation ownership has moved to
+[`moritzbrantner/geo-analysis`](https://github.com/moritzbrantner/geo-analysis).
+This crate does not add an active compatibility wrapper, re-export shim, or
+runtime compatibility layer for the old name. npm package migration is
+deferred and is not part of this Rust-focused migration.
+
 The public API uses internal Rust domain types and does not expose GeoJSON or
 any external wire-format crate.
 
@@ -9,8 +18,8 @@ any external wire-format crate.
 
 ```toml
 [dependencies]
-geo-core = { package = "moritzbrantner-geo-core", version = "0.1.0" }
-geo-clustering = { package = "moritzbrantner-geo-clustering", version = "0.1.0" }
+geo-core = { package = "moenarch-geo-core", version = "0.1.0" }
+geo-clustering = { package = "moenarch-geo-clustering", version = "0.1.0" }
 ```
 
 ```rust
@@ -35,7 +44,7 @@ Runtime support: library, CLI, server, and WASM wrappers expose these operations
 Run the primary workflow through the CLI:
 
 ```bash
-cargo run -p moritzbrantner-geo-clustering-cli -- run \
+cargo run -p moenarch-geo-clustering-cli -- run \
   --operation geoCluster.viewport \
   --json '{"bounds":[7.0,48.0,9.0,50.0],"points":[{"id":"a","latitude":49.0,"longitude":8.0,"properties":{}}],"zoom":8}'
 ```

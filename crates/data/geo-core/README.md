@@ -3,6 +3,15 @@
 Format-agnostic geospatial domain types, geometry helpers, and transforms for
 video-analysis.
 
+## Legacy crate signpost
+
+`moritzbrantner-geo-core` is superseded by `moenarch-geo-core`. Active
+implementation ownership has moved to
+[`moritzbrantner/geo-analysis`](https://github.com/moritzbrantner/geo-analysis).
+This crate does not add an active compatibility wrapper, re-export shim, or
+runtime compatibility layer for the old name. npm package migration is
+deferred and is not part of this Rust-focused migration.
+
 This crate owns stable internal concepts such as coordinates, bounding boxes,
 geometry, features, collections, and geometry simplification. It intentionally
 does not depend on GeoJSON or expose wire-format crate types.
@@ -11,7 +20,7 @@ does not depend on GeoJSON or expose wire-format crate types.
 
 ```toml
 [dependencies]
-geo-core = { package = "moritzbrantner-geo-core", version = "0.1.0" }
+geo-core = { package = "moenarch-geo-core", version = "0.1.0" }
 ```
 
 ```rust
@@ -36,7 +45,7 @@ Runtime support: library, CLI, server, and WASM wrappers expose these operations
 Run the primary workflow through the CLI:
 
 ```bash
-cargo run -p moritzbrantner-geo-core-cli -- run \
+cargo run -p moenarch-geo-core-cli -- run \
   --operation geo.distance \
   --json '{"from":[8.0,49.0],"mode":"haversine","to":[9.0,49.0]}'
 ```

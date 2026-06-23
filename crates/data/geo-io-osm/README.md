@@ -2,6 +2,15 @@
 
 OpenStreetMap PBF import adapters for `geo-core`.
 
+## Legacy crate signpost
+
+`moritzbrantner-geo-io-osm` is superseded by `moenarch-geo-io-osm`. Active
+implementation ownership has moved to
+[`moritzbrantner/geo-analysis`](https://github.com/moritzbrantner/geo-analysis).
+This crate does not add an active compatibility wrapper, re-export shim, or
+runtime compatibility layer for the old name. npm package migration is
+deferred and is not part of this Rust-focused migration.
+
 This crate reads local or in-memory `.osm.pbf` data, applies practical OSM
 element, bbox, and tag filters, resolves way geometry through a node coordinate
 index, and emits `geo-core` feature collections. It intentionally does not own
@@ -11,7 +20,7 @@ HTTP downloads or Geofabrik fetch caching.
 
 ```toml
 [dependencies]
-geo-io-osm = { package = "moritzbrantner-geo-io-osm", version = "0.1.0" }
+geo-io-osm = { package = "moenarch-geo-io-osm", version = "0.1.0" }
 ```
 
 ```rust
@@ -48,7 +57,7 @@ Runtime support: library, CLI, server, and WASM wrappers expose these operations
 Run the primary workflow through the CLI:
 
 ```bash
-cargo run -p moritzbrantner-geo-io-osm-cli -- run \
+cargo run -p moenarch-geo-io-osm-cli -- run \
   --operation osm.filterPbfBase64 \
   --json '{"pbfBase64":"","spec":{"filter":{"include":{"any":[{"key":"amenity","values":["school","hospital"]}]},"types":["node","way"]},"output":{"geometry":"full"}}}'
 ```

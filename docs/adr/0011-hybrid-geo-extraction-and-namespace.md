@@ -32,8 +32,8 @@ may move out when they have coherent ownership, clear package boundaries, and a
 publishable external path.
 
 Pilot that strategy with the geo/map package family. The target extracted
-repository is `moenarch/geo-analysis`, and the target publisher namespace for
-new extracted packages is `moenarch-*`, starting with names such as
+repository is `moritzbrantner/geo-analysis`, and the target publisher namespace
+for new extracted packages is `moenarch-*`, starting with names such as
 `moenarch-geo-core`.
 
 Use clean-copy history for the geo pilot. The extracted repository gets a new
