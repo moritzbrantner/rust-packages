@@ -210,6 +210,8 @@ pub struct CandleWhisperOptions {
     #[serde(default)]
     pub device: NativeDevicePreference,
     #[serde(default)]
+    pub compute_type: CandleWhisperComputeType,
+    #[serde(default)]
     pub model_bundle: Option<PathBuf>,
     #[serde(default)]
     pub model_dir: Option<PathBuf>,
@@ -230,6 +232,7 @@ impl Default for CandleWhisperOptions {
             task: TranscriptionTask::Transcribe,
             language: None,
             device: NativeDevicePreference::Auto,
+            compute_type: CandleWhisperComputeType::Automatic,
             model_bundle: None,
             model_dir: None,
             model_cache_only: false,
@@ -242,6 +245,45 @@ impl Default for CandleWhisperOptions {
 
 fn default_candle_whisper_model() -> String {
     "openai/whisper-large-v3-turbo".to_string()
+}
+
+/// Native Candle Whisper compute-type preference.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum CandleWhisperComputeType {
+    #[default]
+    #[serde(alias = "auto")]
+    Automatic,
+    #[serde(alias = "float16")]
+    Fp16,
+    #[serde(alias = "float32")]
+    Fp32,
+}
+
+impl CandleWhisperComputeType {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::Automatic => "automatic",
+            Self::Fp16 => "fp16",
+            Self::Fp32 => "fp32",
+        }
+    }
+
+    pub(crate) fn resolve_for_device(self, cuda_active: bool) -> Result<Self> {
+        match (self, cuda_active) {
+            (Self::Automatic, true) => Ok(Self::Fp16),
+            (Self::Automatic, false) => Ok(Self::Fp32),
+            (Self::Fp16, true) => Ok(Self::Fp16),
+            (Self::Fp16, false) => Err(setup_error(
+                "native Candle Whisper compute type fp16 requires a CUDA device; use automatic or fp32 for CPU execution",
+            )),
+            (Self::Fp32, _) => Ok(Self::Fp32),
+        }
+    }
+
+    pub(crate) fn setup_fallback_eligible(self) -> bool {
+        matches!(self, Self::Automatic)
+    }
 }
 
 /// Native Candle Whisper chunk decode runtime.
@@ -2273,7 +2315,10 @@ fn apply_alignment_chars(
 
 fn validate_candle_setup(options: &CandleWhisperOptions) -> Result<()> {
     validate_candle_batch_options(options)?;
-    native_device::resolve_native_device(options.device)?;
+    let resolved_device = native_device::resolve_native_device(options.device)?;
+    options
+        .compute_type
+        .resolve_for_device(resolved_device.cuda_active())?;
     if !cfg!(feature = "candle") {
         return Err(unsupported_runtime(format!(
             "Candle Whisper requested but the binary lacks the `candle` feature; {}; build with `candle` for native execution and `model-bundles` for Hugging Face cache resolution",
@@ -2797,6 +2842,84 @@ mod tests {
             provider: TranscriptionProviderSelection::CandleWhisper(options),
             ..sample_request()
         }
+    }
+
+    #[test]
+    fn candle_whisper_options_default_to_automatic_compute_type() {
+        assert_eq!(
+            CandleWhisperOptions::default().compute_type,
+            CandleWhisperComputeType::Automatic
+        );
+    }
+
+    #[test]
+    fn candle_whisper_compute_type_serializes_public_values_and_aliases() {
+        let options = CandleWhisperOptions {
+            compute_type: CandleWhisperComputeType::Fp16,
+            ..CandleWhisperOptions::default()
+        };
+        let encoded = serde_json::to_value(&options).unwrap();
+        assert_eq!(encoded["computeType"], "fp16");
+
+        let decoded: CandleWhisperOptions =
+            serde_json::from_value(serde_json::json!({"computeType": "float32"})).unwrap();
+        assert_eq!(decoded.compute_type, CandleWhisperComputeType::Fp32);
+
+        let decoded: CandleWhisperOptions =
+            serde_json::from_value(serde_json::json!({"computeType": "auto"})).unwrap();
+        assert_eq!(decoded.compute_type, CandleWhisperComputeType::Automatic);
+    }
+
+    #[test]
+    fn candle_whisper_compute_type_resolves_by_device() {
+        assert_eq!(
+            CandleWhisperComputeType::Automatic
+                .resolve_for_device(true)
+                .unwrap(),
+            CandleWhisperComputeType::Fp16
+        );
+        assert_eq!(
+            CandleWhisperComputeType::Fp16
+                .resolve_for_device(true)
+                .unwrap(),
+            CandleWhisperComputeType::Fp16
+        );
+        assert_eq!(
+            CandleWhisperComputeType::Fp32
+                .resolve_for_device(true)
+                .unwrap(),
+            CandleWhisperComputeType::Fp32
+        );
+        assert_eq!(
+            CandleWhisperComputeType::Automatic
+                .resolve_for_device(false)
+                .unwrap(),
+            CandleWhisperComputeType::Fp32
+        );
+        assert_eq!(
+            CandleWhisperComputeType::Fp32
+                .resolve_for_device(false)
+                .unwrap(),
+            CandleWhisperComputeType::Fp32
+        );
+    }
+
+    #[test]
+    fn candle_whisper_cpu_fp16_is_rejected_clearly() {
+        let error = CandleWhisperComputeType::Fp16
+            .resolve_for_device(false)
+            .unwrap_err()
+            .to_string();
+
+        assert!(error.contains("setup_error"));
+        assert!(error.contains("fp16 requires a CUDA device"));
+    }
+
+    #[test]
+    fn only_automatic_candle_compute_type_is_setup_fallback_eligible() {
+        assert!(CandleWhisperComputeType::Automatic.setup_fallback_eligible());
+        assert!(!CandleWhisperComputeType::Fp16.setup_fallback_eligible());
+        assert!(!CandleWhisperComputeType::Fp32.setup_fallback_eligible());
     }
 
     fn diarization_response_for_tests(

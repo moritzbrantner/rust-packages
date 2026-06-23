@@ -18,8 +18,8 @@ use video_analysis_core::Result;
 use crate::native_device::{resolve_native_device, ResolvedNativeDevice};
 use crate::{
     candle_batch_count, invalid_request, model_output_mismatch, setup_error, validate_asr_request,
-    AsrRequest, AsrResponse, CandleWhisperDecodeRuntime, CandleWhisperOptions,
-    SpeechActivitySegment, TranscriptionTask,
+    AsrRequest, AsrResponse, CandleWhisperComputeType, CandleWhisperDecodeRuntime,
+    CandleWhisperOptions, SpeechActivitySegment, TranscriptionTask,
 };
 
 const REQUIRED_WHISPER_FILES: &[&str] = &[
@@ -53,6 +53,9 @@ struct WhisperRunSetup {
     bundle: WhisperBundlePaths,
     model_source: &'static str,
     resolved_device: ResolvedNativeDevice,
+    requested_compute_type: CandleWhisperComputeType,
+    resolved_compute_type: CandleWhisperComputeType,
+    model_weight_dtype: DType,
 }
 
 #[derive(Debug, Clone)]
@@ -364,6 +367,10 @@ impl WhisperRunSetup {
         validate_asr_request(request)?;
         let model = resolve_whisper_model(options, &request.model_id)?;
         let resolved_device = resolve_native_device(options.device)?;
+        let resolved_compute_type = options
+            .compute_type
+            .resolve_for_device(resolved_device.cuda_active())?;
+        let model_weight_dtype = candle_whisper_model_weight_dtype(resolved_compute_type);
         Ok(Self {
             model_id: model.model_id,
             task: request.task,
@@ -374,7 +381,26 @@ impl WhisperRunSetup {
             bundle: model.bundle,
             model_source: model.source,
             resolved_device,
+            requested_compute_type: options.compute_type,
+            resolved_compute_type,
+            model_weight_dtype,
         })
+    }
+}
+
+fn candle_whisper_model_weight_dtype(compute_type: CandleWhisperComputeType) -> DType {
+    match compute_type {
+        CandleWhisperComputeType::Automatic => unreachable!("compute type must be resolved first"),
+        CandleWhisperComputeType::Fp16 => DType::F16,
+        CandleWhisperComputeType::Fp32 => DType::F32,
+    }
+}
+
+fn candle_dtype_name(dtype: DType) -> &'static str {
+    match dtype {
+        DType::F16 => "f16",
+        DType::F32 => "f32",
+        _ => "other",
     }
 }
 
@@ -551,6 +577,18 @@ fn whisper_setup_diagnostics(setup: &WhisperRunSetup) -> Vec<String> {
         format!("asrModelResolved={}", setup.bundle.root.display()),
         format!("asrModelSource={}", setup.model_source),
         format!("asrModelId={}", setup.model_id),
+        format!(
+            "requestedComputeType={}",
+            setup.requested_compute_type.as_str()
+        ),
+        format!(
+            "resolvedComputeType={}",
+            setup.resolved_compute_type.as_str()
+        ),
+        format!(
+            "modelWeightDtype={}",
+            candle_dtype_name(setup.model_weight_dtype)
+        ),
     ]
 }
 
@@ -1036,7 +1074,7 @@ impl CandleWhisperSession {
         let vb = unsafe {
             VarBuilder::from_mmaped_safetensors(
                 &[setup.bundle.model_safetensors.as_path()],
-                whisper::DTYPE,
+                setup.model_weight_dtype,
                 &device,
             )
         }
@@ -1490,9 +1528,7 @@ impl CandleWhisperSession {
         self.model
             .encoder
             .forward(&mel, true)
-            .map_err(|error| {
-                model_output_mismatch(format!("Whisper encoder failed: {error}"))
-            })
+            .map_err(|error| model_output_mismatch(format!("Whisper encoder failed: {error}")))
     }
 
     fn encode_windows_individually(&mut self, windows: &[ChunkWindow]) -> Result<Tensor> {
@@ -2696,7 +2732,10 @@ mod tests {
 
         #[cfg(feature = "cuda")]
         {
-            assert!(!should_microbatch_encoder(&ResolvedNativeDevice::Cuda(0), 1));
+            assert!(!should_microbatch_encoder(
+                &ResolvedNativeDevice::Cuda(0),
+                1
+            ));
             assert!(should_microbatch_encoder(&ResolvedNativeDevice::Cuda(0), 2));
         }
     }
@@ -2889,6 +2928,9 @@ mod tests {
             },
             model_source: "explicit-bundle",
             resolved_device: ResolvedNativeDevice::Cpu,
+            requested_compute_type: CandleWhisperComputeType::Automatic,
+            resolved_compute_type: CandleWhisperComputeType::Fp32,
+            model_weight_dtype: DType::F32,
         };
         let tokens = CandleWhisperSession::initial_prompt_tokens(
             &test_generation(),
@@ -3043,6 +3085,39 @@ mod tests {
         assert!(diagnostics
             .iter()
             .any(|item| item.starts_with("asrModelResolved=")));
+        assert!(diagnostics
+            .iter()
+            .any(|item| item == "requestedComputeType=automatic"));
+        assert!(diagnostics
+            .iter()
+            .any(|item| item == "resolvedComputeType=fp32"));
+        assert!(diagnostics
+            .iter()
+            .any(|item| item == "modelWeightDtype=f32"));
+    }
+
+    #[test]
+    fn whisper_setup_resolves_cuda_automatic_to_fp16_weights_without_cuda_runtime() {
+        assert_eq!(
+            candle_whisper_model_weight_dtype(
+                CandleWhisperComputeType::Automatic
+                    .resolve_for_device(true)
+                    .unwrap()
+            ),
+            DType::F16
+        );
+    }
+
+    #[test]
+    fn whisper_setup_resolves_explicit_fp32_to_fp32_weights_on_cuda() {
+        assert_eq!(
+            candle_whisper_model_weight_dtype(
+                CandleWhisperComputeType::Fp32
+                    .resolve_for_device(true)
+                    .unwrap()
+            ),
+            DType::F32
+        );
     }
 
     #[test]
