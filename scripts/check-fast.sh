@@ -168,11 +168,11 @@ elif [[ "$rust_scope" == "changed" ]]; then
     log "root integration tests (${#rust_tests[@]}): ${rust_tests[*]}"
     for test_path in "${rust_tests[@]}"; do
       test_name="$(basename "$test_path" .rs)"
-      run_step "cargo test moritzbrantner-video-analysis --test $test_name (jobs=$RUST_JOBS)" \
-        cargo test --jobs "$RUST_JOBS" -p moritzbrantner-video-analysis --test "$test_name"
+      run_step "cargo test moenarch-video-analysis --test $test_name (jobs=$RUST_JOBS)" \
+        cargo test --jobs "$RUST_JOBS" -p moenarch-video-analysis --test "$test_name"
     done
-    run_step "cargo clippy moritzbrantner-video-analysis lib/tests" \
-      cargo clippy -p moritzbrantner-video-analysis --lib --tests -- -D warnings
+    run_step "cargo clippy moenarch-video-analysis lib/tests" \
+      cargo clippy -p moenarch-video-analysis --lib --tests -- -D warnings
   fi
 else
   if [[ "$docs_only" == "true" ]]; then

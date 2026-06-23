@@ -56,6 +56,7 @@ DOC_EXACT_FILES = {
 RUST_SOURCE_SUFFIXES = {".rs"}
 FRONTEND_SOURCE_SUFFIXES = {".ts", ".tsx", ".js", ".jsx", ".json", ".html", ".css"}
 WRAPPER_SUFFIXES = ("-cli", "-server", "-wasm")
+PACKAGE_PREFIXES = ("moritzbrantner-", "moenarch-")
 
 
 @dataclass(frozen=True)
@@ -66,7 +67,7 @@ class CargoPackage:
 
     @property
     def base(self) -> str:
-        return self.name.removeprefix("moritzbrantner-")
+        return package_base_name(self.name)
 
     @property
     def domain_dir(self) -> str | None:
@@ -314,8 +315,8 @@ def surface_package_for_frontend_path(path: str, packages: list[CargoPackage]) -
     package_dir = parts[1]
     for suffix in ("-wasm", "-app"):
         if package_dir.endswith(suffix):
-            base = f"moritzbrantner-{package_dir.removesuffix(suffix)}"
-            return next((package for package in packages if package.name == base), None)
+            base = package_dir.removesuffix(suffix)
+            return next((package for package in packages if package.base == base), None)
     return None
 
 
@@ -329,7 +330,14 @@ def frontend_package_dir(path: str, package_json_paths: set[str]) -> str | None:
 
 def root_package_name(packages: list[CargoPackage]) -> str:
     root_package = next((package for package in packages if package.manifest_dir == "."), None)
-    return root_package.name if root_package else "moritzbrantner-video-analysis"
+    return root_package.name if root_package else "moenarch-video-analysis"
+
+
+def package_base_name(package_name: str) -> str:
+    for prefix in PACKAGE_PREFIXES:
+        if package_name.startswith(prefix):
+            return package_name.removeprefix(prefix)
+    return package_name
 
 
 def is_docs_path(path: str) -> bool:

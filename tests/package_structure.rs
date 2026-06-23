@@ -2,6 +2,9 @@ use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::Command;
 
+const CARGO_PACKAGE_PREFIXES: &[&str] = &["moritzbrantner-", "moenarch-"];
+const NPM_PACKAGE_SCOPES: &[&str] = &["@moritzbrantner/", "@moenarch/"];
+
 #[test]
 fn library_manifests_do_not_embed_generic_runtime_surfaces() {
     for manifest in workspace_manifests(Path::new(env!("CARGO_MANIFEST_DIR"))) {
@@ -124,7 +127,7 @@ fn frontend_libraries_and_ui_packages_have_expected_test_layers() {
 }
 
 #[test]
-fn public_package_identifiers_use_moritzbrantner_prefix() {
+fn public_package_identifiers_use_active_ownership_prefix() {
     let root = Path::new(env!("CARGO_MANIFEST_DIR"));
     let mut failures = Vec::new();
 
@@ -144,9 +147,9 @@ fn public_package_identifiers_use_moritzbrantner_prefix() {
 
         if file.file_name().is_some_and(|name| name == "package.json") {
             if let Some(name) = json_name_field(&text) {
-                if !name.starts_with("@moritzbrantner/") {
+                if !has_known_npm_scope(&name) {
                     failures.push(format!(
-                        "{} package name `{name}` is not under @moritzbrantner",
+                        "{} package name `{name}` is not under a known public npm scope",
                         relative.display()
                     ));
                 }
@@ -155,9 +158,9 @@ fn public_package_identifiers_use_moritzbrantner_prefix() {
 
         if file.file_name().is_some_and(|name| name == "Cargo.toml") {
             if let Some(name) = cargo_package_name(&text) {
-                if !name.starts_with("moritzbrantner-") {
+                if !has_known_cargo_prefix(&name) {
                     failures.push(format!(
-                        "{} package name `{name}` is not prefixed with moritzbrantner-",
+                        "{} package name `{name}` is not prefixed with a known public Cargo owner",
                         relative.display()
                     ));
                 }
@@ -167,7 +170,7 @@ fn public_package_identifiers_use_moritzbrantner_prefix() {
 
     assert!(
         failures.is_empty(),
-        "public package identifiers need moritzbrantner ownership prefix: {}",
+        "public package identifiers need active ownership prefixes: {}",
         failures.join(", ")
     );
 }
@@ -230,7 +233,10 @@ fn library_crates_have_complete_runtime_surfaces() {
             missing.push(format!("{surface_name}: missing Vite app package"));
         } else {
             let package_json = fs::read_to_string(app_dir.join("package.json")).unwrap();
-            if !package_json.contains(&format!("@moritzbrantner/{surface_name}-wasm")) {
+            if !wasm_package_dependency_names(surface_name)
+                .iter()
+                .any(|dependency| package_json.contains(dependency))
+            {
                 missing.push(format!(
                     "{surface_name}: app does not depend on matching wasm package"
                 ));
@@ -377,10 +383,7 @@ fn cargo_package_selectors_use_active_prefixed_names() {
         .collect::<std::collections::BTreeSet<_>>();
     let unprefixed = names
         .iter()
-        .filter_map(|name| {
-            name.strip_prefix("moritzbrantner-")
-                .map(|short| (short, *name))
-        })
+        .filter_map(|name| strip_known_cargo_prefix(name).map(|short| (short, *name)))
         .collect::<std::collections::BTreeMap<_, _>>();
     let mut failures = Vec::new();
 
@@ -394,8 +397,9 @@ fn cargo_package_selectors_use_active_prefixed_names() {
                 continue;
             }
             for package in cargo_package_selectors(line) {
-                if package.starts_with("moritzbrantner-") {
+                if has_known_cargo_prefix(&package) {
                     if !names.contains(package.as_str())
+                        && !has_active_known_owner_package(&package, &names)
                         && !line.contains('<')
                         && !line.contains('{')
                     {
@@ -470,10 +474,7 @@ fn library_manifests(root: &Path) -> Vec<PathBuf> {
                 || package_name.ends_with("-cli")
                 || package_name.ends_with("-server")
                 || package_name.ends_with("-wasm")
-                || package_name == "moritzbrantner-audio-analysis-test-support"
-                || package_name == "moritzbrantner-runtime-core"
-                || package_name == "moritzbrantner-runtime-onnx"
-                || package_name == "moritzbrantner-video-analysis-test-support"
+                || excluded_library_package(package_name)
             {
                 return None;
             }
@@ -535,7 +536,7 @@ fn adapter_parity_exception(package_name: &str) -> bool {
         package_name,
         // Native server dispatch boundary: reconstruct.video delegates into the
         // library crate's server-side reconstruction entry point.
-        "moritzbrantner-video-analysis-sfm-server"
+        "moritzbrantner-video-analysis-sfm-server" | "moenarch-video-analysis-sfm-server"
     )
 }
 
@@ -671,9 +672,59 @@ fn read_source(path: impl AsRef<Path>) -> String {
 }
 
 fn surface_package_name(package_name: &str) -> &str {
-    package_name
-        .strip_prefix("moritzbrantner-")
-        .unwrap_or(package_name)
+    strip_known_cargo_prefix(package_name).unwrap_or(package_name)
+}
+
+fn has_known_cargo_prefix(package_name: &str) -> bool {
+    CARGO_PACKAGE_PREFIXES
+        .iter()
+        .any(|prefix| package_name.starts_with(prefix))
+}
+
+fn strip_known_cargo_prefix(package_name: &str) -> Option<&str> {
+    CARGO_PACKAGE_PREFIXES
+        .iter()
+        .find_map(|prefix| package_name.strip_prefix(prefix))
+}
+
+fn has_active_known_owner_package(
+    package_name: &str,
+    names: &std::collections::BTreeSet<&str>,
+) -> bool {
+    let Some(short) = strip_known_cargo_prefix(package_name) else {
+        return false;
+    };
+    CARGO_PACKAGE_PREFIXES.iter().any(|prefix| {
+        let candidate = format!("{prefix}{short}");
+        names.contains(candidate.as_str())
+    })
+}
+
+fn has_known_npm_scope(package_name: &str) -> bool {
+    NPM_PACKAGE_SCOPES
+        .iter()
+        .any(|scope| package_name.starts_with(scope))
+}
+
+fn wasm_package_dependency_names(surface_name: &str) -> Vec<String> {
+    NPM_PACKAGE_SCOPES
+        .iter()
+        .map(|scope| format!("{scope}{surface_name}-wasm"))
+        .collect()
+}
+
+fn excluded_library_package(package_name: &str) -> bool {
+    matches!(
+        package_name,
+        "moritzbrantner-audio-analysis-test-support"
+            | "moenarch-audio-analysis-test-support"
+            | "moritzbrantner-runtime-core"
+            | "moenarch-runtime-core"
+            | "moritzbrantner-runtime-onnx"
+            | "moenarch-runtime-onnx"
+            | "moritzbrantner-video-analysis-test-support"
+            | "moenarch-video-analysis-test-support"
+    )
 }
 
 fn has_exact_base_dependency(cargo: &str, package_name: &str, surface_name: &str) -> bool {
