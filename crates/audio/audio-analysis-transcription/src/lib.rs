@@ -78,6 +78,22 @@ pub enum TranscriptionPipelineEvent {
     AsrEnd {
         segments: usize,
     },
+    ModelLoadStart {
+        stage: String,
+        provider: String,
+        model_id: String,
+    },
+    ModelLoadEnd {
+        stage: String,
+        provider: String,
+        model_id: String,
+        duration_seconds: f64,
+    },
+    ModelReuse {
+        stage: String,
+        provider: String,
+        model_id: String,
+    },
     AlignmentStart {
         model_id: String,
     },
@@ -281,6 +297,7 @@ impl CandleWhisperComputeType {
         }
     }
 
+    #[allow(dead_code)]
     pub(crate) fn setup_fallback_eligible(self) -> bool {
         matches!(self, Self::Automatic)
     }
@@ -814,12 +831,28 @@ pub struct VadResponse {
 pub trait AudioTranscriptionProvider {
     fn provider_id(&self) -> &str;
     fn transcribe(&mut self, request: AsrRequest) -> Result<AsrResponse>;
+
+    fn transcribe_with_observer(
+        &mut self,
+        request: AsrRequest,
+        _observer: &mut dyn TranscriptionPipelineObserver,
+    ) -> Result<AsrResponse> {
+        self.transcribe(request)
+    }
 }
 
 /// Trait for forced alignment providers.
 pub trait ForcedAlignmentProvider {
     fn provider_id(&self) -> &str;
     fn align(&mut self, request: AlignmentRequest) -> Result<AlignmentResponse>;
+
+    fn align_with_observer(
+        &mut self,
+        request: AlignmentRequest,
+        _observer: &mut dyn TranscriptionPipelineObserver,
+    ) -> Result<AlignmentResponse> {
+        self.align(request)
+    }
 }
 
 /// Trait for transcription VAD providers.
@@ -1039,12 +1072,39 @@ impl AudioTranscriptionProvider for CandleWhisperTranscriber {
     }
 
     fn transcribe(&mut self, request: AsrRequest) -> Result<AsrResponse> {
+        let mut observer = NoopTranscriptionPipelineObserver;
+        self.transcribe_with_observer(request, &mut observer)
+    }
+
+    fn transcribe_with_observer(
+        &mut self,
+        request: AsrRequest,
+        observer: &mut dyn TranscriptionPipelineObserver,
+    ) -> Result<AsrResponse> {
         validate_asr_request(&request)?;
         validate_candle_setup(&self.options)?;
+        let _ = &observer;
         #[cfg(feature = "candle")]
         {
             let chunk_count = request.chunks.len();
-            let mut response = native_whisper::transcribe(&self.options, request)?;
+            let model_id = request.model_id.clone();
+            observer.observe(TranscriptionPipelineEvent::ModelLoadStart {
+                stage: "asr".to_string(),
+                provider: self.provider_id().to_string(),
+                model_id: model_id.clone(),
+            });
+            let mut response = native_whisper::transcribe_with_load_observer(
+                &self.options,
+                request,
+                |duration| {
+                    observer.observe(TranscriptionPipelineEvent::ModelLoadEnd {
+                        stage: "asr".to_string(),
+                        provider: "candle-whisper".to_string(),
+                        model_id: model_id.clone(),
+                        duration_seconds: duration,
+                    });
+                },
+            )?;
             extend_missing_candle_batch_diagnostics(
                 &mut response.diagnostics,
                 &self.options,
@@ -1097,15 +1157,52 @@ impl AudioTranscriptionProvider for ReusableCandleWhisperTranscriber {
     }
 
     fn transcribe(&mut self, request: AsrRequest) -> Result<AsrResponse> {
+        let mut observer = NoopTranscriptionPipelineObserver;
+        self.transcribe_with_observer(request, &mut observer)
+    }
+
+    fn transcribe_with_observer(
+        &mut self,
+        request: AsrRequest,
+        observer: &mut dyn TranscriptionPipelineObserver,
+    ) -> Result<AsrResponse> {
         validate_asr_request(&request)?;
         validate_candle_setup(&self.options)?;
+        let _ = &observer;
         #[cfg(feature = "candle")]
         {
             let chunk_count = request.chunks.len();
+            let model_id = request.model_id.clone();
             let mut response = native_whisper::ReusableCandleWhisperSession::transcribe(
                 &mut self.session,
                 &self.options,
                 request,
+                |event| match event {
+                    native_whisper::ReusableCandleWhisperSessionEvent::LoadStart => {
+                        observer.observe(TranscriptionPipelineEvent::ModelLoadStart {
+                            stage: "asr".to_string(),
+                            provider: "candle-whisper".to_string(),
+                            model_id: model_id.clone(),
+                        });
+                    }
+                    native_whisper::ReusableCandleWhisperSessionEvent::LoadEnd {
+                        duration_seconds,
+                    } => {
+                        observer.observe(TranscriptionPipelineEvent::ModelLoadEnd {
+                            stage: "asr".to_string(),
+                            provider: "candle-whisper".to_string(),
+                            model_id: model_id.clone(),
+                            duration_seconds,
+                        });
+                    }
+                    native_whisper::ReusableCandleWhisperSessionEvent::Reuse => {
+                        observer.observe(TranscriptionPipelineEvent::ModelReuse {
+                            stage: "asr".to_string(),
+                            provider: "candle-whisper".to_string(),
+                            model_id: model_id.clone(),
+                        });
+                    }
+                },
             )?;
             extend_missing_candle_batch_diagnostics(
                 &mut response.diagnostics,
@@ -1179,9 +1276,19 @@ impl ForcedAlignmentProvider for CtcForcedAligner {
     }
 
     fn align(&mut self, request: AlignmentRequest) -> Result<AlignmentResponse> {
+        let mut observer = NoopTranscriptionPipelineObserver;
+        self.align_with_observer(request, &mut observer)
+    }
+
+    fn align_with_observer(
+        &mut self,
+        request: AlignmentRequest,
+        observer: &mut dyn TranscriptionPipelineObserver,
+    ) -> Result<AlignmentResponse> {
+        let _ = &observer;
         #[cfg(feature = "alignment")]
         {
-            ctc_alignment::align(&self.options, request)
+            ctc_alignment::align_with_observer(&self.options, request, observer)
         }
         #[cfg(not(feature = "alignment"))]
         {
@@ -1352,13 +1459,16 @@ pub fn run_transcription_pipeline_with_observer(
     observer.observe(TranscriptionPipelineEvent::AsrStart {
         model_id: model_id.clone(),
     });
-    let mut asr_response = asr_provider.transcribe(AsrRequest {
-        audio: audio.clone(),
-        chunks: vad_response.segments.clone(),
-        task,
-        language: language.clone(),
-        model_id: model_id.clone(),
-    })?;
+    let mut asr_response = asr_provider.transcribe_with_observer(
+        AsrRequest {
+            audio: audio.clone(),
+            chunks: vad_response.segments.clone(),
+            task,
+            language: language.clone(),
+            model_id: model_id.clone(),
+        },
+        observer,
+    )?;
     observer.observe(TranscriptionPipelineEvent::AsrEnd {
         segments: asr_response.transcript.segments.len(),
     });
@@ -1396,12 +1506,15 @@ pub fn run_transcription_pipeline_with_observer(
         observer.observe(TranscriptionPipelineEvent::AlignmentStart {
             model_id: request.alignment.model_id.clone(),
         });
-        let alignment_response = provider.align(AlignmentRequest {
-            audio: audio.clone(),
-            transcript: transcript.clone(),
-            language: language.clone(),
-            model_id: request.alignment.model_id.clone(),
-        })?;
+        let alignment_response = provider.align_with_observer(
+            AlignmentRequest {
+                audio: audio.clone(),
+                transcript: transcript.clone(),
+                language: language.clone(),
+                model_id: request.alignment.model_id.clone(),
+            },
+            observer,
+        )?;
         observer.observe(TranscriptionPipelineEvent::AlignmentEnd {
             words: alignment_response.words.len(),
         });
@@ -2724,6 +2837,84 @@ mod tests {
         }
     }
 
+    #[derive(Default)]
+    struct RecordingObserver {
+        events: Vec<TranscriptionPipelineEvent>,
+    }
+
+    impl TranscriptionPipelineObserver for RecordingObserver {
+        fn observe(&mut self, event: TranscriptionPipelineEvent) {
+            self.events.push(event);
+        }
+    }
+
+    struct ObservingAsrProvider;
+
+    impl AudioTranscriptionProvider for ObservingAsrProvider {
+        fn provider_id(&self) -> &str {
+            "observing-asr"
+        }
+
+        fn transcribe(&mut self, request: AsrRequest) -> Result<AsrResponse> {
+            MockAsrProvider.transcribe(request)
+        }
+
+        fn transcribe_with_observer(
+            &mut self,
+            request: AsrRequest,
+            observer: &mut dyn TranscriptionPipelineObserver,
+        ) -> Result<AsrResponse> {
+            observer.observe(TranscriptionPipelineEvent::ModelLoadStart {
+                stage: "asr".to_string(),
+                provider: self.provider_id().to_string(),
+                model_id: request.model_id.clone(),
+            });
+            observer.observe(TranscriptionPipelineEvent::ModelLoadEnd {
+                stage: "asr".to_string(),
+                provider: self.provider_id().to_string(),
+                model_id: request.model_id.clone(),
+                duration_seconds: 0.125,
+            });
+            observer.observe(TranscriptionPipelineEvent::ModelReuse {
+                stage: "asr".to_string(),
+                provider: self.provider_id().to_string(),
+                model_id: request.model_id.clone(),
+            });
+            self.transcribe(request)
+        }
+    }
+
+    struct ObservingAlignmentProvider;
+
+    impl ForcedAlignmentProvider for ObservingAlignmentProvider {
+        fn provider_id(&self) -> &str {
+            "observing-aligner"
+        }
+
+        fn align(&mut self, request: AlignmentRequest) -> Result<AlignmentResponse> {
+            MockAlignmentProvider.align(request)
+        }
+
+        fn align_with_observer(
+            &mut self,
+            request: AlignmentRequest,
+            observer: &mut dyn TranscriptionPipelineObserver,
+        ) -> Result<AlignmentResponse> {
+            observer.observe(TranscriptionPipelineEvent::ModelLoadStart {
+                stage: "alignment".to_string(),
+                provider: self.provider_id().to_string(),
+                model_id: request.model_id.clone(),
+            });
+            observer.observe(TranscriptionPipelineEvent::ModelLoadEnd {
+                stage: "alignment".to_string(),
+                provider: self.provider_id().to_string(),
+                model_id: request.model_id.clone(),
+                duration_seconds: 0.25,
+            });
+            self.align(request)
+        }
+    }
+
     struct MockDiarizationProvider;
 
     impl TranscriptDiarizationProvider for MockDiarizationProvider {
@@ -2842,6 +3033,75 @@ mod tests {
             provider: TranscriptionProviderSelection::CandleWhisper(options),
             ..sample_request()
         }
+    }
+
+    #[test]
+    fn pipeline_observer_receives_model_load_and_reuse_events() {
+        let mut request = sample_request();
+        request.vad = VadOptions {
+            enabled: false,
+            ..VadOptions::default()
+        };
+        request.alignment = AlignmentOptions {
+            enabled: true,
+            model_id: "facebook/wav2vec2-base-960h".to_string(),
+            ..AlignmentOptions::default()
+        };
+        let mut vad = FixedVadProvider {
+            segments: vec![SpeechActivitySegment::new(0.0, 0.5, 1.0).unwrap()],
+        };
+        let mut asr = ObservingAsrProvider;
+        let mut aligner = ObservingAlignmentProvider;
+        let mut observer = RecordingObserver::default();
+
+        let response = run_transcription_pipeline_with_observer(
+            request,
+            &mut vad,
+            &mut asr,
+            Some(&mut aligner),
+            None,
+            &mut observer,
+        )
+        .expect("pipeline should run with observing providers");
+
+        assert!(response.accepted);
+        assert!(observer
+            .events
+            .contains(&TranscriptionPipelineEvent::ModelLoadStart {
+                stage: "asr".to_string(),
+                provider: "observing-asr".to_string(),
+                model_id: "openai/whisper-large-v3-turbo".to_string(),
+            }));
+        assert!(observer
+            .events
+            .contains(&TranscriptionPipelineEvent::ModelLoadEnd {
+                stage: "asr".to_string(),
+                provider: "observing-asr".to_string(),
+                model_id: "openai/whisper-large-v3-turbo".to_string(),
+                duration_seconds: 0.125,
+            }));
+        assert!(observer
+            .events
+            .contains(&TranscriptionPipelineEvent::ModelReuse {
+                stage: "asr".to_string(),
+                provider: "observing-asr".to_string(),
+                model_id: "openai/whisper-large-v3-turbo".to_string(),
+            }));
+        assert!(observer
+            .events
+            .contains(&TranscriptionPipelineEvent::ModelLoadStart {
+                stage: "alignment".to_string(),
+                provider: "observing-aligner".to_string(),
+                model_id: "facebook/wav2vec2-base-960h".to_string(),
+            }));
+        assert!(observer
+            .events
+            .contains(&TranscriptionPipelineEvent::ModelLoadEnd {
+                stage: "alignment".to_string(),
+                provider: "observing-aligner".to_string(),
+                model_id: "facebook/wav2vec2-base-960h".to_string(),
+                duration_seconds: 0.25,
+            }));
     }
 
     #[test]
