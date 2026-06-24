@@ -34,11 +34,11 @@ Use the existing bundle sync flow before running native smoke tests:
 
 ```bash
 scripts/sync_model_bundles.sh
-cargo test -p moritzbrantner-text-model-runtime --features external-tests -- --ignored
-cargo test -p moritzbrantner-text-linguistics --features external-tests -- --ignored
-cargo test -p moritzbrantner-text-embeddings --features external-tests -- --ignored
-cargo test -p moritzbrantner-text-classification --features external-tests -- --ignored
-cargo test -p moritzbrantner-text-transcripts --features native,external-tests -- --ignored
+cargo test -p moenarch-text-model-runtime --features external-tests -- --ignored
+cargo test -p moenarch-text-linguistics --features external-tests -- --ignored
+cargo test -p moenarch-text-embeddings --features external-tests -- --ignored
+cargo test -p moenarch-text-classification --features external-tests -- --ignored
+cargo test -p moenarch-text-transcripts --features native,external-tests -- --ignored
 ```
 
 ## Model-Capable And Model-Free Crates
@@ -202,8 +202,8 @@ Text Candle server binaries default to CPU. Native CUDA execution is opt-in with
 the server `cuda` feature and startup flags:
 
 ```bash
-cargo run -p moritzbrantner-text-analysis-server -- --addr 127.0.0.1:3000
-cargo run -p moritzbrantner-text-analysis-server --features cuda -- --cuda --cuda-device-index 0
+cargo run -p moenarch-text-analysis-server -- --addr 127.0.0.1:3000
+cargo run -p moenarch-text-analysis-server --features cuda -- --cuda --cuda-device-index 0
 ```
 
 CUDA requires a CUDA-capable host and Candle CUDA build prerequisites. WASM

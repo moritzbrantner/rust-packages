@@ -30,9 +30,9 @@ do
   fi
 done
 
-cargo test -p moritzbrantner-image-analysis-classification --features external-tests -- --ignored
-cargo test -p moritzbrantner-image-analysis-captioning --features external-tests -- --ignored
-cargo test -p moritzbrantner-image-analysis-detection --features external-tests -- --ignored
-cargo test -p moritzbrantner-image-analysis-embeddings --features external-tests -- --ignored
-cargo test -p moritzbrantner-image-analysis-ocr --features external-tests --test external_onnx_smoke -- --ignored
-cargo test -p moritzbrantner-text-question-answering --features external-tests -- --ignored
+cargo test -p moenarch-image-analysis-classification --features external-tests -- --ignored
+cargo test -p moenarch-image-analysis-captioning --features external-tests -- --ignored
+cargo test -p moenarch-image-analysis-detection --features external-tests -- --ignored
+cargo test -p moenarch-image-analysis-embeddings --features external-tests -- --ignored
+cargo test -p moenarch-image-analysis-ocr --features external-tests --test external_onnx_smoke -- --ignored
+cargo test -p moenarch-text-question-answering --features external-tests -- --ignored

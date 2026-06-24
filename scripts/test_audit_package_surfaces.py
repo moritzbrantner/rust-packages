@@ -22,7 +22,7 @@ class PackageSurfaceAuditTests(unittest.TestCase):
     def test_tracer_gate_fails_loose_primary_schema(self) -> None:
         failures: list[str] = []
         audit.validate_tracer_primary_workflow(
-            "moritzbrantner-text-index",
+            "moenarch-text-index",
             [
                 {
                     "id": "index.search",
@@ -33,7 +33,7 @@ class PackageSurfaceAuditTests(unittest.TestCase):
                         "xErrorShape": {"code": "string"},
                         "xReleaseStability": "stable",
                         "xContractPolicy": "additiveOnly",
-                        "xLowerContractProof": {"crates": ["moritzbrantner-text-core"]},
+                        "xLowerContractProof": {"crates": ["moenarch-text-core"]},
                     },
                     "exampleRequest": {"query": {"text": "rust"}},
                 }
@@ -48,7 +48,7 @@ class PackageSurfaceAuditTests(unittest.TestCase):
     def test_tracer_gate_accepts_strict_primary_schema(self) -> None:
         failures: list[str] = []
         audit.validate_tracer_primary_workflow(
-            "moritzbrantner-text-index",
+            "moenarch-text-index",
             [
                 {
                     "id": "index.search",
@@ -59,7 +59,7 @@ class PackageSurfaceAuditTests(unittest.TestCase):
                         "xErrorShape": {"code": "string"},
                         "xReleaseStability": "stable",
                         "xContractPolicy": "additiveOnly",
-                        "xLowerContractProof": {"crates": ["moritzbrantner-text-core"]},
+                        "xLowerContractProof": {"crates": ["moenarch-text-core"]},
                     },
                     "exampleRequest": {"query": {"text": "rust"}},
                 }

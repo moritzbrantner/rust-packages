@@ -18,10 +18,10 @@ DEFAULT_ROOT = Path(__file__).resolve().parents[1]
 LEDGER_PATH = Path("docs/CRATE_PROGRESS_LEDGER.md")
 ALLOW_PATH = Path("scripts/crate_progress_regressions.allow")
 EXCLUDED_LIBRARY_CRATES = {
-    "moritzbrantner-audio-analysis-test-support",
-    "moritzbrantner-runtime-core",
-    "moritzbrantner-runtime-onnx",
-    "moritzbrantner-video-analysis-test-support",
+    "moenarch-audio-analysis-test-support",
+    "moenarch-runtime-core",
+    "moenarch-runtime-onnx",
+    "moenarch-video-analysis-test-support",
 }
 WRAPPER_SUFFIXES = ("-cli", "-server", "-wasm")
 SCAFFOLD_STRINGS = [
@@ -693,7 +693,7 @@ def read_regression_allowlist(path: Path) -> list[RegressionAllow]:
         if len(parts) != 4:
             raise SystemExit(f"{path}:{line_number}: malformed allowlist entry")
         crate, metric, expires, reason = parts
-        if crate == "all" or not crate.startswith("moritzbrantner-"):
+        if crate == "all" or not is_active_rust_package_name(crate):
             raise SystemExit(f"{path}:{line_number}: allowlist entry must be crate-specific")
         if metric not in {"score", "level"}:
             raise SystemExit(f"{path}:{line_number}: metric must be `score` or `level`")
@@ -815,11 +815,17 @@ def read_text(path: Path) -> str:
 
 
 def companion_package_base_name(package_name: str) -> str:
-    return package_name.removeprefix("moritzbrantner-")
+    return package_name.removeprefix("moenarch-").removeprefix("moritzbrantner-")
 
 
 def public_package_name(package_name: str) -> str:
-    return package_name if package_name.startswith("moritzbrantner-") else f"moritzbrantner-{package_name}"
+    if is_active_rust_package_name(package_name):
+        return package_name
+    return f"moenarch-{package_name}"
+
+
+def is_active_rust_package_name(package_name: str) -> bool:
+    return package_name.startswith(("moenarch-", "moritzbrantner-"))
 
 
 def tick(value: str) -> str:
