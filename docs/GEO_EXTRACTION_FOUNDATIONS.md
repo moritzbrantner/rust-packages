@@ -6,6 +6,9 @@ family has since moved to
 [`moritzbrantner/geo-analysis`](https://github.com/moritzbrantner/geo-analysis);
 this repository keeps migration signposts only.
 
+For future extraction decisions after the geo pilot, see the
+[`Post-Pilot Extraction Playbook`](POST_PILOT_EXTRACTION_PLAYBOOK.md).
+
 ## Boundary Decision
 
 The geo family was extraction-ready once the active geo libraries could be
