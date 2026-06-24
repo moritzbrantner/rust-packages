@@ -61,9 +61,15 @@ Read the agent setup docs before running workflow skills:
 * Issue tracker: [docs/agents/issue-tracker.md](docs/agents/issue-tracker.md)
 * Triage labels: [docs/agents/triage-labels.md](docs/agents/triage-labels.md)
 * Domain context: [docs/agents/domain.md](docs/agents/domain.md)
+* Planning workflow: [docs/agents/planning-workflow.md](docs/agents/planning-workflow.md)
 
 The triage labels in `docs/agents/triage-labels.md` are canonical for this
 repo. Domain context starts with `CONTEXT.md` and the ADRs under `docs/adr/`.
+
+### Planning workflow
+
+Substantial new work should be planned into GitHub PRD issues instead of
+implemented directly. See `docs/agents/planning-workflow.md`.
 
 ## Subagent Policy
 
