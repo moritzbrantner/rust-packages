@@ -106,20 +106,20 @@ verification resolves registry dependencies, dry-run each dependent crate after
 its prerequisite version has been published to crates.io.
 
 ```bash
-cargo package --allow-dirty -p moritzbrantner-runtime-core
-cargo publish -p moritzbrantner-runtime-core
+cargo package --allow-dirty -p moenarch-runtime-core
+cargo publish -p moenarch-runtime-core
 
-cargo package --allow-dirty -p moritzbrantner-jobs-core
-cargo publish -p moritzbrantner-jobs-core
+cargo package --allow-dirty -p moenarch-jobs-core
+cargo publish -p moenarch-jobs-core
 
-cargo package --allow-dirty -p moritzbrantner-video-analysis-core
-cargo publish -p moritzbrantner-video-analysis-core
+cargo package --allow-dirty -p moenarch-video-analysis-core
+cargo publish -p moenarch-video-analysis-core
 
-cargo package --allow-dirty -p moritzbrantner-runtime-onnx
-cargo publish -p moritzbrantner-runtime-onnx
+cargo package --allow-dirty -p moenarch-runtime-onnx
+cargo publish -p moenarch-runtime-onnx
 
-cargo package --allow-dirty -p moritzbrantner-model-runtime
-cargo publish -p moritzbrantner-model-runtime
+cargo package --allow-dirty -p moenarch-model-runtime
+cargo publish -p moenarch-model-runtime
 ```
 
 `model-runtime` owns model specs, bundle materialization, manifests, and

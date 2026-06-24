@@ -14,10 +14,10 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 MATRIX_PATH = ROOT / "docs" / "PACKAGE_SURFACE_MATRIX.md"
 EXCLUDED_LIBRARY_CRATES = {
-    "moritzbrantner-audio-analysis-test-support",
-    "moritzbrantner-runtime-core",
-    "moritzbrantner-runtime-onnx",
-    "moritzbrantner-video-analysis-test-support",
+    "moenarch-audio-analysis-test-support",
+    "moenarch-runtime-core",
+    "moenarch-runtime-onnx",
+    "moenarch-video-analysis-test-support",
 }
 WRAPPER_SUFFIXES = ("-cli", "-server", "-wasm")
 SCAFFOLD_STRINGS = [
@@ -53,9 +53,9 @@ DEBUG_OPERATION_KEYWORDS = (
     "providers",
 )
 TRACER_PRIMARY_WORKFLOWS = {
-    "moritzbrantner-image-analysis-classification": "image.classification.classify",
-    "moritzbrantner-text-index": "index.search",
-    "moritzbrantner-video-analysis-sfm": "video.sfm.reconstruct",
+    "moenarch-image-analysis-classification": "image.classification.classify",
+    "moenarch-text-index": "index.search",
+    "moenarch-video-analysis-sfm": "video.sfm.reconstruct",
 }
 
 
@@ -207,11 +207,17 @@ def companion_dir(package: LibraryPackage, kind: str) -> Path:
 
 
 def companion_package_base_name(package_name: str) -> str:
-    return package_name.removeprefix("moritzbrantner-")
+    return package_name.removeprefix("moenarch-").removeprefix("moritzbrantner-")
 
 
 def public_package_name(package_name: str) -> str:
-    return package_name if package_name.startswith("moritzbrantner-") else f"moritzbrantner-{package_name}"
+    if is_active_rust_package_name(package_name):
+        return package_name
+    return f"moenarch-{package_name}"
+
+
+def is_active_rust_package_name(package_name: str) -> bool:
+    return package_name.startswith(("moenarch-", "moritzbrantner-"))
 
 
 def run_json(command: list[str]) -> dict:

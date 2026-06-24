@@ -90,9 +90,9 @@ Standalone server mode expects the matching server wrapper. Use full Cargo
 package names:
 
 ```bash
-cargo run -p moritzbrantner-text-core-server
-cargo run -p moritzbrantner-text-index-server
-cargo run -p moritzbrantner-text-analysis-server
+cargo run -p moenarch-text-core-server
+cargo run -p moenarch-text-index-server
+cargo run -p moenarch-text-analysis-server
 ```
 
 Then use the app runtime switch to select `Standalone Server`.

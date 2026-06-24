@@ -56,17 +56,17 @@ Baseline:
 ```bash
 cargo fmt --all --check
 PROPTEST_CASES=128 cargo test \
-  -p moritzbrantner-audio-analysis-core \
-  -p moritzbrantner-audio-analysis-fourier \
-  -p moritzbrantner-audio-analysis-io \
-  -p moritzbrantner-audio-analysis-pitch \
-  -p moritzbrantner-audio-analysis-processing \
-  -p moritzbrantner-audio-analysis-recognition \
-  -p moritzbrantner-audio-analysis-rhythm \
-  -p moritzbrantner-audio-analysis-separation \
-  -p moritzbrantner-audio-analysis-speakers \
-  -p moritzbrantner-audio-analysis-synthesis \
-  -p moritzbrantner-audio-generation-midi
+  -p moenarch-audio-analysis-core \
+  -p moenarch-audio-analysis-fourier \
+  -p moenarch-audio-analysis-io \
+  -p moenarch-audio-analysis-pitch \
+  -p moenarch-audio-analysis-processing \
+  -p moenarch-audio-analysis-recognition \
+  -p moenarch-audio-analysis-rhythm \
+  -p moenarch-audio-analysis-separation \
+  -p moenarch-audio-analysis-speakers \
+  -p moenarch-audio-analysis-synthesis \
+  -p moenarch-audio-generation-midi
 cargo test --test audio_pipeline --test audio_surface_public_api --test audio_transcription_contracts
 bun run audio-wasm:test
 ```

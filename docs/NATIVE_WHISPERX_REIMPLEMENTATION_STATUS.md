@@ -204,12 +204,12 @@ Baseline hermetic matrix:
 
 ```bash
 cargo fmt --check
-cargo test -p moritzbrantner-audio-analysis-speakers
-cargo test -p moritzbrantner-audio-analysis-speakers --features onnx,model-bundles
-cargo test -p moritzbrantner-audio-analysis-transcription
-cargo test -p moritzbrantner-audio-analysis-transcription --features alignment,candle,model-bundles
-cargo test -p moritzbrantner-audio-analysis-transcription --features audio-io
-cargo test -p moritzbrantner-audio-analysis-transcription --features diarization,onnx,model-bundles
+cargo test -p moenarch-audio-analysis-speakers
+cargo test -p moenarch-audio-analysis-speakers --features onnx,model-bundles
+cargo test -p moenarch-audio-analysis-transcription
+cargo test -p moenarch-audio-analysis-transcription --features alignment,candle,model-bundles
+cargo test -p moenarch-audio-analysis-transcription --features audio-io
+cargo test -p moenarch-audio-analysis-transcription --features diarization,onnx,model-bundles
 cargo test --test audio_surface_audit
 cargo test --test audio_transcription_native_contracts
 cargo test --test audio_voice_pipeline
@@ -220,7 +220,7 @@ wav2vec2 alignment smoke:
 
 ```bash
 ALIGNMENT_TRANSCRIPT_TEXT="hello world" \
-cargo test -p moritzbrantner-audio-analysis-transcription \
+cargo test -p moenarch-audio-analysis-transcription \
   --features candle,alignment,model-bundles \
   ctc_alignment_wav2vec2_smoke_when_requested -- --ignored --nocapture
 ```
@@ -239,7 +239,7 @@ Media/container decode smoke:
 ```bash
 RUN_NATIVE_MEDIA_DECODE_TESTS=1 \
 TRANSCRIPTION_MEDIA_PATH="tests/fixtures/me-at-the-zoo-jNQXAC9IVRw.webm" \
-cargo test -p moritzbrantner-audio-analysis-transcription \
+cargo test -p moenarch-audio-analysis-transcription \
   --features audio-io \
   native_media_decode_when_requested -- --ignored --nocapture
 ```
@@ -253,7 +253,7 @@ SPEAKER_EMBEDDING_MODEL_BUNDLE="$SMOKE_ROOT/models/wespeaker-voxceleb-resnet34-L
 SPEAKER_EMBEDDING_MODEL_FILE="speaker-embedding.onnx" \
 DIARIZATION_AUDIO_PATH="$SMOKE_ROOT/audio/native-transcription-smoke.wav" \
 SPEAKER_EMBEDDING_DIMENSION=256 \
-cargo test -p moritzbrantner-audio-analysis-speakers \
+cargo test -p moenarch-audio-analysis-speakers \
   --features onnx,model-bundles \
   onnx_speaker_embedding_smoke_when_requested -- --ignored --nocapture
 ```
@@ -267,7 +267,7 @@ SPEAKER_EMBEDDING_MODEL_BUNDLE="$SMOKE_ROOT/models/wespeaker-voxceleb-resnet34-L
 SPEAKER_EMBEDDING_MODEL_FILE="speaker-embedding.onnx" \
 DIARIZATION_AUDIO_PATH="$SMOKE_ROOT/audio/native-transcription-smoke.wav" \
 SPEAKER_EMBEDDING_DIMENSION=256 \
-cargo test -p moritzbrantner-audio-analysis-transcription \
+cargo test -p moenarch-audio-analysis-transcription \
   --features diarization,onnx,model-bundles \
   native_onnx_diarization_smoke_when_requested -- --ignored --nocapture
 ```

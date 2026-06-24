@@ -93,14 +93,14 @@ it with `AUTOSHOT_ARCHIVE=/path/to/AutoShot_test.tar.gz`.
 Run the bounded BBC smoke evaluation with:
 
 ```bash
-cargo run --release -p moritzbrantner-video-analysis-detectors --example scene_dataset_eval -- --dataset bbc --root .test-corpora/video-scene/BBC --detector content --video-id bbc_10 --resize-width 320 --progress --resume --max-runtime-seconds 3300 --output target/video-scene/content-bbc-smoke.json
+cargo run --release -p moenarch-video-analysis-detectors --example scene_dataset_eval -- --dataset bbc --root .test-corpora/video-scene/BBC --detector content --video-id bbc_10 --resize-width 320 --progress --resume --max-runtime-seconds 3300 --output target/video-scene/content-bbc-smoke.json
 python3 scripts/check_video_scene_eval.py target/video-scene/content-bbc-smoke.json --allow-partial --tolerance-frames 0
 ```
 
 For a broader local sample, run:
 
 ```bash
-cargo run --release -p moritzbrantner-video-analysis-detectors --example scene_dataset_eval -- --dataset bbc --root .test-corpora/video-scene/BBC --detector content --video-id bbc_03 --video-id bbc_06 --video-id bbc_10 --resize-width 320 --progress --resume --max-runtime-seconds 3300 --output target/video-scene/content-bbc-subset-broad.json
+cargo run --release -p moenarch-video-analysis-detectors --example scene_dataset_eval -- --dataset bbc --root .test-corpora/video-scene/BBC --detector content --video-id bbc_03 --video-id bbc_06 --video-id bbc_10 --resize-width 320 --progress --resume --max-runtime-seconds 3300 --output target/video-scene/content-bbc-subset-broad.json
 python3 scripts/check_video_scene_eval.py target/video-scene/content-bbc-subset-broad.json --allow-partial --tolerance-frames 0
 python3 scripts/summarize_video_scene_eval.py target/video-scene/content-bbc-subset-broad.json --tolerance-frames 0 --output target/video-scene/content-bbc-subset-broad-summary.json
 ```
@@ -189,7 +189,7 @@ explicit benchmark preset. The preset does not change `ContentDetector::default(
 `--preset bbc-content-tuned` is supplied.
 
 ```bash
-cargo run --release -p moritzbrantner-video-analysis-detectors --example scene_dataset_eval -- \
+cargo run --release -p moenarch-video-analysis-detectors --example scene_dataset_eval -- \
   --dataset bbc \
   --root .test-corpora/video-scene/BBC \
   --preset bbc-content-tuned \
@@ -253,7 +253,7 @@ remains the hardest video, but its false positives drop from 148 to 27.
 The full BBC corpus remains an explicit long-running opt-in:
 
 ```bash
-cargo run --release -p moritzbrantner-video-analysis-detectors --example scene_dataset_eval -- --dataset bbc --root .test-corpora/video-scene/BBC --detector content --progress --resume --output target/video-scene/content-bbc-full.json
+cargo run --release -p moenarch-video-analysis-detectors --example scene_dataset_eval -- --dataset bbc --root .test-corpora/video-scene/BBC --detector content --progress --resume --output target/video-scene/content-bbc-full.json
 python3 scripts/check_video_scene_eval.py target/video-scene/content-bbc-full.json --tolerance-frames 0
 ```
 
@@ -266,7 +266,7 @@ variance would make them noisy.
 The vertical AutoShot sample `51856804342` is the resize ingest regression case:
 
 ```bash
-cargo run --release -p moritzbrantner-video-analysis-detectors --example scene_dataset_eval -- \
+cargo run --release -p moenarch-video-analysis-detectors --example scene_dataset_eval -- \
   --dataset autoshot \
   --root .test-corpora/video-scene/AutoShot \
   --detector content \
@@ -310,7 +310,7 @@ BBC videos, resize width, detector parameters, annotation loading, frame
 numbering, and timing scope:
 
 ```bash
-cargo run --release -p moritzbrantner-video-analysis-detectors --example scene_dataset_eval -- \
+cargo run --release -p moenarch-video-analysis-detectors --example scene_dataset_eval -- \
   --dataset bbc \
   --root .test-corpora/video-scene/BBC \
   --detector content \
@@ -351,7 +351,7 @@ For Rust detector-only timing on real decoded frames, decode once and run the
 detector repeatedly:
 
 ```bash
-cargo run --release -p moritzbrantner-video-analysis-detectors --example scene_detector_real_frame_benchmark -- \
+cargo run --release -p moenarch-video-analysis-detectors --example scene_detector_real_frame_benchmark -- \
   --input .test-corpora/video-scene/BBC/videos/bbc_03.mp4 \
   --resize-width 320 \
   --detector content \

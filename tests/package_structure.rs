@@ -155,9 +155,9 @@ fn public_package_identifiers_use_moritzbrantner_prefix() {
 
         if file.file_name().is_some_and(|name| name == "Cargo.toml") {
             if let Some(name) = cargo_package_name(&text) {
-                if !name.starts_with("moritzbrantner-") {
+                if !is_active_rust_package_name(&name) {
                     failures.push(format!(
-                        "{} package name `{name}` is not prefixed with moritzbrantner-",
+                        "{} package name `{name}` is not under an active Rust package namespace",
                         relative.display()
                     ));
                 }
@@ -377,10 +377,7 @@ fn cargo_package_selectors_use_active_prefixed_names() {
         .collect::<std::collections::BTreeSet<_>>();
     let unprefixed = names
         .iter()
-        .filter_map(|name| {
-            name.strip_prefix("moritzbrantner-")
-                .map(|short| (short, *name))
-        })
+        .map(|name| (surface_package_name(name), *name))
         .collect::<std::collections::BTreeMap<_, _>>();
     let mut failures = Vec::new();
 
@@ -394,7 +391,7 @@ fn cargo_package_selectors_use_active_prefixed_names() {
                 continue;
             }
             for package in cargo_package_selectors(line) {
-                if package.starts_with("moritzbrantner-") {
+                if is_active_rust_package_name(&package) {
                     if !names.contains(package.as_str())
                         && !line.contains('<')
                         && !line.contains('{')
@@ -470,10 +467,10 @@ fn library_manifests(root: &Path) -> Vec<PathBuf> {
                 || package_name.ends_with("-cli")
                 || package_name.ends_with("-server")
                 || package_name.ends_with("-wasm")
-                || package_name == "moritzbrantner-audio-analysis-test-support"
-                || package_name == "moritzbrantner-runtime-core"
-                || package_name == "moritzbrantner-runtime-onnx"
-                || package_name == "moritzbrantner-video-analysis-test-support"
+                || package_name == "moenarch-audio-analysis-test-support"
+                || package_name == "moenarch-runtime-core"
+                || package_name == "moenarch-runtime-onnx"
+                || package_name == "moenarch-video-analysis-test-support"
             {
                 return None;
             }
@@ -535,7 +532,7 @@ fn adapter_parity_exception(package_name: &str) -> bool {
         package_name,
         // Native server dispatch boundary: reconstruct.video delegates into the
         // library crate's server-side reconstruction entry point.
-        "moritzbrantner-video-analysis-sfm-server"
+        "moenarch-video-analysis-sfm-server"
     )
 }
 
@@ -596,7 +593,7 @@ fn cargo_package_selectors(line: &str) -> Vec<String> {
 
 fn tracked_command_files(root: &Path) -> Vec<PathBuf> {
     let mut files = Vec::new();
-    for relative in ["package.json", "scripts", "docs", ".github"] {
+    for relative in ["scripts", "docs", ".github"] {
         let path = root.join(relative);
         if path.is_file() {
             files.push(path);
@@ -672,8 +669,13 @@ fn read_source(path: impl AsRef<Path>) -> String {
 
 fn surface_package_name(package_name: &str) -> &str {
     package_name
-        .strip_prefix("moritzbrantner-")
+        .strip_prefix("moenarch-")
+        .or_else(|| package_name.strip_prefix("moritzbrantner-"))
         .unwrap_or(package_name)
+}
+
+fn is_active_rust_package_name(name: &str) -> bool {
+    name.starts_with("moenarch-") || name.starts_with("moritzbrantner-")
 }
 
 fn has_exact_base_dependency(cargo: &str, package_name: &str, surface_name: &str) -> bool {

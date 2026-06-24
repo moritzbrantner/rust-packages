@@ -73,10 +73,10 @@ Default text tests do not download model files or require native runtimes. Opt-i
 
 ```bash
 scripts/sync_model_bundles.sh
-cargo test -p moritzbrantner-text-model-runtime --features external-tests -- --ignored
-cargo test -p moritzbrantner-text-linguistics --features external-tests -- --ignored
-cargo test -p moritzbrantner-text-embeddings --features external-tests -- --ignored
-cargo test -p moritzbrantner-text-transcripts --features native,external-tests -- --ignored
+cargo test -p moenarch-text-model-runtime --features external-tests -- --ignored
+cargo test -p moenarch-text-linguistics --features external-tests -- --ignored
+cargo test -p moenarch-text-embeddings --features external-tests -- --ignored
+cargo test -p moenarch-text-transcripts --features native,external-tests -- --ignored
 ```
 
 These tests reuse `.model-runtime` and report whether required tokenizer,
@@ -92,10 +92,10 @@ through `moritzbrantner-model-runtime`:
 Live download/inference checks stay ignored and feature-gated:
 
 ```bash
-cargo test -p moritzbrantner-text-question-answering --features external-tests -- --ignored
-cargo test -p moritzbrantner-image-analysis-classification --features external-tests -- --ignored
-cargo test -p moritzbrantner-image-analysis-captioning --features external-tests -- --ignored
-cargo test -p moritzbrantner-image-analysis-ocr --features external-tests --test external_onnx_smoke -- --ignored
+cargo test -p moenarch-text-question-answering --features external-tests -- --ignored
+cargo test -p moenarch-image-analysis-classification --features external-tests -- --ignored
+cargo test -p moenarch-image-analysis-captioning --features external-tests -- --ignored
+cargo test -p moenarch-image-analysis-ocr --features external-tests --test external_onnx_smoke -- --ignored
 ```
 
 The native ONNX smoke suite can be run explicitly with:
@@ -196,7 +196,7 @@ ComfyUI checks require a real running server:
 ```bash
 export COMFYUI_URL=http://127.0.0.1:8188
 export COMFYUI_CHECKPOINT=<checkpoint-installed-on-that-server>
-cargo test -p moritzbrantner-image-analysis-comfyui --test external_comfyui_smoke \
+cargo test -p moenarch-image-analysis-comfyui --test external_comfyui_smoke \
   comfyui_submits_generation_workflow_when_configured -- --ignored --nocapture
 ```
 

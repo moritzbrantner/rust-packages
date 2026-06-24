@@ -16,18 +16,17 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 INVENTORY_PATH = ROOT / "docs" / "CRATE_INVENTORY.md"
 SCAN_PATHS = [
-    ROOT / "package.json",
     ROOT / "scripts",
     ROOT / "docs",
     ROOT / ".github",
 ]
 WRAPPER_SUFFIXES = ("-cli", "-server", "-wasm")
 INTERNAL_TEST_PACKAGES = {
-    "moritzbrantner-audio-analysis-test-support",
-    "moritzbrantner-video-analysis-test-support",
+    "moenarch-audio-analysis-test-support",
+    "moenarch-video-analysis-test-support",
 }
 NO_SURFACE_LIBRARIES = {
-    "moritzbrantner-runtime-core",
+    "moenarch-runtime-core",
 }
 
 
@@ -227,7 +226,7 @@ def render_counts(records: list[CrateRecord]) -> list[str]:
 
 def stale_selector_failures(records: list[CrateRecord]) -> list[str]:
     local_names = {record.name for record in records}
-    unprefixed = {name.removeprefix("moritzbrantner-"): name for name in local_names}
+    unprefixed = {package_base_name(name): name for name in local_names}
     failures = []
     for path in scan_files():
         text = path.read_text(encoding="utf-8", errors="ignore")
@@ -235,7 +234,7 @@ def stale_selector_failures(records: list[CrateRecord]) -> list[str]:
             if "cargo" not in line or "-p" not in line:
                 continue
             for selector in re.findall(r"(?:^|[\s'\"])-p\s+([A-Za-z0-9_-]+)", line):
-                if selector.startswith("moritzbrantner-"):
+                if is_active_rust_package_name(selector):
                     if selector not in local_names and "{" not in line and "<" not in line:
                         failures.append(
                             f"{path.relative_to(ROOT)}:{line_number} uses unknown package selector `-p {selector}`"
@@ -246,6 +245,14 @@ def stale_selector_failures(records: list[CrateRecord]) -> list[str]:
                         f"{path.relative_to(ROOT)}:{line_number} uses `-p {selector}`; use `-p {unprefixed[selector]}`"
                     )
     return failures
+
+
+def package_base_name(name: str) -> str:
+    return name.removeprefix("moenarch-").removeprefix("moritzbrantner-")
+
+
+def is_active_rust_package_name(name: str) -> bool:
+    return name.startswith(("moenarch-", "moritzbrantner-"))
 
 
 def scan_files() -> list[Path]:

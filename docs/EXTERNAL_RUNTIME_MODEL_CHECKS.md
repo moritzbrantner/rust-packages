@@ -163,7 +163,7 @@ are:
   ```bash
   export COMFYUI_URL=http://127.0.0.1:8188
   export COMFYUI_CHECKPOINT=<checkpoint-installed-on-that-server>
-  cargo test -p moritzbrantner-image-analysis-comfyui --test external_comfyui_smoke \
+  cargo test -p moenarch-image-analysis-comfyui --test external_comfyui_smoke \
     comfyui_submits_generation_workflow_when_configured -- --ignored --nocapture
   ```
 
