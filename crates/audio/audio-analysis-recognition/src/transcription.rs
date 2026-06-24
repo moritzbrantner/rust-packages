@@ -153,7 +153,7 @@ impl WhisperCppTranscriptionPlan {
         Self {
             model_id: model_id.into(),
             native_runtime: "whisper.cpp".to_string(),
-            execution_owner: "moritzbrantner-text-transcripts".to_string(),
+            execution_owner: "moenarch-text-transcripts".to_string(),
             required_feature: "native".to_string(),
             will_execute: false,
         }
@@ -296,7 +296,7 @@ pub fn transcription_plan(selection: &TranscriptionRuntimeSelection) -> Transcri
             task: ModelTask::SpeechRecognition,
             will_execute: true,
             requires_feature: None,
-            execution_owner: "moritzbrantner-audio-analysis-recognition".to_string(),
+            execution_owner: "moenarch-audio-analysis-recognition".to_string(),
             setup: vec!["Pass imported transcript segments or a transcript contract.".to_string()],
             diagnostics: vec![
                 "default audio recognition builds normalize imported transcript data in memory"
@@ -310,7 +310,7 @@ pub fn transcription_plan(selection: &TranscriptionRuntimeSelection) -> Transcri
             task: ModelTask::SpeechRecognition,
             will_execute: false,
             requires_feature: Some("native".to_string()),
-            execution_owner: "moritzbrantner-text-transcripts".to_string(),
+            execution_owner: "moenarch-text-transcripts".to_string(),
             setup: vec![
                 "Enable and configure the text-transcripts native whisper.cpp path.".to_string(),
                 "Default audio recognition surfaces do not download models or run native ASR."
@@ -489,7 +489,7 @@ mod tests {
         });
 
         assert_eq!(plan.provider, TranscriptionProviderKind::WhisperCpp);
-        assert_eq!(plan.execution_owner, "moritzbrantner-text-transcripts");
+        assert_eq!(plan.execution_owner, "moenarch-text-transcripts");
         assert!(!plan.will_execute);
     }
 

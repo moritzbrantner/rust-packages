@@ -5,6 +5,6 @@ fn cli_adapter_reports_wrapped_library() {
         "vector-analysis-index"
     );
     let surface = vector_analysis_index_cli::package_surface();
-    assert_eq!(surface.library, "moritzbrantner-vector-analysis-index");
+    assert_eq!(surface.library, "moenarch-vector-analysis-index");
     assert!(!surface.operations.is_empty());
 }

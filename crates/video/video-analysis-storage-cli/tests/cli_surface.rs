@@ -5,6 +5,6 @@ fn cli_adapter_reports_wrapped_library() {
         "video-analysis-storage"
     );
     let surface = video_analysis_storage_cli::package_surface();
-    assert_eq!(surface.library, "moritzbrantner-video-analysis-storage");
+    assert_eq!(surface.library, "moenarch-video-analysis-storage");
     assert!(!surface.operations.is_empty());
 }

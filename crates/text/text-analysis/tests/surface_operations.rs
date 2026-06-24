@@ -13,7 +13,7 @@ fn run(operation: &str, input: serde_json::Value) -> Result<serde_json::Value, S
 fn describe_alias_reports_operation_inventory() {
     let value = run("describe", serde_json::json!({"includeOperations": true})).unwrap();
 
-    assert_eq!(value["library"], "moritzbrantner-text-analysis");
+    assert_eq!(value["library"], "moenarch-text-analysis");
     assert_eq!(value["operationCount"], package_surface().operations.len());
     assert!(value["operations"]
         .as_array()

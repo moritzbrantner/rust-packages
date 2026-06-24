@@ -650,7 +650,8 @@ fn automatic_config_path(
     for candidate in [
         package_name,
         package_name
-            .strip_prefix("moritzbrantner-")
+            .strip_prefix("moenarch-")
+            .or_else(|| package_name.strip_prefix("moritzbrantner-"))
             .unwrap_or(package_name),
     ] {
         let package_conf_path = current_dir.join(format!("{candidate}.conf"));

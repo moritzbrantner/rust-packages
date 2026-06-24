@@ -79,9 +79,9 @@ fn operation(
             example_request,
             Some(model_execution_plan(id)),
             &[
-                "moritzbrantner-image-analysis-core",
-                "moritzbrantner-model-runtime",
-                "moritzbrantner-runtime-onnx",
+                "moenarch-image-analysis-core",
+                "moenarch-model-runtime",
+                "moenarch-runtime-onnx",
             ],
         );
         operation.wasm_supported = false;
@@ -284,9 +284,9 @@ fn classify_value(
             "requires": ["modelRoot", "network", "writes", "runtime-onnx"]
         },
         "contracts": {
-            "image": "moritzbrantner-image-analysis-core::ImageView",
-            "bundle": "moritzbrantner-model-runtime::HuggingFaceModelSpec",
-            "runtime": "moritzbrantner-runtime-onnx"
+            "image": "moenarch-image-analysis-core::ImageView",
+            "bundle": "moenarch-model-runtime::HuggingFaceModelSpec",
+            "runtime": "moenarch-runtime-onnx"
         },
         "diagnostics": ["ONNX classification is model-first. This package-surface call returns a typed execution plan unless a native adapter supplies a capable model runtime context."]
     }))
@@ -444,7 +444,7 @@ mod tests {
         assert_eq!(operation.input_schema["xOperationCategory"], "workflow");
         assert_eq!(
             operation.input_schema["xLowerContractProof"]["crates"][0],
-            "moritzbrantner-image-analysis-core"
+            "moenarch-image-analysis-core"
         );
 
         let response = run_surface_operation(SurfaceRequest {
@@ -457,7 +457,7 @@ mod tests {
         assert_eq!(response.value["setup"]["mode"], "plan-only");
         assert_eq!(
             response.value["contracts"]["bundle"],
-            "moritzbrantner-model-runtime::HuggingFaceModelSpec"
+            "moenarch-model-runtime::HuggingFaceModelSpec"
         );
     }
 

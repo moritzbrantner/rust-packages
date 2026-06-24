@@ -158,9 +158,9 @@ fn public_package_identifiers_use_active_ownership_prefix() {
 
         if file.file_name().is_some_and(|name| name == "Cargo.toml") {
             if let Some(name) = cargo_package_name(&text) {
-                if !has_known_cargo_prefix(&name) {
+                if !is_active_rust_package_name(&name) {
                     failures.push(format!(
-                        "{} package name `{name}` is not prefixed with a known public Cargo owner",
+                        "{} package name `{name}` is not under an active Rust package namespace",
                         relative.display()
                     ));
                 }
@@ -397,7 +397,7 @@ fn cargo_package_selectors_use_active_prefixed_names() {
                 continue;
             }
             for package in cargo_package_selectors(line) {
-                if has_known_cargo_prefix(&package) {
+                if is_active_rust_package_name(&package) {
                     if !names.contains(package.as_str())
                         && !has_active_known_owner_package(&package, &names)
                         && !line.contains('<')
@@ -536,7 +536,7 @@ fn adapter_parity_exception(package_name: &str) -> bool {
         package_name,
         // Native server dispatch boundary: reconstruct.video delegates into the
         // library crate's server-side reconstruction entry point.
-        "moritzbrantner-video-analysis-sfm-server" | "moenarch-video-analysis-sfm-server"
+        "moenarch-video-analysis-sfm-server"
     )
 }
 
@@ -597,7 +597,7 @@ fn cargo_package_selectors(line: &str) -> Vec<String> {
 
 fn tracked_command_files(root: &Path) -> Vec<PathBuf> {
     let mut files = Vec::new();
-    for relative in ["package.json", "scripts", "docs", ".github"] {
+    for relative in ["scripts", "docs", ".github"] {
         let path = root.join(relative);
         if path.is_file() {
             files.push(path);
@@ -716,15 +716,15 @@ fn wasm_package_dependency_names(surface_name: &str) -> Vec<String> {
 fn excluded_library_package(package_name: &str) -> bool {
     matches!(
         package_name,
-        "moritzbrantner-audio-analysis-test-support"
-            | "moenarch-audio-analysis-test-support"
-            | "moritzbrantner-runtime-core"
+        "moenarch-audio-analysis-test-support"
             | "moenarch-runtime-core"
-            | "moritzbrantner-runtime-onnx"
             | "moenarch-runtime-onnx"
-            | "moritzbrantner-video-analysis-test-support"
             | "moenarch-video-analysis-test-support"
     )
+}
+
+fn is_active_rust_package_name(name: &str) -> bool {
+    has_known_cargo_prefix(name)
 }
 
 fn has_exact_base_dependency(cargo: &str, package_name: &str, surface_name: &str) -> bool {

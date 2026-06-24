@@ -255,31 +255,29 @@ fn validate_owner(context: &str, owner: &str) -> Result<(), String> {
 pub mod well_known {
     use super::{LandscapeTypeId, LandscapeTypeRef};
 
-    pub const OWNER_RUNTIME_CORE: &str = "moritzbrantner-runtime-core";
-    pub const OWNER_TEXT_CORE: &str = "moritzbrantner-text-core";
-    pub const OWNER_TEXT_TRANSCRIPTS: &str = "moritzbrantner-text-transcripts";
-    pub const OWNER_TEXT_ANALYSIS: &str = "moritzbrantner-text-analysis";
-    pub const OWNER_TEXT_RETRIEVAL: &str = "moritzbrantner-text-retrieval";
-    pub const OWNER_IMAGE_ANALYSIS_CORE: &str = "moritzbrantner-image-analysis-core";
-    pub const OWNER_IMAGE_ANALYSIS_DETECTION: &str = "moritzbrantner-image-analysis-detection";
-    pub const OWNER_AUDIO_ANALYSIS_CORE: &str = "moritzbrantner-audio-analysis-core";
-    pub const OWNER_AUDIO_ANALYSIS_TRANSCRIPTION: &str =
-        "moritzbrantner-audio-analysis-transcription";
-    pub const OWNER_VISION_CORE: &str = "moritzbrantner-vision-core";
-    pub const OWNER_VECTOR_ANALYSIS_CORE: &str = "moritzbrantner-vector-analysis-core";
-    pub const OWNER_TENSOR_DATA: &str = "moritzbrantner-tensor-data";
-    pub const OWNER_NUMBERS_CORE: &str = "moritzbrantner-numbers-core";
-    pub const OWNER_MATH_GEOMETRY_2D: &str = "moritzbrantner-math-geometry-2d";
-    pub const OWNER_VIDEO_ANALYSIS_CORE: &str = "moritzbrantner-video-analysis-core";
-    pub const OWNER_VIDEO_ANALYSIS_DETECTORS: &str = "moritzbrantner-video-analysis-detectors";
-    pub const OWNER_VIDEO_ANALYSIS_OUTPUT: &str = "moritzbrantner-video-analysis-output";
-    pub const OWNER_VIDEO_ANALYSIS_RECONSTRUCTION: &str =
-        "moritzbrantner-video-analysis-reconstruction";
-    pub const OWNER_VIDEO_ANALYSIS_SFM: &str = "moritzbrantner-video-analysis-sfm";
+    pub const OWNER_RUNTIME_CORE: &str = "moenarch-runtime-core";
+    pub const OWNER_TEXT_CORE: &str = "moenarch-text-core";
+    pub const OWNER_TEXT_TRANSCRIPTS: &str = "moenarch-text-transcripts";
+    pub const OWNER_TEXT_ANALYSIS: &str = "moenarch-text-analysis";
+    pub const OWNER_TEXT_RETRIEVAL: &str = "moenarch-text-retrieval";
+    pub const OWNER_IMAGE_ANALYSIS_CORE: &str = "moenarch-image-analysis-core";
+    pub const OWNER_IMAGE_ANALYSIS_DETECTION: &str = "moenarch-image-analysis-detection";
+    pub const OWNER_AUDIO_ANALYSIS_CORE: &str = "moenarch-audio-analysis-core";
+    pub const OWNER_AUDIO_ANALYSIS_TRANSCRIPTION: &str = "moenarch-audio-analysis-transcription";
+    pub const OWNER_VISION_CORE: &str = "moenarch-vision-core";
+    pub const OWNER_VECTOR_ANALYSIS_CORE: &str = "moenarch-vector-analysis-core";
+    pub const OWNER_TENSOR_DATA: &str = "moenarch-tensor-data";
+    pub const OWNER_NUMBERS_CORE: &str = "moenarch-numbers-core";
+    pub const OWNER_MATH_GEOMETRY_2D: &str = "moenarch-math-geometry-2d";
+    pub const OWNER_VIDEO_ANALYSIS_CORE: &str = "moenarch-video-analysis-core";
+    pub const OWNER_VIDEO_ANALYSIS_DETECTORS: &str = "moenarch-video-analysis-detectors";
+    pub const OWNER_VIDEO_ANALYSIS_OUTPUT: &str = "moenarch-video-analysis-output";
+    pub const OWNER_VIDEO_ANALYSIS_RECONSTRUCTION: &str = "moenarch-video-analysis-reconstruction";
+    pub const OWNER_VIDEO_ANALYSIS_SFM: &str = "moenarch-video-analysis-sfm";
     pub const OWNER_VIDEO_ANALYSIS_RADIANCE_FIELDS: &str =
-        "moritzbrantner-video-analysis-radiance-fields";
+        "moenarch-video-analysis-radiance-fields";
     pub const OWNER_VIDEO_ANALYSIS_RADIANCE_PIPELINE: &str =
-        "moritzbrantner-video-analysis-radiance-pipeline";
+        "moenarch-video-analysis-radiance-pipeline";
 
     pub const RUNTIME_SURFACE_REQUEST: &str = "runtime.surfaceRequest";
     pub const RUNTIME_SURFACE_RESPONSE: &str = "runtime.surfaceResponse";

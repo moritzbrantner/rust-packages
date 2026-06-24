@@ -2,7 +2,7 @@
 fn cli_adapter_reports_wrapped_library() {
     assert_eq!(text_index_cli::LIBRARY_CRATE, "text-index");
     let surface = text_index_cli::package_surface();
-    assert_eq!(surface.library, "moritzbrantner-text-index");
+    assert_eq!(surface.library, "moenarch-text-index");
     assert!(!surface.operations.is_empty());
 }
 

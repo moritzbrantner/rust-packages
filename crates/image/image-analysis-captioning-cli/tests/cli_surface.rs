@@ -5,6 +5,6 @@ fn cli_adapter_reports_wrapped_library() {
         "image-analysis-captioning"
     );
     let surface = image_analysis_captioning_cli::package_surface();
-    assert_eq!(surface.library, "moritzbrantner-image-analysis-captioning");
+    assert_eq!(surface.library, "moenarch-image-analysis-captioning");
     assert!(!surface.operations.is_empty());
 }

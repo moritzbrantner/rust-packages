@@ -1009,7 +1009,7 @@ fn release_checklist_documents_contract_readiness_gate() {
     let checklist = read_source("docs/RELEASE_CHECKLIST.md");
 
     assert!(
-        checklist.contains("moritzbrantner-runtime-core"),
+        checklist.contains("moenarch-runtime-core"),
         "release checklist must name runtime-core as the runtime DTO owner"
     );
     assert!(

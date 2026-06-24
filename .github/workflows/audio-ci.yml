@@ -14,8 +14,8 @@ jobs:
       node_version: ""
       install_command: ""
       pre_command: rustup toolchain install 1.95.0 --profile minimal --component clippy --component rustfmt && rustup default 1.95.0
-      lint_command: cargo clippy -p moritzbrantner-audio-analysis-core -p moritzbrantner-audio-analysis-fourier -p moritzbrantner-audio-analysis-io -p moritzbrantner-audio-analysis-pitch -p moritzbrantner-audio-analysis-processing -p moritzbrantner-audio-analysis-recognition -p moritzbrantner-audio-analysis-rhythm -p moritzbrantner-audio-analysis-separation --all-targets -- -D warnings
-      unit_test_command: PROPTEST_CASES=128 cargo test --jobs "${CARGO_BUILD_JOBS:-2}" -p moritzbrantner-audio-analysis-core -p moritzbrantner-audio-analysis-fourier -p moritzbrantner-audio-analysis-io -p moritzbrantner-audio-analysis-pitch -p moritzbrantner-audio-analysis-processing -p moritzbrantner-audio-analysis-recognition -p moritzbrantner-audio-analysis-rhythm -p moritzbrantner-audio-analysis-separation
+      lint_command: cargo clippy -p moenarch-audio-analysis-core -p moenarch-audio-analysis-fourier -p moenarch-audio-analysis-io -p moenarch-audio-analysis-pitch -p moenarch-audio-analysis-processing -p moenarch-audio-analysis-recognition -p moenarch-audio-analysis-rhythm -p moenarch-audio-analysis-separation --all-targets -- -D warnings
+      unit_test_command: PROPTEST_CASES=128 cargo test --jobs "${CARGO_BUILD_JOBS:-2}" -p moenarch-audio-analysis-core -p moenarch-audio-analysis-fourier -p moenarch-audio-analysis-io -p moenarch-audio-analysis-pitch -p moenarch-audio-analysis-processing -p moenarch-audio-analysis-recognition -p moenarch-audio-analysis-rhythm -p moenarch-audio-analysis-separation
       cache_cargo: true
       timeout_minutes: 45
 
@@ -26,7 +26,7 @@ jobs:
       node_version: ""
       install_command: ""
       pre_command: rustup toolchain install 1.95.0 --profile minimal && rustup default 1.95.0 && bash scripts/setup_audio_external_tools.sh ffmpeg
-      integration_command: FFMPEG_EXTERNAL_TESTS=1 cargo test --jobs "${CARGO_BUILD_JOBS:-2}" -p moritzbrantner-audio-analysis-io --test ffmpeg_decode
+      integration_command: FFMPEG_EXTERNAL_TESTS=1 cargo test --jobs "${CARGO_BUILD_JOBS:-2}" -p moenarch-audio-analysis-io --test ffmpeg_decode
       cache_cargo: true
       timeout_minutes: 45
 
@@ -37,7 +37,7 @@ jobs:
       node_version: ""
       install_command: ""
       pre_command: rustup toolchain install 1.95.0 --profile minimal && rustup default 1.95.0 && AUDIO_DEMUCS_INSTALLER=auto bash scripts/setup_audio_external_tools.sh conda demucs
-      integration_command: RUN_REAL_DEMUCS_TESTS=1 cargo test --jobs "${CARGO_BUILD_JOBS:-2}" -p moritzbrantner-audio-analysis-separation real_demucs_smoke_test_when_requested -- --ignored --nocapture
+      integration_command: RUN_REAL_DEMUCS_TESTS=1 cargo test --jobs "${CARGO_BUILD_JOBS:-2}" -p moenarch-audio-analysis-separation real_demucs_smoke_test_when_requested -- --ignored --nocapture
       cache_cargo: true
       timeout_minutes: 90
 
@@ -48,7 +48,7 @@ jobs:
       node_version: ""
       install_command: ""
       pre_command: rustup toolchain install 1.95.0 --profile minimal && rustup default 1.95.0
-      benchmark_command: cargo bench --jobs "${CARGO_BUILD_JOBS:-2}" -p moritzbrantner-audio-analysis-core -p moritzbrantner-audio-analysis-fourier -p moritzbrantner-audio-analysis-pitch -p moritzbrantner-audio-analysis-processing -p moritzbrantner-audio-analysis-recognition -p moritzbrantner-audio-analysis-rhythm && python3 scripts/check_audio_bench.py
+      benchmark_command: cargo bench --jobs "${CARGO_BUILD_JOBS:-2}" -p moenarch-audio-analysis-core -p moenarch-audio-analysis-fourier -p moenarch-audio-analysis-pitch -p moenarch-audio-analysis-processing -p moenarch-audio-analysis-recognition -p moenarch-audio-analysis-rhythm && python3 scripts/check_audio_bench.py
       cache_cargo: true
       timeout_minutes: 90
       artifact_paths: |

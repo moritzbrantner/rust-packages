@@ -5,6 +5,6 @@ fn cli_adapter_reports_wrapped_library() {
         "video-analysis-synthesis"
     );
     let surface = video_analysis_synthesis_cli::package_surface();
-    assert_eq!(surface.library, "moritzbrantner-video-analysis-synthesis");
+    assert_eq!(surface.library, "moenarch-video-analysis-synthesis");
     assert!(!surface.operations.is_empty());
 }

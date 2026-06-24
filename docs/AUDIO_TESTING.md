@@ -10,31 +10,31 @@ Run these for normal development:
 cargo fmt --all --check
 
 cargo clippy \
-  -p moritzbrantner-audio-analysis-core \
-  -p moritzbrantner-audio-analysis-fourier \
-  -p moritzbrantner-audio-analysis-io \
-  -p moritzbrantner-audio-analysis-pitch \
-  -p moritzbrantner-audio-analysis-processing \
-  -p moritzbrantner-audio-analysis-recognition \
-  -p moritzbrantner-audio-analysis-rhythm \
-  -p moritzbrantner-audio-analysis-separation \
-  -p moritzbrantner-audio-analysis-speakers \
-  -p moritzbrantner-audio-analysis-synthesis \
-  -p moritzbrantner-audio-generation-midi \
+  -p moenarch-audio-analysis-core \
+  -p moenarch-audio-analysis-fourier \
+  -p moenarch-audio-analysis-io \
+  -p moenarch-audio-analysis-pitch \
+  -p moenarch-audio-analysis-processing \
+  -p moenarch-audio-analysis-recognition \
+  -p moenarch-audio-analysis-rhythm \
+  -p moenarch-audio-analysis-separation \
+  -p moenarch-audio-analysis-speakers \
+  -p moenarch-audio-analysis-synthesis \
+  -p moenarch-audio-generation-midi \
   --all-targets -- -D warnings
 
 PROPTEST_CASES=128 cargo test \
-  -p moritzbrantner-audio-analysis-core \
-  -p moritzbrantner-audio-analysis-fourier \
-  -p moritzbrantner-audio-analysis-io \
-  -p moritzbrantner-audio-analysis-pitch \
-  -p moritzbrantner-audio-analysis-processing \
-  -p moritzbrantner-audio-analysis-recognition \
-  -p moritzbrantner-audio-analysis-rhythm \
-  -p moritzbrantner-audio-analysis-separation \
-  -p moritzbrantner-audio-analysis-speakers \
-  -p moritzbrantner-audio-analysis-synthesis \
-  -p moritzbrantner-audio-generation-midi
+  -p moenarch-audio-analysis-core \
+  -p moenarch-audio-analysis-fourier \
+  -p moenarch-audio-analysis-io \
+  -p moenarch-audio-analysis-pitch \
+  -p moenarch-audio-analysis-processing \
+  -p moenarch-audio-analysis-recognition \
+  -p moenarch-audio-analysis-rhythm \
+  -p moenarch-audio-analysis-separation \
+  -p moenarch-audio-analysis-speakers \
+  -p moenarch-audio-analysis-synthesis \
+  -p moenarch-audio-generation-midi
 
 cargo test \
   --test audio_surface_audit \
@@ -72,7 +72,7 @@ FFmpeg decode coverage is gated because it requires external binaries:
 
 ```bash
 bash scripts/setup_audio_external_tools.sh ffmpeg
-FFMPEG_EXTERNAL_TESTS=1 cargo test -p moritzbrantner-audio-analysis-io --test ffmpeg_decode
+FFMPEG_EXTERNAL_TESTS=1 cargo test -p moenarch-audio-analysis-io --test ffmpeg_decode
 ```
 
 If `FFMPEG_EXTERNAL_TESTS` is not set, the test skips. If the variable is set,
@@ -87,7 +87,7 @@ into the ignored local tools directory first:
 ```bash
 bash scripts/setup_audio_external_tools.sh demucs
 export PATH="$PWD/.audio-tools/bin:$PATH"
-RUN_REAL_DEMUCS_TESTS=1 cargo test -p moritzbrantner-audio-analysis-separation \
+RUN_REAL_DEMUCS_TESTS=1 cargo test -p moenarch-audio-analysis-separation \
   real_demucs_smoke_test_when_requested -- --ignored --nocapture
 ```
 
@@ -140,7 +140,7 @@ Candle Whisper CUDA smoke test:
 RUN_NATIVE_TRANSCRIPTION_TESTS=1 \
 TRANSCRIPTION_MODEL_BUNDLE=/path/to/whisper-tiny-or-base \
 TRANSCRIPTION_AUDIO_PATH=/path/to/audio.wav \
-cargo test -p moritzbrantner-audio-analysis-transcription \
+cargo test -p moenarch-audio-analysis-transcription \
   --features candle,cuda,model-bundles \
   candle_whisper_cuda_smoke_when_requested -- --ignored --nocapture
 ```
@@ -151,7 +151,7 @@ Candle Whisper CUDA translate-to-English smoke test:
 RUN_NATIVE_TRANSLATION_TESTS=1 \
 TRANSCRIPTION_MODEL_BUNDLE=/path/to/whisper-tiny-or-small \
 TRANSCRIPTION_AUDIO_PATH=/path/to/non-english-audio.wav \
-cargo test -p moritzbrantner-audio-analysis-transcription \
+cargo test -p moenarch-audio-analysis-transcription \
   --features candle,cuda,model-bundles \
   candle_whisper_cuda_translate_smoke_when_requested -- --ignored --nocapture
 ```
@@ -208,7 +208,7 @@ avoid `CUBLAS_STATUS_NOT_INITIALIZED`.
 CTC alignment wav2vec2 smoke test:
 
 ```bash
-cargo test -p moritzbrantner-audio-analysis-transcription \
+cargo test -p moenarch-audio-analysis-transcription \
   --features candle,alignment,model-bundles \
   ctc_alignment_wav2vec2_smoke_when_requested -- --ignored --nocapture
 ```
@@ -240,7 +240,7 @@ Native media/container decode smoke test:
 ```bash
 RUN_NATIVE_MEDIA_DECODE_TESTS=1 \
 TRANSCRIPTION_MEDIA_PATH=/path/to/video-or-audio-container \
-cargo test -p moritzbrantner-audio-analysis-transcription \
+cargo test -p moenarch-audio-analysis-transcription \
   --features audio-io \
   native_media_decode_when_requested -- --ignored --nocapture
 ```
@@ -275,7 +275,7 @@ Diarization baseline smoke test:
 ```bash
 RUN_NATIVE_DIARIZATION_TESTS=1 \
 DIARIZATION_AUDIO_PATH=/path/to/meeting.wav \
-cargo test -p moritzbrantner-audio-analysis-speakers \
+cargo test -p moenarch-audio-analysis-speakers \
   --features external-tests \
   native_diarization_baseline_smoke_when_requested -- --ignored --nocapture
 ```
@@ -288,7 +288,7 @@ ORT_DYLIB_PATH="$PWD/.audio-tools/whisperx-venv/lib/python3.11/site-packages/onn
 SPEAKER_EMBEDDING_MODEL_BUNDLE=/path/to/onnx-speaker-model \
 SPEAKER_EMBEDDING_MODEL_FILE=model.onnx \
 DIARIZATION_AUDIO_PATH=/path/to/meeting.wav \
-cargo test -p moritzbrantner-audio-analysis-speakers \
+cargo test -p moenarch-audio-analysis-speakers \
   --features onnx,model-bundles \
   onnx_speaker_embedding_smoke_when_requested -- --ignored --nocapture
 ```
@@ -330,7 +330,7 @@ SPEAKER_EMBEDDING_MODEL_BUNDLE=/path/to/onnx-speaker-model \
 SPEAKER_EMBEDDING_MODEL_FILE=model.onnx \
 DIARIZATION_AUDIO_PATH=/path/to/meeting-16khz.wav \
 SPEAKER_EMBEDDING_DIMENSION=192 \
-cargo test -p moritzbrantner-audio-analysis-transcription \
+cargo test -p moenarch-audio-analysis-transcription \
   --features diarization,onnx,model-bundles \
   native_onnx_diarization_smoke_when_requested -- --ignored --nocapture
 ```
@@ -408,7 +408,7 @@ transcriber, so it does not download models itself:
 ```bash
 RUN_NATIVE_WHISPER_TESTS=1 \
 NATIVE_WHISPER_AUDIO_PATH=/path/to/fixture-16khz-mono.wav \
-cargo test -p moritzbrantner-text-transcripts \
+cargo test -p moenarch-text-transcripts \
   --features native,external-tests \
   native_whisper_cpp_smoke_when_requested -- --ignored --nocapture
 ```
@@ -419,7 +419,7 @@ Optional override:
 WHISPER_CPP_MODEL_STORE="$PWD/.model-runtime/whisper-cpp" \
 RUN_NATIVE_WHISPER_TESTS=1 \
 NATIVE_WHISPER_AUDIO_PATH=/path/to/fixture-16khz-mono.wav \
-cargo test -p moritzbrantner-text-transcripts \
+cargo test -p moenarch-text-transcripts \
   --features native,external-tests \
   native_whisper_cpp_smoke_when_requested -- --ignored --nocapture
 ```
@@ -434,12 +434,12 @@ Compute-heavy crates have Criterion benchmarks:
 
 ```bash
 cargo bench \
-  -p moritzbrantner-audio-analysis-core \
-  -p moritzbrantner-audio-analysis-fourier \
-  -p moritzbrantner-audio-analysis-pitch \
-  -p moritzbrantner-audio-analysis-processing \
-  -p moritzbrantner-audio-analysis-recognition \
-  -p moritzbrantner-audio-analysis-rhythm
+  -p moenarch-audio-analysis-core \
+  -p moenarch-audio-analysis-fourier \
+  -p moenarch-audio-analysis-pitch \
+  -p moenarch-audio-analysis-processing \
+  -p moenarch-audio-analysis-recognition \
+  -p moenarch-audio-analysis-rhythm
 
 python3 scripts/check_audio_bench.py
 ```

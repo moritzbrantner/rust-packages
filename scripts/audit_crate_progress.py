@@ -699,7 +699,7 @@ def read_regression_allowlist(path: Path) -> list[RegressionAllow]:
         if len(parts) != 4:
             raise SystemExit(f"{path}:{line_number}: malformed allowlist entry")
         crate, metric, expires, reason = parts
-        if crate == "all" or not crate.startswith(PACKAGE_PREFIXES):
+        if crate == "all" or not is_active_rust_package_name(crate):
             raise SystemExit(f"{path}:{line_number}: allowlist entry must be crate-specific")
         if metric not in {"score", "level"}:
             raise SystemExit(f"{path}:{line_number}: metric must be `score` or `level`")
@@ -828,7 +828,7 @@ def companion_package_base_name(package_name: str) -> str:
 
 
 def public_package_name(package_name: str, owner_package_name: str | None = None) -> str:
-    if package_name.startswith(PACKAGE_PREFIXES):
+    if is_active_rust_package_name(package_name):
         return package_name
     return f"{package_prefix(owner_package_name)}{package_name}"
 
@@ -839,6 +839,10 @@ def package_prefix(package_name: str | None) -> str:
             if package_name.startswith(prefix):
                 return prefix
     return DEFAULT_PACKAGE_PREFIX
+
+
+def is_active_rust_package_name(package_name: str) -> bool:
+    return package_name.startswith(PACKAGE_PREFIXES)
 
 
 def tick(value: str) -> str:

@@ -23,6 +23,6 @@
   "scripts": {
     "bench:browser": "bun bench/browser.mjs",
     "build": "bash scripts/build-wasm.sh",
-    "test": "bash -lc 'bun test --max-concurrency=\"${BUN_TEST_MAX_CONCURRENCY:-1}\" tests'"
+    "test": "bash -lc 'bun run build && bun test --max-concurrency=\"${BUN_TEST_MAX_CONCURRENCY:-1}\" tests'"
   }
 }

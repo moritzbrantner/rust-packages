@@ -26,7 +26,7 @@ mod tests {
     #[test]
     fn wrapped_surface_has_operations() {
         let surface = comfyui_latents::surface::package_surface();
-        assert_eq!(surface.library, "moritzbrantner-comfyui-latents");
+        assert_eq!(surface.library, "moenarch-comfyui-latents");
         assert!(!surface.operations.is_empty());
     }
 }

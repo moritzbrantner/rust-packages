@@ -1,5 +1,5 @@
-import initWasm, { initSync } from "./pkg/moritzbrantner_text_core_wasm.js";
-import * as wasmModule from "./pkg/moritzbrantner_text_core_wasm.js";
+import initWasm, { initSync } from "./pkg/moenarch_text_core_wasm.js";
+import * as wasmModule from "./pkg/moenarch_text_core_wasm.js";
 
 export async function init() {
   return wasmModule;
@@ -7,7 +7,7 @@ export async function init() {
 
 if (typeof process !== "undefined" && process.versions?.node) {
   const { readFileSync } = await import("node:fs");
-  const wasmUrl = new URL("./pkg/moritzbrantner_text_core_wasm_bg.wasm", import.meta.url);
+  const wasmUrl = new URL("./pkg/moenarch_text_core_wasm_bg.wasm", import.meta.url);
   const wasmPath =
     wasmUrl.protocol === "file:"
       ? wasmUrl

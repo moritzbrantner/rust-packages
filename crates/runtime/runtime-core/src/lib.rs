@@ -1903,10 +1903,7 @@ mod tests {
             "Runs the primary workflow.",
             serde_json::json!({"input": "value"}),
             None,
-            &[
-                "moritzbrantner-runtime-core",
-                "moritzbrantner-video-analysis-core",
-            ],
+            &["moenarch-runtime-core", "moenarch-video-analysis-core"],
         );
 
         assert_eq!(
@@ -1922,14 +1919,14 @@ mod tests {
         );
         assert_eq!(
             operation.input_schema["xLowerContractProof"]["crates"][1],
-            "moritzbrantner-video-analysis-core"
+            "moenarch-video-analysis-core"
         );
     }
 
     #[test]
     fn landscape_contract_serializes_to_schema_extension() {
         let contract = landscape::LandscapeOperationContract::new(
-            landscape::LandscapeFunction::new("demo.curated", "moritzbrantner-runtime-core")
+            landscape::LandscapeFunction::new("demo.curated", "moenarch-runtime-core")
                 .input(landscape::LandscapePort::new(
                     "request",
                     landscape::well_known::runtime_surface_request(),
@@ -1972,7 +1969,7 @@ mod tests {
     #[test]
     fn landscape_contract_value_uses_camel_case_json() {
         let contract = landscape::LandscapeOperationContract::new(
-            landscape::LandscapeFunction::new("demo.curated", "moritzbrantner-runtime-core")
+            landscape::LandscapeFunction::new("demo.curated", "moenarch-runtime-core")
                 .input(
                     landscape::LandscapePort::new(
                         "optionalRequest",

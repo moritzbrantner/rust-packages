@@ -2401,6 +2401,7 @@ esac
         let mut permissions = file.metadata().unwrap().permissions();
         permissions.set_mode(0o755);
         fs::set_permissions(&path, permissions).unwrap();
+        drop(file);
         FixtureScript { _dir: dir, path }
     }
 }

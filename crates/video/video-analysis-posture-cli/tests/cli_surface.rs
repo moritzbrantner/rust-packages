@@ -5,6 +5,6 @@ fn cli_adapter_reports_wrapped_library() {
         "video-analysis-posture"
     );
     let surface = video_analysis_posture_cli::package_surface();
-    assert_eq!(surface.library, "moritzbrantner-video-analysis-posture");
+    assert_eq!(surface.library, "moenarch-video-analysis-posture");
     assert!(!surface.operations.is_empty());
 }

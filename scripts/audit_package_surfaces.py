@@ -223,7 +223,7 @@ def companion_package_base_name(package_name: str) -> str:
 
 
 def public_package_name(package_name: str, owner_package_name: str | None = None) -> str:
-    if package_name.startswith(PACKAGE_PREFIXES):
+    if is_active_rust_package_name(package_name):
         return package_name
     return f"{package_prefix(owner_package_name)}{package_name}"
 
@@ -234,6 +234,10 @@ def package_prefix(package_name: str | None) -> str:
             if package_name.startswith(prefix):
                 return prefix
     return DEFAULT_PACKAGE_PREFIX
+
+
+def is_active_rust_package_name(package_name: str) -> bool:
+    return package_name.startswith(PACKAGE_PREFIXES)
 
 
 def run_json(command: list[str]) -> dict:

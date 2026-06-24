@@ -26,10 +26,7 @@ mod tests {
     #[test]
     fn wrapped_surface_has_operations() {
         let surface = audio_analysis_transcription::surface::package_surface();
-        assert_eq!(
-            surface.library,
-            "moritzbrantner-audio-analysis-transcription"
-        );
+        assert_eq!(surface.library, "moenarch-audio-analysis-transcription");
         assert!(!surface.operations.is_empty());
         assert!(surface
             .operations

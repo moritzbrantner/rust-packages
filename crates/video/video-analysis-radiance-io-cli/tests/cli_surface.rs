@@ -5,6 +5,6 @@ fn cli_adapter_reports_wrapped_library() {
         "video-analysis-radiance-io"
     );
     let surface = video_analysis_radiance_io_cli::package_surface();
-    assert_eq!(surface.library, "moritzbrantner-video-analysis-radiance-io");
+    assert_eq!(surface.library, "moenarch-video-analysis-radiance-io");
     assert!(!surface.operations.is_empty());
 }

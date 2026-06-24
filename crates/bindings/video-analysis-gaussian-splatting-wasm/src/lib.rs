@@ -28,7 +28,7 @@ mod tests {
         let surface = video_analysis_gaussian_splatting::surface::package_surface();
         assert_eq!(
             surface.library,
-            "moritzbrantner-video-analysis-gaussian-splatting"
+            "moenarch-video-analysis-gaussian-splatting"
         );
         assert!(!surface.operations.is_empty());
     }

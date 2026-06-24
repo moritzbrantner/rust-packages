@@ -24,7 +24,7 @@ mod tests {
     #[test]
     fn wrapped_surface_has_operations() {
         let surface = model_runtime::surface::package_surface();
-        assert_eq!(surface.library, "moritzbrantner-model-runtime");
+        assert_eq!(surface.library, "moenarch-model-runtime");
         assert!(!surface.operations.is_empty());
     }
 }

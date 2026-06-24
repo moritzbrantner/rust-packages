@@ -24,7 +24,7 @@ mod tests {
     #[test]
     fn wrapped_surface_has_operations() {
         let surface = vision_core::surface::package_surface();
-        assert_eq!(surface.library, "moritzbrantner-vision-core");
+        assert_eq!(surface.library, "moenarch-vision-core");
         assert!(!surface.operations.is_empty());
     }
 }

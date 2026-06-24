@@ -22,39 +22,39 @@ class CheckChangedScopeTests(unittest.TestCase):
     def test_rust_library_change_maps_to_one_package(self) -> None:
         scope = self.classify(["crates/text/text-core/src/lib.rs"])
         self.assertEqual(scope["rust_scope"], "changed")
-        self.assertEqual(scope["rust_packages"], ["moritzbrantner-text-core"])
+        self.assertEqual(scope["rust_packages"], ["moenarch-text-core"])
         self.assertEqual(scope["progress_scope"], "changed")
-        self.assertEqual(scope["progress_packages"], ["moritzbrantner-text-core"])
+        self.assertEqual(scope["progress_packages"], ["moenarch-text-core"])
 
     def test_cli_adapter_change_maps_to_adapter_package(self) -> None:
         scope = self.classify(["crates/text/text-core-cli/src/main.rs"])
         self.assertEqual(scope["rust_scope"], "changed")
-        self.assertEqual(scope["rust_packages"], ["moritzbrantner-text-core-cli"])
+        self.assertEqual(scope["rust_packages"], ["moenarch-text-core-cli"])
         self.assertNotEqual(scope["rust_scope"], "workspace")
-        self.assertEqual(scope["progress_packages"], ["moritzbrantner-text-core"])
+        self.assertEqual(scope["progress_packages"], ["moenarch-text-core"])
 
     def test_server_adapter_change_maps_to_adapter_package(self) -> None:
         scope = self.classify(["crates/text/text-core-server/src/lib.rs"])
-        self.assertEqual(scope["rust_packages"], ["moritzbrantner-text-core-server"])
+        self.assertEqual(scope["rust_packages"], ["moenarch-text-core-server"])
         self.assertNotEqual(scope["rust_scope"], "workspace")
 
     def test_wasm_binding_change_maps_to_rust_and_bun_package(self) -> None:
         scope = self.classify(["crates/bindings/text-core-wasm/src/lib.rs"])
-        self.assertEqual(scope["rust_packages"], ["moritzbrantner-text-core-wasm"])
+        self.assertEqual(scope["rust_packages"], ["moenarch-text-core-wasm"])
         self.assertEqual(scope["frontend_scope"], "none")
-        self.assertEqual(scope["progress_packages"], ["moritzbrantner-text-core"])
+        self.assertEqual(scope["progress_packages"], ["moenarch-text-core"])
 
     def test_wasm_package_change_runs_matching_bun_test(self) -> None:
         scope = self.classify(["packages/text-core-wasm/tests/package.test.ts"])
         self.assertEqual(scope["frontend_scope"], "changed")
         self.assertEqual(scope["frontend_commands"], ["bun run text-wasm:test:all"])
-        self.assertEqual(scope["progress_packages"], ["moritzbrantner-text-core"])
+        self.assertEqual(scope["progress_packages"], ["moenarch-text-core"])
 
     def test_text_app_change_runs_text_app_typecheck(self) -> None:
         scope = self.classify(["packages/text-core-app/src/App.tsx"])
         self.assertEqual(scope["frontend_scope"], "changed")
         self.assertEqual(scope["frontend_commands"], ["bun run text-app:typecheck"])
-        self.assertEqual(scope["progress_packages"], ["moritzbrantner-text-core"])
+        self.assertEqual(scope["progress_packages"], ["moenarch-text-core"])
 
     def test_root_cargo_toml_selects_workspace(self) -> None:
         scope = self.classify(["Cargo.toml"])
@@ -103,24 +103,24 @@ class CheckChangedScopeTests(unittest.TestCase):
         return scope_mod.classify_changed_files(
             changed_files=paths,
             packages=[
-                scope_mod.CargoPackage("moritzbrantner-video-analysis", ".", "Cargo.toml"),
+                scope_mod.CargoPackage("moenarch-video-analysis", ".", "Cargo.toml"),
                 scope_mod.CargoPackage(
-                    "moritzbrantner-text-core",
+                    "moenarch-text-core",
                     "crates/text/text-core",
                     "crates/text/text-core/Cargo.toml",
                 ),
                 scope_mod.CargoPackage(
-                    "moritzbrantner-text-core-cli",
+                    "moenarch-text-core-cli",
                     "crates/text/text-core-cli",
                     "crates/text/text-core-cli/Cargo.toml",
                 ),
                 scope_mod.CargoPackage(
-                    "moritzbrantner-text-core-server",
+                    "moenarch-text-core-server",
                     "crates/text/text-core-server",
                     "crates/text/text-core-server/Cargo.toml",
                 ),
                 scope_mod.CargoPackage(
-                    "moritzbrantner-text-core-wasm",
+                    "moenarch-text-core-wasm",
                     "crates/bindings/text-core-wasm",
                     "crates/bindings/text-core-wasm/Cargo.toml",
                 ),

@@ -33,11 +33,11 @@ afterAll(async () => {
 
 describe("workspace API integration", () => {
   it("serves the package catalog over HTTP", async () => {
-    const response = await fetch(`${baseUrl}/api/packages?name=moritzbrantner-video-analysis-core`);
+    const response = await fetch(`${baseUrl}/api/packages?name=moenarch-video-analysis-core`);
 
     expect(response.status).toBe(200);
     const body = await response.json();
-    expect(body.name).toBe("moritzbrantner-video-analysis-core");
+    expect(body.name).toBe("moenarch-video-analysis-core");
     expect(body.capabilities.map((capability: { kind: string }) => capability.kind)).toEqual([
       "library",
       "cli",
@@ -47,7 +47,7 @@ describe("workspace API integration", () => {
   }, apiTestTimeoutMs);
 
   it("reports adapter packages without fabricated nested companion surfaces", async () => {
-    const response = await fetch(`${baseUrl}/api/packages?name=moritzbrantner-maps-kernels-core-cli`);
+    const response = await fetch(`${baseUrl}/api/packages?name=moenarch-video-analysis-sfm-cli`);
 
     expect(response.status).toBe(200);
     const body = await response.json();
@@ -57,7 +57,7 @@ describe("workspace API integration", () => {
     ]);
     expect(
       body.capabilities.some((capability: { entrypoint: string }) =>
-        capability.entrypoint.includes("maps-kernels-core-cli-cli"),
+        capability.entrypoint.includes("video-analysis-sfm-cli-cli"),
       ),
     ).toBe(false);
   }, apiTestTimeoutMs);
@@ -102,14 +102,14 @@ describe("workspace API integration", () => {
       "text-transcripts",
     ];
 
-    expect(packageNames.has("moritzbrantner-text-analysis")).toBe(true);
-    expect(packageNames.has("moritzbrantner-text-analysis-server")).toBe(true);
+    expect(packageNames.has("moenarch-text-analysis")).toBe(true);
+    expect(packageNames.has("moenarch-text-analysis-server")).toBe(true);
     expect(packageNames.has("@moritzbrantner/text-analysis-app")).toBe(true);
     expect(packageNames.has("@moritzbrantner/text-analysis-wasm")).toBe(true);
 
     for (const library of expectedTextLibraries) {
       expect(packageNames.has(`@moritzbrantner/${library}-app`), `${library} app`).toBe(true);
-      expect(packageNames.has(`moritzbrantner-${library}-server`), `${library} server`).toBe(true);
+      expect(packageNames.has(`moenarch-${library}-server`), `${library} server`).toBe(true);
       expect(packageNames.has(`@moritzbrantner/${library}-wasm`), `${library} wasm`).toBe(true);
     }
   }, apiTestTimeoutMs);

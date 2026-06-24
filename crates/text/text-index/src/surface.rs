@@ -410,10 +410,10 @@ fn operation(
             example_request,
             None,
             &[
-                "moritzbrantner-text-core",
-                "moritzbrantner-text-lexical",
-                "moritzbrantner-text-embeddings",
-                "moritzbrantner-vector-analysis-index",
+                "moenarch-text-core",
+                "moenarch-text-lexical",
+                "moenarch-text-embeddings",
+                "moenarch-vector-analysis-index",
             ],
         )
     } else {
@@ -583,7 +583,7 @@ mod tests {
         assert_eq!(operation.input_schema["xOperationCategory"], "workflow");
         assert_eq!(
             operation.input_schema["xLowerContractProof"]["crates"][0],
-            "moritzbrantner-text-core"
+            "moenarch-text-core"
         );
     }
 

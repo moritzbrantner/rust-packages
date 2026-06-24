@@ -5,7 +5,7 @@ fn cli_adapter_reports_wrapped_library() {
         "audio-analysis-separation"
     );
     let surface = audio_analysis_separation_cli::package_surface();
-    assert_eq!(surface.library, "moritzbrantner-audio-analysis-separation");
+    assert_eq!(surface.library, "moenarch-audio-analysis-separation");
     assert!(!surface.operations.is_empty());
 }
 

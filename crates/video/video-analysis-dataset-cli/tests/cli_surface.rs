@@ -5,6 +5,6 @@ fn cli_adapter_reports_wrapped_library() {
         "video-analysis-dataset"
     );
     let surface = video_analysis_dataset_cli::package_surface();
-    assert_eq!(surface.library, "moritzbrantner-video-analysis-dataset");
+    assert_eq!(surface.library, "moenarch-video-analysis-dataset");
     assert!(!surface.operations.is_empty());
 }

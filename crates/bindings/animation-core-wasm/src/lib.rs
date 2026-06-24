@@ -25,7 +25,7 @@ mod tests {
     #[test]
     fn wrapped_surface_has_operations() {
         let surface = animation_core::surface::package_surface();
-        assert_eq!(surface.library, "moritzbrantner-animation-core");
+        assert_eq!(surface.library, "moenarch-animation-core");
         assert!(!surface.operations.is_empty());
     }
 }

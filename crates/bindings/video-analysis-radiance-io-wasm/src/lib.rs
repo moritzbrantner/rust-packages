@@ -26,7 +26,7 @@ mod tests {
     #[test]
     fn wrapped_surface_has_operations() {
         let surface = video_analysis_radiance_io::surface::package_surface();
-        assert_eq!(surface.library, "moritzbrantner-video-analysis-radiance-io");
+        assert_eq!(surface.library, "moenarch-video-analysis-radiance-io");
         assert!(!surface.operations.is_empty());
     }
 }

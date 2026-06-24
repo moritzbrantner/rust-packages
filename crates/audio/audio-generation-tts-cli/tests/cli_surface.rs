@@ -5,7 +5,7 @@ fn cli_adapter_reports_wrapped_library() {
         "audio-generation-tts"
     );
     let surface = audio_generation_tts_cli::package_surface();
-    assert_eq!(surface.library, "moritzbrantner-audio-generation-tts");
+    assert_eq!(surface.library, "moenarch-audio-generation-tts");
     assert!(surface
         .operations
         .iter()

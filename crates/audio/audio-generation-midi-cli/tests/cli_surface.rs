@@ -5,7 +5,7 @@ fn cli_adapter_reports_wrapped_library() {
         "audio-generation-midi"
     );
     let surface = audio_generation_midi_cli::package_surface();
-    assert_eq!(surface.library, "moritzbrantner-audio-generation-midi");
+    assert_eq!(surface.library, "moenarch-audio-generation-midi");
     assert!(!surface.operations.is_empty());
 }
 

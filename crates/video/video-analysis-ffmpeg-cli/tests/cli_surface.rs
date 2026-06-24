@@ -5,6 +5,6 @@ fn cli_adapter_reports_wrapped_library() {
         "video-analysis-ffmpeg"
     );
     let surface = video_analysis_ffmpeg_cli::package_surface();
-    assert_eq!(surface.library, "moritzbrantner-video-analysis-ffmpeg");
+    assert_eq!(surface.library, "moenarch-video-analysis-ffmpeg");
     assert!(!surface.operations.is_empty());
 }

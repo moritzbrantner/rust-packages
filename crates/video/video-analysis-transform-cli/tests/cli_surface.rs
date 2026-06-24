@@ -5,6 +5,6 @@ fn cli_adapter_reports_wrapped_library() {
         "video-analysis-transform"
     );
     let surface = video_analysis_transform_cli::package_surface();
-    assert_eq!(surface.library, "moritzbrantner-video-analysis-transform");
+    assert_eq!(surface.library, "moenarch-video-analysis-transform");
     assert!(!surface.operations.is_empty());
 }

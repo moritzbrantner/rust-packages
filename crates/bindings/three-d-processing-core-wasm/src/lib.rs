@@ -26,7 +26,7 @@ mod tests {
     #[test]
     fn wrapped_surface_has_operations() {
         let surface = three_d_processing_core::surface::package_surface();
-        assert_eq!(surface.library, "moritzbrantner-three-d-processing-core");
+        assert_eq!(surface.library, "moenarch-three-d-processing-core");
         assert!(!surface.operations.is_empty());
     }
 }

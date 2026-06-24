@@ -371,7 +371,7 @@ fn plan_value(input: serde_json::Value) -> serde_json::Value {
             "cuda": "opt-in through the cuda feature and provider.device=cuda",
             "cpuFallback": true
         },
-        "normalizationOwner": "moritzbrantner-text-transcripts",
+        "normalizationOwner": "moenarch-text-transcripts",
         "vadProvider": "energy-vad",
         "alignmentProvider": "ctc-forced-aligner",
         "diarizationProvider": "audio-analysis-speakers-native-baseline",
@@ -395,7 +395,7 @@ fn model_plan_value(input: serde_json::Value) -> serde_json::Value {
             "cuda": "optional Candle CUDA execution when built with cuda",
             "requiredFeature": "cuda"
         },
-        "normalizationOwner": "moritzbrantner-text-transcripts",
+        "normalizationOwner": "moenarch-text-transcripts",
         "asr": candle_whisper_provider_plan(),
         "candleWhisperDecode": candle_whisper_decode_runtime_plan(),
         "compatibility": [whisper_cpp_provider_plan(), whisperx_provider_plan()],
@@ -433,7 +433,7 @@ fn candle_whisper_decode_runtime_plan() -> serde_json::Value {
 fn vad_plan_value(input: serde_json::Value) -> serde_json::Value {
     serde_json::json!({
         "defaultProvider": "energy-vad",
-        "normalizationOwner": "moritzbrantner-text-transcripts",
+        "normalizationOwner": "moenarch-text-transcripts",
         "options": VadOptions::default(),
         "input": input
     })
@@ -444,7 +444,7 @@ fn alignment_plan_value(input: serde_json::Value) -> serde_json::Value {
         "defaultProvider": "candle-whisper",
         "provider": "ctc-forced-aligner",
         "modelId": "facebook/wav2vec2-base-960h",
-        "normalizationOwner": "moritzbrantner-text-transcripts",
+        "normalizationOwner": "moenarch-text-transcripts",
         "requiresFeature": "alignment",
         "input": input
     })
@@ -592,7 +592,7 @@ fn decode_plan_value(input: serde_json::Value) -> serde_json::Value {
     };
     serde_json::json!({
         "defaultProvider": "candle-whisper",
-        "normalizationOwner": "moritzbrantner-audio-analysis-transcription",
+        "normalizationOwner": "moenarch-audio-analysis-transcription",
         "defaultNativeBoundary": "wav-or-direct-samples",
         "audioIoFeatureEnabled": audio_io_enabled,
         "plan": plan,
@@ -745,7 +745,7 @@ mod tests {
         );
         assert_eq!(
             response.value["result"]["normalizationOwner"],
-            "moritzbrantner-text-transcripts"
+            "moenarch-text-transcripts"
         );
         assert_eq!(
             response.value["result"]["translation"]["runtime"],
