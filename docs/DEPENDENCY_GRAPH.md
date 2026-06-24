@@ -45,21 +45,6 @@ flowchart LR
     crate_moenarch_dense_data["moenarch-dense-data"]:::crate
     crate_moenarch_dense_data_cli["moenarch-dense-data-cli"]:::crate
     crate_moenarch_dense_data_server["moenarch-dense-data-server"]:::crate
-    crate_moenarch_geo_clustering["moenarch-geo-clustering"]:::crate
-    crate_moenarch_geo_clustering_cli["moenarch-geo-clustering-cli"]:::crate
-    crate_moenarch_geo_clustering_server["moenarch-geo-clustering-server"]:::crate
-    crate_moenarch_geo_core["moenarch-geo-core"]:::crate
-    crate_moenarch_geo_core_cli["moenarch-geo-core-cli"]:::crate
-    crate_moenarch_geo_core_server["moenarch-geo-core-server"]:::crate
-    crate_moenarch_geo_io_geojson["moenarch-geo-io-geojson"]:::crate
-    crate_moenarch_geo_io_geojson_cli["moenarch-geo-io-geojson-cli"]:::crate
-    crate_moenarch_geo_io_geojson_server["moenarch-geo-io-geojson-server"]:::crate
-    crate_moenarch_geo_io_osm["moenarch-geo-io-osm"]:::crate
-    crate_moenarch_geo_io_osm_cli["moenarch-geo-io-osm-cli"]:::crate
-    crate_moenarch_geo_io_osm_server["moenarch-geo-io-osm-server"]:::crate
-    crate_moenarch_geo_viz["moenarch-geo-viz"]:::crate
-    crate_moenarch_geo_viz_cli["moenarch-geo-viz-cli"]:::crate
-    crate_moenarch_geo_viz_server["moenarch-geo-viz-server"]:::crate
     crate_moenarch_graph_analysis_core["moenarch-graph-analysis-core"]:::crate
     crate_moenarch_graph_analysis_core_cli["moenarch-graph-analysis-core-cli"]:::crate
     crate_moenarch_graph_analysis_core_server["moenarch-graph-analysis-core-server"]:::crate
@@ -73,9 +58,6 @@ flowchart LR
 
   subgraph group_math["Math"]
     direction TB
-    crate_moenarch_maps_kernels_core["moenarch-maps-kernels-core"]:::crate
-    crate_moenarch_maps_kernels_core_cli["moenarch-maps-kernels-core-cli"]:::crate
-    crate_moenarch_maps_kernels_core_server["moenarch-maps-kernels-core-server"]:::crate
     crate_moenarch_math_geometry_2d["moenarch-math-geometry-2d"]:::crate
     crate_moenarch_math_geometry_2d_cli["moenarch-math-geometry-2d-cli"]:::crate
     crate_moenarch_math_geometry_2d_server["moenarch-math-geometry-2d-server"]:::crate
@@ -357,11 +339,6 @@ flowchart LR
     crate_moenarch_comfyui_models_wasm["moenarch-comfyui-models-wasm"]:::crate
     crate_moenarch_data_inversion_core_wasm["moenarch-data-inversion-core-wasm"]:::crate
     crate_moenarch_dense_data_wasm["moenarch-dense-data-wasm"]:::crate
-    crate_moenarch_geo_clustering_wasm["moenarch-geo-clustering-wasm"]:::crate
-    crate_moenarch_geo_core_wasm["moenarch-geo-core-wasm"]:::crate
-    crate_moenarch_geo_io_geojson_wasm["moenarch-geo-io-geojson-wasm"]:::crate
-    crate_moenarch_geo_io_osm_wasm["moenarch-geo-io-osm-wasm"]:::crate
-    crate_moenarch_geo_viz_wasm["moenarch-geo-viz-wasm"]:::crate
     crate_moenarch_graph_analysis_core_wasm["moenarch-graph-analysis-core-wasm"]:::crate
     crate_moenarch_image_analysis_captioning_wasm["moenarch-image-analysis-captioning-wasm"]:::crate
     crate_moenarch_image_analysis_classification_wasm["moenarch-image-analysis-classification-wasm"]:::crate
@@ -375,7 +352,6 @@ flowchart LR
     crate_moenarch_image_analysis_segmentation_wasm["moenarch-image-analysis-segmentation-wasm"]:::crate
     crate_moenarch_image_analysis_synthesis_wasm["moenarch-image-analysis-synthesis-wasm"]:::crate
     crate_moenarch_jobs_core_wasm["moenarch-jobs-core-wasm"]:::crate
-    crate_moenarch_maps_kernels_core_wasm["moenarch-maps-kernels-core-wasm"]:::crate
     crate_moenarch_math_geometry_2d_wasm["moenarch-math-geometry-2d-wasm"]:::crate
     crate_moenarch_math_linear_wasm["moenarch-math-linear-wasm"]:::crate
     crate_moenarch_math_signal_core_wasm["moenarch-math-signal-core-wasm"]:::crate
@@ -473,15 +449,9 @@ flowchart LR
 
   crate_moenarch_video_analysis -. optional .-> crate_moenarch_data_inversion_core
   crate_moenarch_video_analysis -. optional .-> crate_moenarch_dense_data
-  crate_moenarch_video_analysis -. optional .-> crate_moenarch_geo_clustering
-  crate_moenarch_video_analysis -. optional .-> crate_moenarch_geo_core
-  crate_moenarch_video_analysis -. optional .-> crate_moenarch_geo_io_geojson
-  crate_moenarch_video_analysis -. optional .-> crate_moenarch_geo_io_osm
-  crate_moenarch_video_analysis -. optional .-> crate_moenarch_geo_viz
   crate_moenarch_video_analysis -. optional .-> crate_moenarch_graph_analysis_core
   crate_moenarch_video_analysis -. optional .-> crate_moenarch_numbers_core
   crate_moenarch_video_analysis -. optional .-> crate_moenarch_tensor_data
-  crate_moenarch_video_analysis -. optional .-> crate_moenarch_maps_kernels_core
   crate_moenarch_video_analysis -. optional .-> crate_moenarch_math_geometry_2d
   crate_moenarch_video_analysis -. optional .-> crate_moenarch_math_linear
   crate_moenarch_video_analysis -. optional .-> crate_moenarch_math_signal_core
@@ -609,40 +579,6 @@ flowchart LR
   crate_moenarch_dense_data_cli --> crate_moenarch_runtime_core
   crate_moenarch_dense_data_server --> crate_moenarch_dense_data
   crate_moenarch_dense_data_server --> crate_moenarch_runtime_core
-  crate_moenarch_geo_clustering --> crate_moenarch_geo_core
-  crate_moenarch_geo_clustering --> crate_moenarch_runtime_core
-  crate_moenarch_geo_clustering_cli --> crate_moenarch_geo_clustering
-  crate_moenarch_geo_clustering_cli --> crate_moenarch_runtime_core
-  crate_moenarch_geo_clustering_server --> crate_moenarch_geo_clustering
-  crate_moenarch_geo_clustering_server --> crate_moenarch_runtime_core
-  crate_moenarch_geo_core --> crate_moenarch_runtime_core
-  crate_moenarch_geo_core_cli --> crate_moenarch_geo_core
-  crate_moenarch_geo_core_cli --> crate_moenarch_runtime_core
-  crate_moenarch_geo_core_server --> crate_moenarch_geo_core
-  crate_moenarch_geo_core_server --> crate_moenarch_runtime_core
-  crate_moenarch_geo_io_geojson --> crate_moenarch_geo_core
-  crate_moenarch_geo_io_geojson --> crate_moenarch_runtime_core
-  crate_moenarch_geo_io_geojson_cli --> crate_moenarch_geo_io_geojson
-  crate_moenarch_geo_io_geojson_cli --> crate_moenarch_runtime_core
-  crate_moenarch_geo_io_geojson_server --> crate_moenarch_geo_io_geojson
-  crate_moenarch_geo_io_geojson_server --> crate_moenarch_runtime_core
-  crate_moenarch_geo_io_osm --> crate_moenarch_geo_core
-  crate_moenarch_geo_io_osm --> crate_moenarch_geo_io_geojson
-  crate_moenarch_geo_io_osm --> crate_moenarch_runtime_core
-  crate_moenarch_geo_io_osm_cli --> crate_moenarch_geo_io_geojson
-  crate_moenarch_geo_io_osm_cli --> crate_moenarch_geo_io_osm
-  crate_moenarch_geo_io_osm_cli --> crate_moenarch_runtime_core
-  crate_moenarch_geo_io_osm_server --> crate_moenarch_geo_io_osm
-  crate_moenarch_geo_io_osm_server --> crate_moenarch_runtime_core
-  crate_moenarch_geo_viz --> crate_moenarch_geo_clustering
-  crate_moenarch_geo_viz --> crate_moenarch_geo_core
-  crate_moenarch_geo_viz --> crate_moenarch_geo_io_geojson
-  crate_moenarch_geo_viz --> crate_moenarch_maps_kernels_core
-  crate_moenarch_geo_viz --> crate_moenarch_runtime_core
-  crate_moenarch_geo_viz_cli --> crate_moenarch_geo_viz
-  crate_moenarch_geo_viz_cli --> crate_moenarch_runtime_core
-  crate_moenarch_geo_viz_server --> crate_moenarch_geo_viz
-  crate_moenarch_geo_viz_server --> crate_moenarch_runtime_core
   crate_moenarch_graph_analysis_core --> crate_moenarch_video_analysis_core
   crate_moenarch_graph_analysis_core --> crate_moenarch_runtime_core
   crate_moenarch_graph_analysis_core_cli --> crate_moenarch_graph_analysis_core
@@ -661,11 +597,6 @@ flowchart LR
   crate_moenarch_tensor_data_cli --> crate_moenarch_runtime_core
   crate_moenarch_tensor_data_server --> crate_moenarch_tensor_data
   crate_moenarch_tensor_data_server --> crate_moenarch_runtime_core
-  crate_moenarch_maps_kernels_core --> crate_moenarch_runtime_core
-  crate_moenarch_maps_kernels_core_cli --> crate_moenarch_maps_kernels_core
-  crate_moenarch_maps_kernels_core_cli --> crate_moenarch_runtime_core
-  crate_moenarch_maps_kernels_core_server --> crate_moenarch_maps_kernels_core
-  crate_moenarch_maps_kernels_core_server --> crate_moenarch_runtime_core
   crate_moenarch_math_geometry_2d --> crate_moenarch_runtime_core
   crate_moenarch_math_geometry_2d_cli --> crate_moenarch_math_geometry_2d
   crate_moenarch_math_geometry_2d_cli --> crate_moenarch_runtime_core
@@ -1389,16 +1320,6 @@ flowchart LR
   crate_moenarch_data_inversion_core_wasm --> crate_moenarch_runtime_core
   crate_moenarch_dense_data_wasm --> crate_moenarch_dense_data
   crate_moenarch_dense_data_wasm --> crate_moenarch_runtime_core
-  crate_moenarch_geo_clustering_wasm --> crate_moenarch_geo_clustering
-  crate_moenarch_geo_clustering_wasm --> crate_moenarch_runtime_core
-  crate_moenarch_geo_core_wasm --> crate_moenarch_geo_core
-  crate_moenarch_geo_core_wasm --> crate_moenarch_runtime_core
-  crate_moenarch_geo_io_geojson_wasm --> crate_moenarch_geo_io_geojson
-  crate_moenarch_geo_io_geojson_wasm --> crate_moenarch_runtime_core
-  crate_moenarch_geo_io_osm_wasm --> crate_moenarch_geo_io_osm
-  crate_moenarch_geo_io_osm_wasm --> crate_moenarch_runtime_core
-  crate_moenarch_geo_viz_wasm --> crate_moenarch_geo_viz
-  crate_moenarch_geo_viz_wasm --> crate_moenarch_runtime_core
   crate_moenarch_graph_analysis_core_wasm --> crate_moenarch_graph_analysis_core
   crate_moenarch_graph_analysis_core_wasm --> crate_moenarch_runtime_core
   crate_moenarch_image_analysis_captioning_wasm --> crate_moenarch_image_analysis_captioning
@@ -1425,8 +1346,6 @@ flowchart LR
   crate_moenarch_image_analysis_synthesis_wasm --> crate_moenarch_runtime_core
   crate_moenarch_jobs_core_wasm --> crate_moenarch_jobs_core
   crate_moenarch_jobs_core_wasm --> crate_moenarch_runtime_core
-  crate_moenarch_maps_kernels_core_wasm --> crate_moenarch_maps_kernels_core
-  crate_moenarch_maps_kernels_core_wasm --> crate_moenarch_runtime_core
   crate_moenarch_math_geometry_2d_wasm --> crate_moenarch_math_geometry_2d
   crate_moenarch_math_geometry_2d_wasm --> crate_moenarch_runtime_core
   crate_moenarch_math_linear_wasm --> crate_moenarch_math_linear

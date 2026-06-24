@@ -1,7 +1,7 @@
 #[test]
 fn cli_surface_wraps_library_surface() {
     let surface = vision_core_cli::package_surface();
-    assert_eq!(surface.library, "moritzbrantner-vision-core");
+    assert_eq!(surface.library, "moenarch-vision-core");
     assert!(surface
         .operations
         .iter()

@@ -14,12 +14,18 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 MATRIX_PATH = ROOT / "docs" / "PACKAGE_SURFACE_MATRIX.md"
 EXCLUDED_LIBRARY_CRATES = {
+    "moritzbrantner-audio-analysis-test-support",
     "moenarch-audio-analysis-test-support",
+    "moritzbrantner-runtime-core",
     "moenarch-runtime-core",
+    "moritzbrantner-runtime-onnx",
     "moenarch-runtime-onnx",
+    "moritzbrantner-video-analysis-test-support",
     "moenarch-video-analysis-test-support",
 }
 WRAPPER_SUFFIXES = ("-cli", "-server", "-wasm")
+PACKAGE_PREFIXES = ("moritzbrantner-", "moenarch-")
+DEFAULT_PACKAGE_PREFIX = "moenarch-"
 SCAFFOLD_STRINGS = [
     "A deterministic summary or execution plan owned by the Rust library",
     "JSON request metadata for the operation-specific package surface",
@@ -53,8 +59,11 @@ DEBUG_OPERATION_KEYWORDS = (
     "providers",
 )
 TRACER_PRIMARY_WORKFLOWS = {
+    "moritzbrantner-image-analysis-classification": "image.classification.classify",
     "moenarch-image-analysis-classification": "image.classification.classify",
+    "moritzbrantner-text-index": "index.search",
     "moenarch-text-index": "index.search",
+    "moritzbrantner-video-analysis-sfm": "video.sfm.reconstruct",
     "moenarch-video-analysis-sfm": "video.sfm.reconstruct",
 }
 
@@ -141,8 +150,8 @@ def render_matrix(packages: list[LibraryPackage]) -> str:
             + " | ".join(
                 [
                     tick(package.name),
-                    tick(public_package_name(f"{companion_base}-cli")),
-                    tick(public_package_name(f"{companion_base}-server")),
+                    tick(public_package_name(f"{companion_base}-cli", package.name)),
+                    tick(public_package_name(f"{companion_base}-server", package.name)),
                     tick(f"crates/bindings/{companion_base}-wasm"),
                     tick(f"packages/{companion_base}-wasm"),
                     tick(f"packages/{companion_base}-app"),
@@ -170,7 +179,7 @@ def operation_ids(crate: str) -> list[str]:
             "run",
             "--quiet",
             "-p",
-            public_package_name(f"{companion_base}-cli"),
+            public_package_name(f"{companion_base}-cli", crate),
             "--",
             "operations",
             "--json",
@@ -207,17 +216,28 @@ def companion_dir(package: LibraryPackage, kind: str) -> Path:
 
 
 def companion_package_base_name(package_name: str) -> str:
-    return package_name.removeprefix("moenarch-").removeprefix("moritzbrantner-")
+    for prefix in PACKAGE_PREFIXES:
+        if package_name.startswith(prefix):
+            return package_name.removeprefix(prefix)
+    return package_name
 
 
-def public_package_name(package_name: str) -> str:
+def public_package_name(package_name: str, owner_package_name: str | None = None) -> str:
     if is_active_rust_package_name(package_name):
         return package_name
-    return f"moenarch-{package_name}"
+    return f"{package_prefix(owner_package_name)}{package_name}"
+
+
+def package_prefix(package_name: str | None) -> str:
+    if package_name:
+        for prefix in PACKAGE_PREFIXES:
+            if package_name.startswith(prefix):
+                return prefix
+    return DEFAULT_PACKAGE_PREFIX
 
 
 def is_active_rust_package_name(package_name: str) -> bool:
-    return package_name.startswith(("moenarch-", "moritzbrantner-"))
+    return package_name.startswith(PACKAGE_PREFIXES)
 
 
 def run_json(command: list[str]) -> dict:
@@ -379,7 +399,7 @@ def read_cli_operations(package: LibraryPackage, failures: list[str]) -> list[di
         "run",
         "--quiet",
         "-p",
-        public_package_name(f"{companion_base}-cli"),
+        public_package_name(f"{companion_base}-cli", package.name),
         "--",
         "operations",
         "--json",
@@ -465,7 +485,7 @@ def run_operation_example(crate: str, operation: dict, failures: list[str]) -> N
         "run",
         "--quiet",
         "-p",
-        public_package_name(f"{companion_base}-cli"),
+        public_package_name(f"{companion_base}-cli", crate),
         "--",
         "run",
         "--operation",
@@ -522,7 +542,7 @@ def validate_cli_invalid_behavior(crate: str, failures: list[str]) -> None:
             "run",
             "--quiet",
             "-p",
-            public_package_name(f"{companion_base}-cli"),
+            public_package_name(f"{companion_base}-cli", crate),
             "--",
             "run",
             "--operation",
@@ -545,7 +565,7 @@ def validate_cli_invalid_behavior(crate: str, failures: list[str]) -> None:
             "run",
             "--quiet",
             "-p",
-            public_package_name(f"{companion_base}-cli"),
+            public_package_name(f"{companion_base}-cli", crate),
             "--",
             "run",
             "--operation",

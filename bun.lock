@@ -461,126 +461,6 @@
       "name": "@moritzbrantner/dense-data-wasm",
       "version": "0.1.0",
     },
-    "packages/geo-clustering-app": {
-      "name": "@moritzbrantner/geo-clustering-app",
-      "version": "0.1.0",
-      "dependencies": {
-        "@moritzbrantner/geo-clustering-wasm": "workspace:*",
-        "@moritzbrantner/video-analysis-ui": "workspace:*",
-        "@vitejs/plugin-react": "^5.1.2",
-        "react": "^19.2.5",
-        "react-dom": "^19.2.5",
-        "vite": "^7.3.0",
-      },
-      "devDependencies": {
-        "@types/react": "^19.2.14",
-        "@types/react-dom": "^19.2.3",
-        "autoprefixer": "^10.4.23",
-        "postcss": "^8.5.6",
-        "tailwindcss": "^3.4.18",
-        "typescript": "^6.0.2",
-      },
-    },
-    "packages/geo-clustering-wasm": {
-      "name": "@moritzbrantner/geo-clustering-wasm",
-      "version": "0.1.0",
-    },
-    "packages/geo-core-app": {
-      "name": "@moritzbrantner/geo-core-app",
-      "version": "0.1.0",
-      "dependencies": {
-        "@moritzbrantner/geo-core-wasm": "workspace:*",
-        "@moritzbrantner/video-analysis-ui": "workspace:*",
-        "@vitejs/plugin-react": "^5.1.2",
-        "react": "^19.2.5",
-        "react-dom": "^19.2.5",
-        "vite": "^7.3.0",
-      },
-      "devDependencies": {
-        "@types/react": "^19.2.14",
-        "@types/react-dom": "^19.2.3",
-        "autoprefixer": "^10.4.23",
-        "postcss": "^8.5.6",
-        "tailwindcss": "^3.4.18",
-        "typescript": "^6.0.2",
-      },
-    },
-    "packages/geo-core-wasm": {
-      "name": "@moritzbrantner/geo-core-wasm",
-      "version": "0.1.0",
-    },
-    "packages/geo-io-geojson-app": {
-      "name": "@moritzbrantner/geo-io-geojson-app",
-      "version": "0.1.0",
-      "dependencies": {
-        "@moritzbrantner/geo-io-geojson-wasm": "workspace:*",
-        "@moritzbrantner/video-analysis-ui": "workspace:*",
-        "@vitejs/plugin-react": "^5.1.2",
-        "react": "^19.2.5",
-        "react-dom": "^19.2.5",
-        "vite": "^7.3.0",
-      },
-      "devDependencies": {
-        "@types/react": "^19.2.14",
-        "@types/react-dom": "^19.2.3",
-        "autoprefixer": "^10.4.23",
-        "postcss": "^8.5.6",
-        "tailwindcss": "^3.4.18",
-        "typescript": "^6.0.2",
-      },
-    },
-    "packages/geo-io-geojson-wasm": {
-      "name": "@moritzbrantner/geo-io-geojson-wasm",
-      "version": "0.1.0",
-    },
-    "packages/geo-io-osm-app": {
-      "name": "@moritzbrantner/geo-io-osm-app",
-      "version": "0.1.0",
-      "dependencies": {
-        "@moritzbrantner/geo-io-osm-wasm": "workspace:*",
-        "@moritzbrantner/video-analysis-ui": "workspace:*",
-        "@vitejs/plugin-react": "^5.1.2",
-        "react": "^19.2.5",
-        "react-dom": "^19.2.5",
-        "vite": "^7.3.0",
-      },
-      "devDependencies": {
-        "@types/react": "^19.2.14",
-        "@types/react-dom": "^19.2.3",
-        "autoprefixer": "^10.4.23",
-        "postcss": "^8.5.6",
-        "tailwindcss": "^3.4.18",
-        "typescript": "^6.0.2",
-      },
-    },
-    "packages/geo-io-osm-wasm": {
-      "name": "@moritzbrantner/geo-io-osm-wasm",
-      "version": "0.1.0",
-    },
-    "packages/geo-viz-app": {
-      "name": "@moritzbrantner/geo-viz-app",
-      "version": "0.1.0",
-      "dependencies": {
-        "@moritzbrantner/geo-viz-wasm": "workspace:*",
-        "@moritzbrantner/video-analysis-ui": "workspace:*",
-        "@vitejs/plugin-react": "^5.1.2",
-        "react": "^19.2.5",
-        "react-dom": "^19.2.5",
-        "vite": "^7.3.0",
-      },
-      "devDependencies": {
-        "@types/react": "^19.2.14",
-        "@types/react-dom": "^19.2.3",
-        "autoprefixer": "^10.4.23",
-        "postcss": "^8.5.6",
-        "tailwindcss": "^3.4.18",
-        "typescript": "^6.0.2",
-      },
-    },
-    "packages/geo-viz-wasm": {
-      "name": "@moritzbrantner/geo-viz-wasm",
-      "version": "0.1.0",
-    },
     "packages/graph-analysis-core-app": {
       "name": "@moritzbrantner/graph-analysis-core-app",
       "version": "0.1.0",
@@ -892,33 +772,6 @@
     "packages/jobs-core-wasm": {
       "name": "@moritzbrantner/jobs-core-wasm",
       "version": "0.1.0",
-    },
-    "packages/maps-kernels-core-app": {
-      "name": "@moritzbrantner/maps-kernels-core-app",
-      "version": "0.1.0",
-      "dependencies": {
-        "@moritzbrantner/maps-kernels-core-wasm": "workspace:*",
-        "@moritzbrantner/video-analysis-ui": "workspace:*",
-        "@vitejs/plugin-react": "^5.1.2",
-        "react": "^19.2.5",
-        "react-dom": "^19.2.5",
-        "vite": "^7.3.0",
-      },
-      "devDependencies": {
-        "@types/react": "^19.2.14",
-        "@types/react-dom": "^19.2.3",
-        "autoprefixer": "^10.4.23",
-        "postcss": "^8.5.6",
-        "tailwindcss": "^3.4.18",
-        "typescript": "^6.0.2",
-      },
-    },
-    "packages/maps-kernels-core-wasm": {
-      "name": "@moritzbrantner/maps-kernels-core-wasm",
-      "version": "0.1.0",
-      "devDependencies": {
-        "playwright": "^1.60.0",
-      },
     },
     "packages/math-geometry-2d-app": {
       "name": "@moritzbrantner/math-geometry-2d-app",
@@ -2569,26 +2422,6 @@
 
     "@moritzbrantner/dense-data-wasm": ["@moritzbrantner/dense-data-wasm@workspace:packages/dense-data-wasm"],
 
-    "@moritzbrantner/geo-clustering-app": ["@moritzbrantner/geo-clustering-app@workspace:packages/geo-clustering-app"],
-
-    "@moritzbrantner/geo-clustering-wasm": ["@moritzbrantner/geo-clustering-wasm@workspace:packages/geo-clustering-wasm"],
-
-    "@moritzbrantner/geo-core-app": ["@moritzbrantner/geo-core-app@workspace:packages/geo-core-app"],
-
-    "@moritzbrantner/geo-core-wasm": ["@moritzbrantner/geo-core-wasm@workspace:packages/geo-core-wasm"],
-
-    "@moritzbrantner/geo-io-geojson-app": ["@moritzbrantner/geo-io-geojson-app@workspace:packages/geo-io-geojson-app"],
-
-    "@moritzbrantner/geo-io-geojson-wasm": ["@moritzbrantner/geo-io-geojson-wasm@workspace:packages/geo-io-geojson-wasm"],
-
-    "@moritzbrantner/geo-io-osm-app": ["@moritzbrantner/geo-io-osm-app@workspace:packages/geo-io-osm-app"],
-
-    "@moritzbrantner/geo-io-osm-wasm": ["@moritzbrantner/geo-io-osm-wasm@workspace:packages/geo-io-osm-wasm"],
-
-    "@moritzbrantner/geo-viz-app": ["@moritzbrantner/geo-viz-app@workspace:packages/geo-viz-app"],
-
-    "@moritzbrantner/geo-viz-wasm": ["@moritzbrantner/geo-viz-wasm@workspace:packages/geo-viz-wasm"],
-
     "@moritzbrantner/graph-analysis-core-app": ["@moritzbrantner/graph-analysis-core-app@workspace:packages/graph-analysis-core-app"],
 
     "@moritzbrantner/graph-analysis-core-wasm": ["@moritzbrantner/graph-analysis-core-wasm@workspace:packages/graph-analysis-core-wasm"],
@@ -2640,10 +2473,6 @@
     "@moritzbrantner/jobs-core-app": ["@moritzbrantner/jobs-core-app@workspace:packages/jobs-core-app"],
 
     "@moritzbrantner/jobs-core-wasm": ["@moritzbrantner/jobs-core-wasm@workspace:packages/jobs-core-wasm"],
-
-    "@moritzbrantner/maps-kernels-core-app": ["@moritzbrantner/maps-kernels-core-app@workspace:packages/maps-kernels-core-app"],
-
-    "@moritzbrantner/maps-kernels-core-wasm": ["@moritzbrantner/maps-kernels-core-wasm@workspace:packages/maps-kernels-core-wasm"],
 
     "@moritzbrantner/math-geometry-2d-app": ["@moritzbrantner/math-geometry-2d-app@workspace:packages/math-geometry-2d-app"],
 

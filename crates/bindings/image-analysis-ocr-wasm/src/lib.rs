@@ -26,7 +26,7 @@ mod tests {
     #[test]
     fn wrapped_surface_has_operations() {
         let surface = image_analysis_ocr::surface::package_surface();
-        assert_eq!(surface.library, "moritzbrantner-image-analysis-ocr");
+        assert_eq!(surface.library, "moenarch-image-analysis-ocr");
         assert!(!surface.operations.is_empty());
     }
 }

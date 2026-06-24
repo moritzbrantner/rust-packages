@@ -5,7 +5,7 @@ fn cli_adapter_reports_wrapped_library() {
         "audio-analysis-speakers"
     );
     let surface = audio_analysis_speakers_cli::package_surface();
-    assert_eq!(surface.library, "moritzbrantner-audio-analysis-speakers");
+    assert_eq!(surface.library, "moenarch-audio-analysis-speakers");
     assert!(!surface.operations.is_empty());
 }
 

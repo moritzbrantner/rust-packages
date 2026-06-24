@@ -5,9 +5,6 @@ fn cli_adapter_reports_wrapped_library() {
         "image-analysis-classification"
     );
     let surface = image_analysis_classification_cli::package_surface();
-    assert_eq!(
-        surface.library,
-        "moritzbrantner-image-analysis-classification"
-    );
+    assert_eq!(surface.library, "moenarch-image-analysis-classification");
     assert!(!surface.operations.is_empty());
 }

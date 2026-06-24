@@ -12,11 +12,10 @@ use video_analysis::{
     animation, audio_core, audio_fourier, audio_io, audio_midi, audio_pitch, audio_processing,
     audio_recognition, audio_rhythm, audio_separation, audio_speakers, audio_synthesis,
     audio_transcription, audio_tts, comfyui_data, comfyui_latents, comfyui_models, data,
-    dataset_records, dense, editing, features, ffmpeg, gaussian_splatting, geo_clustering,
-    geo_core, geo_io_geojson, geo_viz, geometry2d, graph_core, image_captioning,
-    image_classification, image_comfyui, image_core, image_detection, image_embeddings, image_io,
-    image_ocr, image_processing, image_segmentation, image_synthesis, ingest, inversion, jobs,
-    linear, maps_kernels, model_runtime, mvs, numbers, output, posture, posture_io,
+    dataset_records, dense, editing, features, ffmpeg, gaussian_splatting, geometry2d, graph_core,
+    image_captioning, image_classification, image_comfyui, image_core, image_detection,
+    image_embeddings, image_io, image_ocr, image_processing, image_segmentation, image_synthesis,
+    ingest, inversion, jobs, linear, model_runtime, mvs, numbers, output, posture, posture_io,
     radiance_fields, radiance_io, radiance_pipeline, recognition, reconstruction, sfm, signal,
     sparse, split, stats, storage, synthesis, tensor_data, text_analysis, text_classification,
     text_core, text_embeddings, text_generation, text_generation_linguistics, text_index,
@@ -276,21 +275,10 @@ fn module_from_body(body: &str) -> Option<ModuleInfo> {
 
 fn module_by_package_or_library(value: &str) -> Option<ModuleInfo> {
     let normalized = value.strip_suffix("-server").unwrap_or(value);
-    let normalized = geo_package_alias(normalized).unwrap_or(normalized);
     MODULES
         .iter()
         .copied()
         .find(|module| module.package == normalized || slugify(module.package) == normalized)
-}
-
-fn geo_package_alias(value: &str) -> Option<&'static str> {
-    match value {
-        "geo-core" => Some("moritzbrantner-geo-core"),
-        "geo-io-geojson" => Some("moritzbrantner-geo-io-geojson"),
-        "geo-clustering" => Some("moritzbrantner-geo-clustering"),
-        "geo-viz" => Some("moritzbrantner-geo-viz"),
-        _ => None,
-    }
 }
 
 fn adapter_package_base(package: &str) -> &str {
@@ -2126,14 +2114,6 @@ fn package_surface_for(module: ModuleInfo) -> Option<PackageSurface> {
         "comfyui-models" => Some(comfyui_models::surface::package_surface()),
         "data-inversion-core" => Some(data_inversion_core::surface::package_surface()),
         "dense-data" => Some(dense_data::surface::package_surface()),
-        "geo-core" | "moritzbrantner-geo-core" => Some(geo_core::surface::package_surface()),
-        "geo-io-geojson" | "moritzbrantner-geo-io-geojson" => {
-            Some(geo_io_geojson::surface::package_surface())
-        }
-        "geo-clustering" | "moritzbrantner-geo-clustering" => {
-            Some(geo_clustering::surface::package_surface())
-        }
-        "geo-viz" | "moritzbrantner-geo-viz" => Some(geo_viz::surface::package_surface()),
         "graph-analysis-core" => Some(graph_analysis_core::surface::package_surface()),
         "image-analysis-captioning" => Some(image_analysis_captioning::surface::package_surface()),
         "image-analysis-classification" => {
@@ -2151,7 +2131,6 @@ fn package_surface_for(module: ModuleInfo) -> Option<PackageSurface> {
         }
         "image-analysis-synthesis" => Some(image_analysis_synthesis::surface::package_surface()),
         "jobs-core" => Some(jobs_core::surface::package_surface()),
-        "maps-kernels-core" => Some(maps_kernels_core::surface::package_surface()),
         "math-geometry-2d" => Some(math_geometry_2d::surface::package_surface()),
         "math-linear" => Some(math_linear::surface::package_surface()),
         "math-signal-core" => Some(math_signal_core::surface::package_surface()),
@@ -2269,18 +2248,6 @@ fn run_surface_operation_for(
         "comfyui-models" => Some(comfyui_models::surface::run_surface_operation(request)),
         "data-inversion-core" => Some(data_inversion_core::surface::run_surface_operation(request)),
         "dense-data" => Some(dense_data::surface::run_surface_operation(request)),
-        "geo-core" | "moritzbrantner-geo-core" => {
-            Some(geo_core::surface::run_surface_operation(request))
-        }
-        "geo-io-geojson" | "moritzbrantner-geo-io-geojson" => {
-            Some(geo_io_geojson::surface::run_surface_operation(request))
-        }
-        "geo-clustering" | "moritzbrantner-geo-clustering" => {
-            Some(geo_clustering::surface::run_surface_operation(request))
-        }
-        "geo-viz" | "moritzbrantner-geo-viz" => {
-            Some(geo_viz::surface::run_surface_operation(request))
-        }
         "graph-analysis-core" => Some(graph_analysis_core::surface::run_surface_operation(request)),
         "image-analysis-captioning" => Some(
             image_analysis_captioning::surface::run_surface_operation(request),
@@ -2310,7 +2277,6 @@ fn run_surface_operation_for(
             image_analysis_synthesis::surface::run_surface_operation(request),
         ),
         "jobs-core" => Some(jobs_core::surface::run_surface_operation(request)),
-        "maps-kernels-core" => Some(maps_kernels_core::surface::run_surface_operation(request)),
         "math-geometry-2d" => Some(math_geometry_2d::surface::run_surface_operation(request)),
         "math-linear" => Some(math_linear::surface::run_surface_operation(request)),
         "math-signal-core" => Some(math_signal_core::surface::run_surface_operation(request)),
@@ -2559,34 +2525,6 @@ const MODULES: &[ModuleInfo] = &[
         required_feature: None,
     },
     ModuleInfo {
-        package: "moritzbrantner-geo-core",
-        import_path: "video_analysis::geo_core",
-        domain: "data",
-        linked: true,
-        required_feature: None,
-    },
-    ModuleInfo {
-        package: "moritzbrantner-geo-io-geojson",
-        import_path: "video_analysis::geo_io_geojson",
-        domain: "data",
-        linked: true,
-        required_feature: None,
-    },
-    ModuleInfo {
-        package: "moritzbrantner-geo-clustering",
-        import_path: "video_analysis::geo_clustering",
-        domain: "data",
-        linked: true,
-        required_feature: None,
-    },
-    ModuleInfo {
-        package: "moritzbrantner-geo-viz",
-        import_path: "video_analysis::geo_viz",
-        domain: "data",
-        linked: true,
-        required_feature: None,
-    },
-    ModuleInfo {
         package: "graph-analysis-core",
         import_path: "video_analysis::graph_core",
         domain: "data",
@@ -2674,13 +2612,6 @@ const MODULES: &[ModuleInfo] = &[
         package: "jobs-core",
         import_path: "video_analysis::jobs",
         domain: "jobs",
-        linked: true,
-        required_feature: None,
-    },
-    ModuleInfo {
-        package: "maps-kernels-core",
-        import_path: "video_analysis::maps_kernels",
-        domain: "math",
         linked: true,
         required_feature: None,
     },

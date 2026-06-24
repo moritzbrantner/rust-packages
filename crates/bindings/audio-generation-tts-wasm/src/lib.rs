@@ -26,7 +26,7 @@ mod tests {
     #[test]
     fn wrapped_surface_has_operations() {
         let surface = audio_generation_tts::surface::package_surface();
-        assert_eq!(surface.library, "moritzbrantner-audio-generation-tts");
+        assert_eq!(surface.library, "moenarch-audio-generation-tts");
         assert!(surface
             .operations
             .iter()

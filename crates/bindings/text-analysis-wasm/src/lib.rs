@@ -24,7 +24,7 @@ mod tests {
     #[test]
     fn wrapped_surface_has_operations() {
         let surface = text_analysis::surface::package_surface();
-        assert_eq!(surface.library, "moritzbrantner-text-analysis");
+        assert_eq!(surface.library, "moenarch-text-analysis");
         assert!(!surface.operations.is_empty());
     }
 }

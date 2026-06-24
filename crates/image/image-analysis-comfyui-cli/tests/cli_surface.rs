@@ -5,6 +5,6 @@ fn cli_adapter_reports_wrapped_library() {
         "image-analysis-comfyui"
     );
     let surface = image_analysis_comfyui_cli::package_surface();
-    assert_eq!(surface.library, "moritzbrantner-image-analysis-comfyui");
+    assert_eq!(surface.library, "moenarch-image-analysis-comfyui");
     assert!(!surface.operations.is_empty());
 }

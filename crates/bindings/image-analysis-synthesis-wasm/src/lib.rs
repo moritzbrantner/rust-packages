@@ -26,7 +26,7 @@ mod tests {
     #[test]
     fn wrapped_surface_has_operations() {
         let surface = image_analysis_synthesis::surface::package_surface();
-        assert_eq!(surface.library, "moritzbrantner-image-analysis-synthesis");
+        assert_eq!(surface.library, "moenarch-image-analysis-synthesis");
         assert!(!surface.operations.is_empty());
     }
 }

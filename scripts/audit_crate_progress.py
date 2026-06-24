@@ -18,12 +18,18 @@ DEFAULT_ROOT = Path(__file__).resolve().parents[1]
 LEDGER_PATH = Path("docs/CRATE_PROGRESS_LEDGER.md")
 ALLOW_PATH = Path("scripts/crate_progress_regressions.allow")
 EXCLUDED_LIBRARY_CRATES = {
+    "moritzbrantner-audio-analysis-test-support",
     "moenarch-audio-analysis-test-support",
+    "moritzbrantner-runtime-core",
     "moenarch-runtime-core",
+    "moritzbrantner-runtime-onnx",
     "moenarch-runtime-onnx",
+    "moritzbrantner-video-analysis-test-support",
     "moenarch-video-analysis-test-support",
 }
 WRAPPER_SUFFIXES = ("-cli", "-server", "-wasm")
+PACKAGE_PREFIXES = ("moritzbrantner-", "moenarch-")
+DEFAULT_PACKAGE_PREFIX = "moenarch-"
 SCAFFOLD_STRINGS = [
     "A deterministic summary or execution plan owned by the Rust library",
     "JSON request metadata for the operation-specific package surface",
@@ -317,7 +323,7 @@ def read_cli_operations(root: Path, package: LibraryPackage) -> list[dict]:
             "run",
             "--quiet",
             "-p",
-            public_package_name(f"{package.base}-cli"),
+            public_package_name(f"{package.base}-cli", package.name),
             "--",
             "operations",
             "--json",
@@ -815,17 +821,28 @@ def read_text(path: Path) -> str:
 
 
 def companion_package_base_name(package_name: str) -> str:
-    return package_name.removeprefix("moenarch-").removeprefix("moritzbrantner-")
+    for prefix in PACKAGE_PREFIXES:
+        if package_name.startswith(prefix):
+            return package_name.removeprefix(prefix)
+    return package_name
 
 
-def public_package_name(package_name: str) -> str:
+def public_package_name(package_name: str, owner_package_name: str | None = None) -> str:
     if is_active_rust_package_name(package_name):
         return package_name
-    return f"moenarch-{package_name}"
+    return f"{package_prefix(owner_package_name)}{package_name}"
+
+
+def package_prefix(package_name: str | None) -> str:
+    if package_name:
+        for prefix in PACKAGE_PREFIXES:
+            if package_name.startswith(prefix):
+                return prefix
+    return DEFAULT_PACKAGE_PREFIX
 
 
 def is_active_rust_package_name(package_name: str) -> bool:
-    return package_name.startswith(("moenarch-", "moritzbrantner-"))
+    return package_name.startswith(PACKAGE_PREFIXES)
 
 
 def tick(value: str) -> str:

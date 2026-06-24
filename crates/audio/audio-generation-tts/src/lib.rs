@@ -1364,7 +1364,7 @@ mod tests {
 
     #[cfg(all(feature = "candle", feature = "cuda", feature = "external-tests"))]
     #[test]
-    #[ignore = "requires CUDA-capable host, F5_TTS_BUNDLE, and VOCOS_BUNDLE; run with `cargo test -p moritzbrantner-audio-generation-tts --features candle,cuda,external-tests native_f5_vocos_cuda_preferred_synthesis_smoke_when_requested -- --ignored`"]
+    #[ignore = "requires CUDA-capable host, F5_TTS_BUNDLE, and VOCOS_BUNDLE; run with `cargo test -p moenarch-audio-generation-tts --features candle,cuda,external-tests native_f5_vocos_cuda_preferred_synthesis_smoke_when_requested -- --ignored`"]
     fn native_f5_vocos_cuda_preferred_synthesis_smoke_when_requested() {
         let f5_bundle = std::env::var_os("F5_TTS_BUNDLE")
             .map(PathBuf::from)

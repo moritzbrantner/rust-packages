@@ -2,7 +2,7 @@
 fn cli_adapter_reports_wrapped_library() {
     assert_eq!(text_model_runtime_cli::LIBRARY_CRATE, "text-model-runtime");
     let surface = text_model_runtime_cli::package_surface();
-    assert_eq!(surface.library, "moritzbrantner-text-model-runtime");
+    assert_eq!(surface.library, "moenarch-text-model-runtime");
     assert!(!surface.operations.is_empty());
 }
 

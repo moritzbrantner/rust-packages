@@ -19,18 +19,18 @@ python3 scripts/audit_workspace_crates.py --check
 
 ## Counts
 
-- Active workspace packages: 371
+- Active workspace packages: 347
 
 ### Domains
 
 - `animation`: 3
 - `audio`: 40
-- `bindings`: 91
+- `bindings`: 85
 - `comfyui`: 9
-- `data`: 30
+- `data`: 15
 - `image`: 33
 - `jobs`: 3
-- `math`: 18
+- `math`: 15
 - `prototype`: 1
 - `root`: 1
 - `runtime`: 5
@@ -43,16 +43,16 @@ python3 scripts/audit_workspace_crates.py --check
 
 ### Kinds
 
-- `cli`: 92
-- `library`: 96
+- `cli`: 86
+- `library`: 90
 - `prototype`: 1
-- `server`: 91
-- `wasm`: 91
+- `server`: 85
+- `wasm`: 85
 
 ### Publish classes
 
 - `internal-test`: 2
-- `public`: 369
+- `public`: 345
 
 | Package | Domain | Kind | Publish | Surface required | Facade expected | Path |
 |---|---|---|---|---|---|---|
@@ -118,11 +118,6 @@ python3 scripts/audit_workspace_crates.py --check
 | `moenarch-comfyui-models-wasm` | bindings | wasm | public | no | no | `crates/bindings/comfyui-models-wasm` |
 | `moenarch-data-inversion-core-wasm` | bindings | wasm | public | no | no | `crates/bindings/data-inversion-core-wasm` |
 | `moenarch-dense-data-wasm` | bindings | wasm | public | no | no | `crates/bindings/dense-data-wasm` |
-| `moenarch-geo-clustering-wasm` | bindings | wasm | public | no | no | `crates/bindings/geo-clustering-wasm` |
-| `moenarch-geo-core-wasm` | bindings | wasm | public | no | no | `crates/bindings/geo-core-wasm` |
-| `moenarch-geo-io-geojson-wasm` | bindings | wasm | public | no | no | `crates/bindings/geo-io-geojson-wasm` |
-| `moenarch-geo-io-osm-wasm` | bindings | wasm | public | no | no | `crates/bindings/geo-io-osm-wasm` |
-| `moenarch-geo-viz-wasm` | bindings | wasm | public | no | no | `crates/bindings/geo-viz-wasm` |
 | `moenarch-graph-analysis-core-wasm` | bindings | wasm | public | no | no | `crates/bindings/graph-analysis-core-wasm` |
 | `moenarch-image-analysis-captioning-wasm` | bindings | wasm | public | no | no | `crates/bindings/image-analysis-captioning-wasm` |
 | `moenarch-image-analysis-classification-wasm` | bindings | wasm | public | no | no | `crates/bindings/image-analysis-classification-wasm` |
@@ -136,7 +131,6 @@ python3 scripts/audit_workspace_crates.py --check
 | `moenarch-image-analysis-segmentation-wasm` | bindings | wasm | public | no | no | `crates/bindings/image-analysis-segmentation-wasm` |
 | `moenarch-image-analysis-synthesis-wasm` | bindings | wasm | public | no | no | `crates/bindings/image-analysis-synthesis-wasm` |
 | `moenarch-jobs-core-wasm` | bindings | wasm | public | no | no | `crates/bindings/jobs-core-wasm` |
-| `moenarch-maps-kernels-core-wasm` | bindings | wasm | public | no | no | `crates/bindings/maps-kernels-core-wasm` |
 | `moenarch-math-geometry-2d-wasm` | bindings | wasm | public | no | no | `crates/bindings/math-geometry-2d-wasm` |
 | `moenarch-math-linear-wasm` | bindings | wasm | public | no | no | `crates/bindings/math-linear-wasm` |
 | `moenarch-math-signal-core-wasm` | bindings | wasm | public | no | no | `crates/bindings/math-signal-core-wasm` |
@@ -201,31 +195,16 @@ python3 scripts/audit_workspace_crates.py --check
 | `moenarch-comfyui-models-server` | comfyui | server | public | no | no | `crates/comfyui/comfyui-models-server` |
 | `moenarch-data-inversion-core-cli` | data | cli | public | no | no | `crates/data/data-inversion-core-cli` |
 | `moenarch-dense-data-cli` | data | cli | public | no | no | `crates/data/dense-data-cli` |
-| `moenarch-geo-clustering-cli` | data | cli | public | no | no | `crates/data/geo-clustering-cli` |
-| `moenarch-geo-core-cli` | data | cli | public | no | no | `crates/data/geo-core-cli` |
-| `moenarch-geo-io-geojson-cli` | data | cli | public | no | no | `crates/data/geo-io-geojson-cli` |
-| `moenarch-geo-io-osm-cli` | data | cli | public | no | no | `crates/data/geo-io-osm-cli` |
-| `moenarch-geo-viz-cli` | data | cli | public | no | no | `crates/data/geo-viz-cli` |
 | `moenarch-graph-analysis-core-cli` | data | cli | public | no | no | `crates/data/graph-analysis-core-cli` |
 | `moenarch-numbers-core-cli` | data | cli | public | no | no | `crates/data/numbers-core-cli` |
 | `moenarch-tensor-data-cli` | data | cli | public | no | no | `crates/data/tensor-data-cli` |
 | `moenarch-data-inversion-core` | data | library | public | yes | yes | `crates/data/data-inversion-core` |
 | `moenarch-dense-data` | data | library | public | yes | yes | `crates/data/dense-data` |
-| `moenarch-geo-clustering` | data | library | public | yes | yes | `crates/data/geo-clustering` |
-| `moenarch-geo-core` | data | library | public | yes | yes | `crates/data/geo-core` |
-| `moenarch-geo-io-geojson` | data | library | public | yes | yes | `crates/data/geo-io-geojson` |
-| `moenarch-geo-io-osm` | data | library | public | yes | yes | `crates/data/geo-io-osm` |
-| `moenarch-geo-viz` | data | library | public | yes | yes | `crates/data/geo-viz` |
 | `moenarch-graph-analysis-core` | data | library | public | yes | yes | `crates/data/graph-analysis-core` |
 | `moenarch-numbers-core` | data | library | public | yes | yes | `crates/data/numbers-core` |
 | `moenarch-tensor-data` | data | library | public | yes | yes | `crates/data/tensor-data` |
 | `moenarch-data-inversion-core-server` | data | server | public | no | no | `crates/data/data-inversion-core-server` |
 | `moenarch-dense-data-server` | data | server | public | no | no | `crates/data/dense-data-server` |
-| `moenarch-geo-clustering-server` | data | server | public | no | no | `crates/data/geo-clustering-server` |
-| `moenarch-geo-core-server` | data | server | public | no | no | `crates/data/geo-core-server` |
-| `moenarch-geo-io-geojson-server` | data | server | public | no | no | `crates/data/geo-io-geojson-server` |
-| `moenarch-geo-io-osm-server` | data | server | public | no | no | `crates/data/geo-io-osm-server` |
-| `moenarch-geo-viz-server` | data | server | public | no | no | `crates/data/geo-viz-server` |
 | `moenarch-graph-analysis-core-server` | data | server | public | no | no | `crates/data/graph-analysis-core-server` |
 | `moenarch-numbers-core-server` | data | server | public | no | no | `crates/data/numbers-core-server` |
 | `moenarch-tensor-data-server` | data | server | public | no | no | `crates/data/tensor-data-server` |
@@ -265,19 +244,16 @@ python3 scripts/audit_workspace_crates.py --check
 | `moenarch-jobs-core-cli` | jobs | cli | public | no | no | `crates/jobs/jobs-core-cli` |
 | `moenarch-jobs-core` | jobs | library | public | yes | yes | `crates/jobs/jobs-core` |
 | `moenarch-jobs-core-server` | jobs | server | public | no | no | `crates/jobs/jobs-core-server` |
-| `moenarch-maps-kernels-core-cli` | math | cli | public | no | no | `crates/math/maps-kernels-core-cli` |
 | `moenarch-math-geometry-2d-cli` | math | cli | public | no | no | `crates/math/math-geometry-2d-cli` |
 | `moenarch-math-linear-cli` | math | cli | public | no | no | `crates/math/math-linear-cli` |
 | `moenarch-math-signal-core-cli` | math | cli | public | no | no | `crates/math/math-signal-core-cli` |
 | `moenarch-math-sparse-data-cli` | math | cli | public | no | no | `crates/math/math-sparse-data-cli` |
 | `moenarch-math-statistics-cli` | math | cli | public | no | no | `crates/math/math-statistics-cli` |
-| `moenarch-maps-kernels-core` | math | library | public | yes | yes | `crates/math/maps-kernels-core` |
 | `moenarch-math-geometry-2d` | math | library | public | yes | yes | `crates/math/math-geometry-2d` |
 | `moenarch-math-linear` | math | library | public | yes | yes | `crates/math/math-linear` |
 | `moenarch-math-signal-core` | math | library | public | yes | yes | `crates/math/math-signal-core` |
 | `moenarch-math-sparse-data` | math | library | public | yes | yes | `crates/math/math-sparse-data` |
 | `moenarch-math-statistics` | math | library | public | yes | yes | `crates/math/math-statistics` |
-| `moenarch-maps-kernels-core-server` | math | server | public | no | no | `crates/math/maps-kernels-core-server` |
 | `moenarch-math-geometry-2d-server` | math | server | public | no | no | `crates/math/math-geometry-2d-server` |
 | `moenarch-math-linear-server` | math | server | public | no | no | `crates/math/math-linear-server` |
 | `moenarch-math-signal-core-server` | math | server | public | no | no | `crates/math/math-signal-core-server` |

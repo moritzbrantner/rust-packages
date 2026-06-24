@@ -39,27 +39,27 @@ fn observed_comfyui_types_map_to_matrix_rows() {
     let expected_rows = [
         (
             va::comfyui_data::ComfySocketType::Image,
-            "moritzbrantner-image-analysis-core",
+            "moenarch-image-analysis-core",
         ),
         (
             va::comfyui_data::ComfySocketType::Mask,
-            "`moritzbrantner-image-analysis-core` + `moritzbrantner-tensor-data`",
+            "`moenarch-image-analysis-core` + `moenarch-tensor-data`",
         ),
         (
             va::comfyui_data::ComfySocketType::Latent,
-            "`moritzbrantner-comfyui-latents` + `moritzbrantner-tensor-data`",
+            "`moenarch-comfyui-latents` + `moenarch-tensor-data`",
         ),
         (
             va::comfyui_data::ComfySocketType::Model,
-            "`moritzbrantner-comfyui-data` + `moritzbrantner-comfyui-models`",
+            "`moenarch-comfyui-data` + `moenarch-comfyui-models`",
         ),
         (
             va::comfyui_data::ComfySocketType::Clip,
-            "`moritzbrantner-comfyui-data`",
+            "`moenarch-comfyui-data`",
         ),
         (
             va::comfyui_data::ComfySocketType::Vae,
-            "`moritzbrantner-comfyui-data` + `moritzbrantner-comfyui-models`",
+            "`moenarch-comfyui-data` + `moenarch-comfyui-models`",
         ),
         (
             va::comfyui_data::ComfySocketType::Conditioning,
@@ -67,7 +67,7 @@ fn observed_comfyui_types_map_to_matrix_rows() {
         ),
         (
             va::comfyui_data::ComfySocketType::UpscaleModel,
-            "`moritzbrantner-comfyui-data` + `moritzbrantner-comfyui-models`",
+            "`moenarch-comfyui-data` + `moenarch-comfyui-models`",
         ),
     ];
 

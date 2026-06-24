@@ -61,11 +61,8 @@ rusqlite = "0.32.1"
 serde = { version = "1.0.228", features = ["derive"] }
 serde_json = "1.0.150"
 sha2 = "0.10.9"
-geojson = "1"
-osmpbfreader = "0.16"
 regex = "1"
 redb = "4.1"
-rstar = "0.13"
 shlex = "1.3.0"
 rustfft = "6.2.0"
 hound = "3.5.1"
@@ -90,11 +87,6 @@ comfyui-latents = { package = "moenarch-comfyui-latents", version = "0.1.0", pat
 comfyui-models = { package = "moenarch-comfyui-models", version = "0.1.0", path = "crates/comfyui/comfyui-models" }
 data-inversion-core = { package = "moenarch-data-inversion-core", version = "0.1.0", path = "crates/data/data-inversion-core" }
 graph-analysis-core = { package = "moenarch-graph-analysis-core", version = "0.1.0", path = "crates/data/graph-analysis-core" }
-geo-core = { package = "moenarch-geo-core", version = "0.1.0", path = "crates/data/geo-core" }
-geo-io-geojson = { package = "moenarch-geo-io-geojson", version = "0.1.0", path = "crates/data/geo-io-geojson" }
-geo-io-osm = { package = "moenarch-geo-io-osm", version = "0.1.0", path = "crates/data/geo-io-osm" }
-geo-clustering = { package = "moenarch-geo-clustering", version = "0.1.0", path = "crates/data/geo-clustering" }
-geo-viz = { package = "moenarch-geo-viz", version = "0.1.0", path = "crates/data/geo-viz" }
 dense-data = { package = "moenarch-dense-data", version = "0.1.0", path = "crates/data/dense-data" }
 numbers-core = { package = "moenarch-numbers-core", version = "0.1.0", path = "crates/data/numbers-core" }
 tensor-data = { package = "moenarch-tensor-data", version = "0.1.0", path = "crates/data/tensor-data" }
@@ -102,7 +94,6 @@ jobs-core = { package = "moenarch-jobs-core", version = "0.1.1", path = "crates/
 model-runtime = { package = "moenarch-model-runtime", version = "0.1.0", path = "crates/runtime/model-runtime" }
 runtime-core = { package = "moenarch-runtime-core", version = "0.2.0", path = "crates/runtime/runtime-core" }
 runtime-onnx = { package = "moenarch-runtime-onnx", version = "0.1.0", path = "crates/runtime/runtime-onnx" }
-maps-kernels-core = { package = "moenarch-maps-kernels-core", version = "0.1.0", path = "crates/math/maps-kernels-core" }
 math-geometry-2d = { package = "moenarch-math-geometry-2d", version = "0.1.0", path = "crates/math/math-geometry-2d" }
 math-linear = { package = "moenarch-math-linear", version = "0.1.0", path = "crates/math/math-linear" }
 math-signal-core = { package = "moenarch-math-signal-core", version = "0.1.0", path = "crates/math/math-signal-core" }
@@ -274,17 +265,11 @@ video = [
 data = [
     "dep:data-inversion-core",
     "dep:graph-analysis-core",
-    "dep:geo-core",
-    "dep:geo-io-geojson",
-    "dep:geo-io-osm",
-    "dep:geo-clustering",
-    "dep:geo-viz",
     "dep:dense-data",
     "dep:numbers-core",
     "dep:tensor-data",
 ]
 math = [
-    "dep:maps-kernels-core",
     "dep:math-geometry-2d",
     "dep:math-linear",
     "dep:math-signal-core",
@@ -395,17 +380,11 @@ audio-analysis-synthesis = { workspace = true, optional = true }
 audio-analysis-transcription = { workspace = true, optional = true }
 data-inversion-core = { workspace = true, optional = true }
 graph-analysis-core = { workspace = true, optional = true }
-geo-core = { workspace = true, optional = true }
-geo-io-geojson = { workspace = true, optional = true }
-geo-io-osm = { workspace = true, optional = true }
-geo-clustering = { workspace = true, optional = true }
-geo-viz = { workspace = true, optional = true }
 dense-data = { workspace = true, optional = true }
 numbers-core = { workspace = true, optional = true }
 tensor-data = { workspace = true, optional = true }
 jobs-core = { workspace = true, optional = true }
 model-runtime = { workspace = true, optional = true }
-maps-kernels-core = { workspace = true, optional = true }
 math-geometry-2d = { workspace = true, optional = true }
 math-linear = { workspace = true, optional = true }
 math-signal-core = { workspace = true, optional = true }

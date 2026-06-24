@@ -83,7 +83,7 @@ mod tests {
     #[test]
     fn wrapped_surface_has_operations() {
         let surface = dense_data::surface::package_surface();
-        assert_eq!(surface.library, "moritzbrantner-dense-data");
+        assert_eq!(surface.library, "moenarch-dense-data");
         assert!(!surface.operations.is_empty());
     }
 }

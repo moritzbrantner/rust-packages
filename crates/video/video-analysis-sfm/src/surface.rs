@@ -167,10 +167,10 @@ fn operation(
             example_request,
             Some(sfm_reconstruct_execution_plan()),
             &[
-                "moritzbrantner-video-analysis-core",
-                "moritzbrantner-video-analysis-reconstruction",
-                "moritzbrantner-video-analysis-radiance-fields",
-                "moritzbrantner-video-analysis-radiance-io",
+                "moenarch-video-analysis-core",
+                "moenarch-video-analysis-reconstruction",
+                "moenarch-video-analysis-radiance-fields",
+                "moenarch-video-analysis-radiance-io",
             ],
         );
         operation.wasm_supported = true;
@@ -367,10 +367,10 @@ fn sfm_reconstruct_response(
         "runtime": &context.runtime,
         "requiresExternalProcess": true,
         "contracts": {
-            "video": "moritzbrantner-video-analysis-core",
-            "reconstruction": "moritzbrantner-video-analysis-reconstruction::SparseReconstruction",
-            "radianceFields": "moritzbrantner-video-analysis-radiance-fields",
-            "radianceIo": "moritzbrantner-video-analysis-radiance-io"
+            "video": "moenarch-video-analysis-core",
+            "reconstruction": "moenarch-video-analysis-reconstruction::SparseReconstruction",
+            "radianceFields": "moenarch-video-analysis-radiance-fields",
+            "radianceIo": "moenarch-video-analysis-radiance-io"
         },
         "plan": plan,
     });
@@ -942,7 +942,7 @@ mod tests {
         assert!(!operation.input_schema["xExecutionPlan"].is_null());
         assert_eq!(
             operation.input_schema["xLowerContractProof"]["crates"][1],
-            "moritzbrantner-video-analysis-reconstruction"
+            "moenarch-video-analysis-reconstruction"
         );
     }
 
@@ -998,7 +998,7 @@ mod tests {
         assert_eq!(response.value["result"]["plan"]["executes"], false);
         assert_eq!(
             response.value["result"]["contracts"]["reconstruction"],
-            "moritzbrantner-video-analysis-reconstruction::SparseReconstruction"
+            "moenarch-video-analysis-reconstruction::SparseReconstruction"
         );
         assert_eq!(response.diagnostics[0].code.as_str(), "unsupported_runtime");
     }

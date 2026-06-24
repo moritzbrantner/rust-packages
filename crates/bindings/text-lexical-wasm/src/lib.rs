@@ -24,7 +24,7 @@ mod tests {
     #[test]
     fn wrapped_surface_has_operations() {
         let surface = text_lexical::surface::package_surface();
-        assert_eq!(surface.library, "moritzbrantner-text-lexical");
+        assert_eq!(surface.library, "moenarch-text-lexical");
         assert!(!surface.operations.is_empty());
     }
 }

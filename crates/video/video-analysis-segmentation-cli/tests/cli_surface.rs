@@ -5,9 +5,6 @@ fn cli_adapter_reports_wrapped_library() {
         "video-analysis-segmentation"
     );
     let surface = video_analysis_segmentation_cli::package_surface();
-    assert_eq!(
-        surface.library,
-        "moritzbrantner-video-analysis-segmentation"
-    );
+    assert_eq!(surface.library, "moenarch-video-analysis-segmentation");
     assert!(!surface.operations.is_empty());
 }

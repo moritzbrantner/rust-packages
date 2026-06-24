@@ -18,10 +18,10 @@ fn active_metadata_has_no_retired_runtime_crates() {
         concat!("moritzbrantner-image-analysis-", "onnx-cli"),
         concat!("moritzbrantner-image-analysis-", "onnx-server"),
         concat!("moritzbrantner-image-analysis-", "onnx-wasm"),
-        concat!("moritzbrantner-video-analysis-", "onnx"),
-        concat!("moritzbrantner-video-analysis-", "onnx-cli"),
-        concat!("moritzbrantner-video-analysis-", "onnx-server"),
-        concat!("moritzbrantner-video-analysis-", "onnx-wasm"),
+        concat!("moenarch-video-analysis-", "onnx"),
+        concat!("moenarch-video-analysis-", "onnx-cli"),
+        concat!("moenarch-video-analysis-", "onnx-server"),
+        concat!("moenarch-video-analysis-", "onnx-wasm"),
     ] {
         assert!(
             !graph.packages.contains_key(retired),
@@ -43,20 +43,19 @@ fn transport_wrappers_depend_only_on_wrapped_library_and_runtime_core() {
         if !graph.packages.contains_key(base) {
             continue;
         }
-        let mut allowed =
-            BTreeSet::from([base.to_string(), "moritzbrantner-runtime-core".to_string()]);
+        let mut allowed = BTreeSet::from([base.to_string(), "moenarch-runtime-core".to_string()]);
         if package.name == "moritzbrantner-geo-io-osm-cli" {
             allowed.insert("moritzbrantner-geo-io-geojson".to_string());
         }
         if matches!(
             package.name.as_str(),
-            "moritzbrantner-text-analysis-server"
-                | "moritzbrantner-text-embeddings-server"
-                | "moritzbrantner-text-linguistics-server"
+            "moenarch-text-analysis-server"
+                | "moenarch-text-embeddings-server"
+                | "moenarch-text-linguistics-server"
         ) {
-            allowed.insert("moritzbrantner-text-model-runtime".to_string());
+            allowed.insert("moenarch-text-model-runtime".to_string());
         }
-        if package.name == "moritzbrantner-video-analysis-cli" {
+        if package.name == "moenarch-video-analysis-cli" {
             continue;
         }
         let extra = package
@@ -84,13 +83,13 @@ fn transport_wrappers_depend_only_on_wrapped_library_and_runtime_core() {
 fn foundation_crates_do_not_depend_on_domain_crates() {
     let graph = MetadataGraph::load();
     let foundation = BTreeSet::from([
-        "moritzbrantner-runtime-core",
-        "moritzbrantner-runtime-onnx",
-        "moritzbrantner-jobs-core",
-        "moritzbrantner-numbers-core",
-        "moritzbrantner-tensor-data",
-        "moritzbrantner-vector-analysis-core",
-        "moritzbrantner-math-sparse-data",
+        "moenarch-runtime-core",
+        "moenarch-runtime-onnx",
+        "moenarch-jobs-core",
+        "moenarch-numbers-core",
+        "moenarch-tensor-data",
+        "moenarch-vector-analysis-core",
+        "moenarch-math-sparse-data",
     ]);
     let domain_prefixes = [
         "moritzbrantner-audio-",
@@ -107,7 +106,7 @@ fn foundation_crates_do_not_depend_on_domain_crates() {
             continue;
         };
         for dependency in &package.internal_dependencies {
-            if dependency == "moritzbrantner-video-analysis-core" {
+            if dependency == "moenarch-video-analysis-core" {
                 continue;
             }
             if domain_prefixes

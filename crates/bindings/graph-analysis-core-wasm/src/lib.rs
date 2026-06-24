@@ -26,7 +26,7 @@ mod tests {
     #[test]
     fn wrapped_surface_has_operations() {
         let surface = graph_analysis_core::surface::package_surface();
-        assert_eq!(surface.library, "moritzbrantner-graph-analysis-core");
+        assert_eq!(surface.library, "moenarch-graph-analysis-core");
         assert!(!surface.operations.is_empty());
     }
 }

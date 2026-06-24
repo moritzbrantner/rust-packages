@@ -5,6 +5,6 @@ fn cli_adapter_reports_wrapped_library() {
         "video-analysis-split"
     );
     let surface = video_analysis_split_cli::package_surface();
-    assert_eq!(surface.library, "moritzbrantner-video-analysis-split");
+    assert_eq!(surface.library, "moenarch-video-analysis-split");
     assert!(!surface.operations.is_empty());
 }

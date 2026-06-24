@@ -2,7 +2,7 @@
 fn cli_adapter_reports_analysis_operations() {
     assert_eq!(text_analysis_cli::LIBRARY_CRATE, "text-analysis");
     let surface = text_analysis_cli::package_surface();
-    assert_eq!(surface.library, "moritzbrantner-text-analysis");
+    assert_eq!(surface.library, "moenarch-text-analysis");
     assert!(surface
         .operations
         .iter()

@@ -26,7 +26,7 @@ mod tests {
     #[test]
     fn wrapped_surface_has_operations() {
         let surface = video_analysis_posture::surface::package_surface();
-        assert_eq!(surface.library, "moritzbrantner-video-analysis-posture");
+        assert_eq!(surface.library, "moenarch-video-analysis-posture");
         assert!(!surface.operations.is_empty());
     }
 }

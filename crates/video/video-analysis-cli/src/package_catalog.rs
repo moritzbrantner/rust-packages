@@ -105,16 +105,8 @@ fn library_entrypoint(name: &str) -> String {
             "import from @moritzbrantner/video-analysis-ui".to_string()
         }
         "@moritzbrantner/video-analysis-web" => "prototypes/web/video-analysis-web".to_string(),
-        "moritzbrantner-video-analysis-cli" => {
-            "use video_analysis_cli::package_catalog".to_string()
-        }
-        rust_crate => format!(
-            "use {}",
-            rust_crate
-                .strip_prefix("moritzbrantner-")
-                .unwrap_or(rust_crate)
-                .replace('-', "_")
-        ),
+        "moenarch-video-analysis-cli" => "use video_analysis_cli::package_catalog".to_string(),
+        rust_crate => format!("use {}", short_package_name(rust_crate).replace('-', "_")),
     }
 }
 
@@ -143,7 +135,18 @@ fn ui_entrypoint(name: &str) -> String {
 }
 
 fn short_package_name(name: &str) -> &str {
-    name.strip_prefix("moritzbrantner-").unwrap_or(name)
+    name.strip_prefix("moenarch-")
+        .or_else(|| name.strip_prefix("moritzbrantner-"))
+        .unwrap_or(name)
+}
+
+fn active_package_name(name: &str) -> String {
+    if name.starts_with('@') {
+        return name.to_string();
+    }
+    name.strip_prefix("moritzbrantner-")
+        .map(|short| format!("moenarch-{short}"))
+        .unwrap_or_else(|| name.to_string())
 }
 
 fn percent_encode(value: &str) -> String {
@@ -204,7 +207,7 @@ fn parse_contract_row(line: &str) -> Option<ContractRow> {
         .collect();
 
     Some(ContractRow {
-        name: cells.first()?.to_string(),
+        name: active_package_name(cells.first()?),
         role: cells.get(1)?.to_string(),
     })
 }
@@ -226,10 +229,10 @@ mod tests {
         let catalog = package_catalog();
         assert!(catalog
             .iter()
-            .any(|pkg| pkg.name == "moritzbrantner-video-analysis-core"));
+            .any(|pkg| pkg.name == "moenarch-video-analysis-core"));
         assert!(catalog
             .iter()
-            .any(|pkg| pkg.name == "moritzbrantner-video-analysis-cli"));
+            .any(|pkg| pkg.name == "moenarch-video-analysis-cli"));
         assert!(catalog
             .iter()
             .any(|pkg| pkg.name == "@moritzbrantner/video-analysis-web"));
@@ -246,7 +249,7 @@ mod tests {
 
     #[test]
     fn cli_crate_has_a_library_entrypoint() {
-        let package = package_by_name("moritzbrantner-video-analysis-cli").unwrap();
+        let package = package_by_name("moenarch-video-analysis-cli").unwrap();
         assert!(package.capabilities.iter().any(|capability| capability.kind
             == PackageCapabilityKind::Library
             && capability.entrypoint.contains("video_analysis_cli")));

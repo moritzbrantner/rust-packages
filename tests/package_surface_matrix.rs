@@ -6,22 +6,16 @@ fn prioritized_crates_expose_more_than_describe() {
     let matrix = fs::read_to_string("docs/PACKAGE_SURFACE_MATRIX.md").unwrap();
     let operations_by_crate = parse_matrix(&matrix);
     let prioritized = [
-        "moritzbrantner-numbers-core",
-        "moritzbrantner-tensor-data",
-        "moritzbrantner-vector-analysis-core",
-        "moritzbrantner-vector-analysis-index",
-        "moritzbrantner-graph-analysis-core",
-        "moritzbrantner-geo-core",
-        "moritzbrantner-geo-io-geojson",
-        "moritzbrantner-geo-io-osm",
-        "moritzbrantner-geo-clustering",
-        "moritzbrantner-geo-viz",
-        "moritzbrantner-math-geometry-2d",
-        "moritzbrantner-math-linear",
-        "moritzbrantner-math-signal-core",
-        "moritzbrantner-math-sparse-data",
-        "moritzbrantner-math-statistics",
-        "moritzbrantner-maps-kernels-core",
+        "moenarch-numbers-core",
+        "moenarch-tensor-data",
+        "moenarch-vector-analysis-core",
+        "moenarch-vector-analysis-index",
+        "moenarch-graph-analysis-core",
+        "moenarch-math-geometry-2d",
+        "moenarch-math-linear",
+        "moenarch-math-signal-core",
+        "moenarch-math-sparse-data",
+        "moenarch-math-statistics",
     ];
 
     for crate_name in prioritized {
@@ -41,7 +35,7 @@ fn transcription_surface_ownership_is_explicit() {
     let operations_by_crate = parse_matrix(&matrix);
 
     let recognition = operations_by_crate
-        .get("moritzbrantner-audio-analysis-recognition")
+        .get("moenarch-audio-analysis-recognition")
         .expect("recognition row");
     assert!(!recognition
         .iter()
@@ -51,14 +45,14 @@ fn transcription_surface_ownership_is_explicit() {
         .any(|operation| operation.contains("transcription")));
 
     let transcription = operations_by_crate
-        .get("moritzbrantner-audio-analysis-transcription")
+        .get("moenarch-audio-analysis-transcription")
         .expect("transcription row");
     assert!(transcription.contains(&"audio.transcription.transcribe".to_string()));
     assert!(transcription.contains(&"audio.transcription.importWhisperX".to_string()));
     assert!(transcription.contains(&"audio.transcription.providers".to_string()));
 
     let text = operations_by_crate
-        .get("moritzbrantner-text-transcripts")
+        .get("moenarch-text-transcripts")
         .expect("text-transcripts row");
     assert!(text.contains(&"transcripts.normalize".to_string()));
     assert!(text.contains(&"transcripts.importWhisperX".to_string()));

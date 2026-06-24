@@ -26,10 +26,7 @@ mod tests {
     #[test]
     fn wrapped_surface_has_operations() {
         let surface = video_analysis_segmentation::surface::package_surface();
-        assert_eq!(
-            surface.library,
-            "moritzbrantner-video-analysis-segmentation"
-        );
+        assert_eq!(surface.library, "moenarch-video-analysis-segmentation");
         assert!(!surface.operations.is_empty());
     }
 }

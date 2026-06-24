@@ -26,7 +26,7 @@ mod tests {
     #[test]
     fn wrapped_surface_has_operations() {
         let surface = audio_analysis_synthesis::surface::package_surface();
-        assert_eq!(surface.library, "moritzbrantner-audio-analysis-synthesis");
+        assert_eq!(surface.library, "moenarch-audio-analysis-synthesis");
         assert!(!surface.operations.is_empty());
         let operation = surface
             .operations

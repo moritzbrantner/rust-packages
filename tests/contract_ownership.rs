@@ -949,13 +949,6 @@ fn foundation_adapters_delegate_to_library_owned_surfaces() {
             wasm: "crates/bindings/math-sparse-data-wasm/src/lib.rs",
         },
         FoundationAdapterCase {
-            crate_name: "maps-kernels-core",
-            import_name: "maps_kernels_core",
-            cli: "crates/math/maps-kernels-core-cli/src/lib.rs",
-            server: "crates/math/maps-kernels-core-server/src/lib.rs",
-            wasm: "crates/bindings/maps-kernels-core-wasm/src/lib.rs",
-        },
-        FoundationAdapterCase {
             crate_name: "math-linear",
             import_name: "math_linear",
             cli: "crates/math/math-linear-cli/src/lib.rs",
@@ -1016,7 +1009,7 @@ fn release_checklist_documents_contract_readiness_gate() {
     let checklist = read_source("docs/RELEASE_CHECKLIST.md");
 
     assert!(
-        checklist.contains("moritzbrantner-runtime-core"),
+        checklist.contains("moenarch-runtime-core"),
         "release checklist must name runtime-core as the runtime DTO owner"
     );
     assert!(

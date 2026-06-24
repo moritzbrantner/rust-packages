@@ -84,65 +84,50 @@ fn declared_surfaces_expose_valid_curated_landscape_metadata() {
 
 fn expected_operations() -> BTreeMap<&'static str, Vec<&'static str>> {
     BTreeMap::from([
-        ("moritzbrantner-text-core", vec!["text.tokenize"]),
+        ("moenarch-text-core", vec!["text.tokenize"]),
         (
-            "moritzbrantner-text-transcripts",
+            "moenarch-text-transcripts",
             vec!["transcripts.toTextSegments"],
         ),
+        ("moenarch-image-analysis-core", vec!["image.core.summary"]),
+        ("moenarch-audio-analysis-core", vec!["audio.levels"]),
         (
-            "moritzbrantner-image-analysis-core",
-            vec!["image.core.summary"],
-        ),
-        ("moritzbrantner-audio-analysis-core", vec!["audio.levels"]),
-        (
-            "moritzbrantner-vision-core",
+            "moenarch-vision-core",
             vec!["vision.validateDetection", "vision.validateEmbedding"],
         ),
+        ("moenarch-vector-analysis-core", vec!["vector.normalize"]),
+        ("moenarch-tensor-data", vec!["tensor.validate"]),
+        ("moenarch-numbers-core", vec!["numbers.summary"]),
+        ("moenarch-math-geometry-2d", vec!["geometry.transform"]),
+        ("moenarch-text-analysis", vec!["analysis.document"]),
+        ("moenarch-text-retrieval", vec!["retrieval.search"]),
         (
-            "moritzbrantner-vector-analysis-core",
-            vec!["vector.normalize"],
-        ),
-        ("moritzbrantner-tensor-data", vec!["tensor.validate"]),
-        ("moritzbrantner-numbers-core", vec!["numbers.summary"]),
-        (
-            "moritzbrantner-math-geometry-2d",
-            vec!["geometry.transform"],
-        ),
-        ("moritzbrantner-text-analysis", vec!["analysis.document"]),
-        ("moritzbrantner-text-retrieval", vec!["retrieval.search"]),
-        (
-            "moritzbrantner-audio-analysis-transcription",
+            "moenarch-audio-analysis-transcription",
             vec![
                 "audio.transcription.transcribe",
                 "audio.transcription.importWhisperX",
             ],
         ),
         (
-            "moritzbrantner-image-analysis-detection",
+            "moenarch-image-analysis-detection",
             vec!["image.detection.colorBlob"],
         ),
+        ("moenarch-video-analysis-core", vec!["video.core.timecode"]),
         (
-            "moritzbrantner-video-analysis-core",
-            vec!["video.core.timecode"],
-        ),
-        (
-            "moritzbrantner-video-analysis-detectors",
+            "moenarch-video-analysis-detectors",
             vec!["video.detectors.compositePlan"],
         ),
         (
-            "moritzbrantner-video-analysis-output",
+            "moenarch-video-analysis-output",
             vec!["video.output.csvPlan"],
         ),
+        ("moenarch-video-analysis-sfm", vec!["video.sfm.matchPlan"]),
         (
-            "moritzbrantner-video-analysis-sfm",
-            vec!["video.sfm.matchPlan"],
-        ),
-        (
-            "moritzbrantner-video-analysis-radiance-fields",
+            "moenarch-video-analysis-radiance-fields",
             vec!["video.radiance.cameraPath"],
         ),
         (
-            "moritzbrantner-video-analysis-radiance-pipeline",
+            "moenarch-video-analysis-radiance-pipeline",
             vec!["video.radiancePipeline.assetCheck"],
         ),
     ])
