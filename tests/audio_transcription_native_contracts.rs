@@ -2,10 +2,10 @@ use audio_analysis_transcription::{
     import_whisperx_json, transcribe, AlignedWord, AlignmentOptions, AlignmentRequest,
     AlignmentResponse, AsrRequest, AsrResponse, AudioRuntime, AudioTranscriptionProvider,
     CandleWhisperOptions, DiarizationOptions, ForcedAlignmentProvider, LoadedAudio,
-    NativeDevicePreference, SpeakerDiarizationResponse, SpeakerSegmentPrediction,
-    SpeechActivitySegment, TranscriptDiarizationProvider, TranscriptionPipelineRequest,
-    TranscriptionProviderSelection, TranscriptionSource, TranscriptionVadProvider, VadOptions,
-    VadRequest, VadResponse,
+    NativeDevicePreference, ReusableCandleWhisperTranscriber, SpeakerDiarizationResponse,
+    SpeakerSegmentPrediction, SpeechActivitySegment, TranscriptDiarizationProvider,
+    TranscriptionPipelineRequest, TranscriptionProviderSelection, TranscriptionSource,
+    TranscriptionVadProvider, VadOptions, VadRequest, VadResponse,
 };
 use text_transcripts::{TranscriptSegmentContract, TranscriptWordContract, TranscriptionContract};
 use video_analysis_core::{DetectError, Result};
@@ -245,6 +245,22 @@ fn fixed_native_shape_transcript() -> std::result::Result<TranscriptionContract,
         vec![first, second],
     )
     .map_err(|error| error.to_string())
+}
+
+#[test]
+fn reusable_candle_whisper_transcriber_is_public_provider_reuse_primitive() {
+    fn assert_public_asr_provider(provider: &mut dyn AudioTranscriptionProvider) {
+        assert_eq!(provider.provider_id(), "candle-whisper");
+    }
+
+    let mut provider = ReusableCandleWhisperTranscriber::new(CandleWhisperOptions {
+        device: NativeDevicePreference::Cpu,
+        ..CandleWhisperOptions::default()
+    });
+
+    assert_public_asr_provider(&mut provider);
+    assert_eq!(provider.options.device, NativeDevicePreference::Cpu);
+    assert!(format!("{provider:?}").contains("ReusableCandleWhisperTranscriber"));
 }
 
 #[test]
