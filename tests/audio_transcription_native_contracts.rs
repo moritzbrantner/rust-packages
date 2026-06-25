@@ -420,6 +420,100 @@ fn native_transcription_runner_builds_default_native_stack_offline() -> Result<(
 }
 
 #[test]
+fn default_native_runner_rebuilds_for_incompatible_candle_options() -> Result<()> {
+    let first_request = TranscriptionPipelineRequest {
+        source: TranscriptionSource::Samples {
+            samples: vec![0.1; 16_000],
+            sample_rate: 16_000,
+            channels: 1,
+            source: Some("inline".to_string()),
+        },
+        provider: TranscriptionProviderSelection::CandleWhisper(CandleWhisperOptions {
+            device: NativeDevicePreference::Cpu,
+            model_cache_only: true,
+            ..CandleWhisperOptions::default()
+        }),
+        vad: VadOptions {
+            enabled: false,
+            ..VadOptions::default()
+        },
+        alignment: AlignmentOptions::default(),
+        diarization: DiarizationOptions::default(),
+        output: Default::default(),
+    };
+    let mut second_request = first_request.clone();
+    second_request.provider = TranscriptionProviderSelection::CandleWhisper(CandleWhisperOptions {
+        device: NativeDevicePreference::Cpu,
+        language: Some("de".to_string()),
+        model_cache_only: true,
+        ..CandleWhisperOptions::default()
+    });
+
+    let mut runner = NativeTranscriptionRunner::new(
+        NativeTranscriptionRunnerOptions::from_request(&first_request),
+    )?;
+    let mut observer = RecordingObserver::default();
+    let error = runner
+        .run(second_request, &mut observer)
+        .unwrap_err()
+        .to_string();
+
+    assert!(
+        !error.contains("request provider does not match runner provider"),
+        "default runner should rebuild owned providers instead of rejecting provider option changes: {error}"
+    );
+    assert!(
+        error.contains("setup_error") || error.contains("unsupported_runtime"),
+        "offline default Candle execution should still fail before requiring model downloads: {error}"
+    );
+
+    Ok(())
+}
+
+#[test]
+fn custom_provider_runner_rejects_incompatible_provider_options() -> Result<()> {
+    let options = NativeTranscriptionRunnerOptions {
+        provider: TranscriptionProviderSelection::CandleWhisper(CandleWhisperOptions {
+            device: NativeDevicePreference::Cpu,
+            ..CandleWhisperOptions::default()
+        }),
+        vad: VadOptions::default(),
+        alignment: AlignmentOptions::default(),
+        diarization: DiarizationOptions::default(),
+    };
+    let request = TranscriptionPipelineRequest {
+        source: TranscriptionSource::Samples {
+            samples: vec![0.1; 16_000],
+            sample_rate: 16_000,
+            channels: 1,
+            source: Some("inline".to_string()),
+        },
+        provider: TranscriptionProviderSelection::CandleWhisper(CandleWhisperOptions {
+            device: NativeDevicePreference::Cpu,
+            language: Some("de".to_string()),
+            ..CandleWhisperOptions::default()
+        }),
+        vad: options.vad.clone(),
+        alignment: options.alignment.clone(),
+        diarization: options.diarization.clone(),
+        output: Default::default(),
+    };
+    let mut runner = NativeTranscriptionRunner::from_providers(
+        options,
+        Box::new(FixedVad),
+        Box::new(ReusingAsr::default()),
+        None,
+        None,
+    );
+    let mut observer = RecordingObserver::default();
+    let error = runner.run(request, &mut observer).unwrap_err().to_string();
+
+    assert!(error.contains("request provider does not match runner provider"));
+
+    Ok(())
+}
+
+#[test]
 fn whisperx_fixture_imports_through_audio_transcription_contract(
 ) -> std::result::Result<(), Box<dyn std::error::Error>> {
     let contract = import_whisperx_json(WHISPERX_PARITY_FIXTURE)?;
