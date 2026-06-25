@@ -78,6 +78,18 @@ preserved, and diagnostics report `chunkCount`, `batchChunks`, `maxBatchSize`,
 `batchCount`, and `batchExecution=candle-whisper-sequential`. This is semantic
 batch grouping, not throughput parity or tensor-batched model execution.
 
+For repeated native finite transcription requests, package consumers should use
+`ReusableCandleWhisperTranscriber` as the current public Candle Whisper
+provider-reuse primitive and pass it to `run_transcription_pipeline` or
+`run_transcription_pipeline_with_observer`. This keeps compatible native model
+session state behind the public `AudioTranscriptionProvider` trait instead of
+requiring callers to reach into private session internals. Reuse remains
+observable through public surfaces: compatible repeated requests emit
+`TranscriptionPipelineEvent::ModelReuse` through the observer path and response
+diagnostics include `asrModelSession=loaded` or `asrModelSession=reused`.
+Higher-level workflow composition, output writing, progress-stream formatting,
+and WhisperX/Rust-native parity policy remain outside this crate.
+
 Transcript contracts, normalization, caption formatting, and WhisperX JSON
 import remain owned by `text-transcripts`.
 

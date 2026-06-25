@@ -1125,6 +1125,11 @@ impl AudioTranscriptionProvider for CandleWhisperTranscriber {
 
 /// Candle Whisper provider that keeps a compatible native model session loaded
 /// across transcription requests.
+///
+/// Downstream callers can use this as the public provider-reuse primitive with
+/// `run_transcription_pipeline_with_observer`. Compatible repeated requests
+/// emit `TranscriptionPipelineEvent::ModelReuse` and include response
+/// diagnostics such as `asrModelSession=reused` when a loaded session is reused.
 #[derive(Default)]
 pub struct ReusableCandleWhisperTranscriber {
     pub options: CandleWhisperOptions,
