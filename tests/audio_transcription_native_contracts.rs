@@ -2,10 +2,11 @@ use audio_analysis_transcription::{
     import_whisperx_json, transcribe, AlignedWord, AlignmentOptions, AlignmentRequest,
     AlignmentResponse, AsrRequest, AsrResponse, AudioRuntime, AudioTranscriptionProvider,
     CandleWhisperOptions, DiarizationOptions, ForcedAlignmentProvider, LoadedAudio,
-    NativeDevicePreference, ReusableCandleWhisperTranscriber, SpeakerDiarizationResponse,
-    SpeakerSegmentPrediction, SpeechActivitySegment, TranscriptDiarizationProvider,
-    TranscriptionPipelineRequest, TranscriptionProviderSelection, TranscriptionSource,
-    TranscriptionVadProvider, VadOptions, VadRequest, VadResponse,
+    NativeDevicePreference, NativeTranscriptionRunner, NativeTranscriptionRunnerOptions,
+    ReusableCandleWhisperTranscriber, SpeakerDiarizationResponse, SpeakerSegmentPrediction,
+    SpeechActivitySegment, TranscriptDiarizationProvider, TranscriptionPipelineEvent,
+    TranscriptionPipelineObserver, TranscriptionPipelineRequest, TranscriptionProviderSelection,
+    TranscriptionSource, TranscriptionVadProvider, VadOptions, VadRequest, VadResponse,
 };
 use text_transcripts::{TranscriptSegmentContract, TranscriptWordContract, TranscriptionContract};
 use video_analysis_core::{DetectError, Result};
@@ -48,6 +49,77 @@ impl AudioTranscriptionProvider for FixedAsr {
             )
             .map_err(|error| DetectError::InvalidArgument(error.to_string()))?,
             diagnostics: Vec::new(),
+        })
+    }
+}
+
+#[derive(Default)]
+struct RecordingObserver {
+    events: Vec<TranscriptionPipelineEvent>,
+}
+
+impl TranscriptionPipelineObserver for RecordingObserver {
+    fn observe(&mut self, event: TranscriptionPipelineEvent) {
+        self.events.push(event);
+    }
+}
+
+#[derive(Default)]
+struct ReusingAsr {
+    calls: usize,
+}
+
+impl AudioTranscriptionProvider for ReusingAsr {
+    fn provider_id(&self) -> &str {
+        "reusing-asr"
+    }
+
+    fn transcribe(&mut self, request: AsrRequest) -> Result<AsrResponse> {
+        let mut observer = audio_analysis_transcription::NoopTranscriptionPipelineObserver;
+        self.transcribe_with_observer(request, &mut observer)
+    }
+
+    fn transcribe_with_observer(
+        &mut self,
+        _request: AsrRequest,
+        observer: &mut dyn TranscriptionPipelineObserver,
+    ) -> Result<AsrResponse> {
+        self.calls += 1;
+        let diagnostic = if self.calls == 1 {
+            observer.observe(TranscriptionPipelineEvent::ModelLoadStart {
+                stage: "asr".to_string(),
+                provider: "reusing-asr".to_string(),
+                model_id: "mock-whisper".to_string(),
+            });
+            observer.observe(TranscriptionPipelineEvent::ModelLoadEnd {
+                stage: "asr".to_string(),
+                provider: "reusing-asr".to_string(),
+                model_id: "mock-whisper".to_string(),
+                duration_seconds: 0.01,
+            });
+            "asrModelSession=loaded"
+        } else {
+            observer.observe(TranscriptionPipelineEvent::ModelReuse {
+                stage: "asr".to_string(),
+                provider: "reusing-asr".to_string(),
+                model_id: "mock-whisper".to_string(),
+            });
+            "asrModelSession=reused"
+        };
+
+        let mut segment = TranscriptSegmentContract::new(0, " hello world ");
+        segment.start_seconds = Some(0.0);
+        segment.end_seconds = Some(1.0);
+        Ok(AsrResponse {
+            model_id: "mock-whisper".to_string(),
+            language: Some("en".to_string()),
+            transcript: TranscriptionContract::from_segments(
+                Some("inline".to_string()),
+                Some("en".to_string()),
+                vec![segment],
+            )
+            .map_err(|error| DetectError::InvalidArgument(error.to_string()))?,
+            diagnostics: vec![diagnostic.to_string()],
         })
     }
 }
@@ -261,6 +333,90 @@ fn reusable_candle_whisper_transcriber_is_public_provider_reuse_primitive() {
     assert_public_asr_provider(&mut provider);
     assert_eq!(provider.options.device, NativeDevicePreference::Cpu);
     assert!(format!("{provider:?}").contains("ReusableCandleWhisperTranscriber"));
+}
+
+#[test]
+fn native_transcription_runner_reuses_adapter_state_across_compatible_requests() -> Result<()> {
+    let options = NativeTranscriptionRunnerOptions {
+        provider: TranscriptionProviderSelection::CandleWhisper(CandleWhisperOptions {
+            device: NativeDevicePreference::Cpu,
+            ..CandleWhisperOptions::default()
+        }),
+        vad: VadOptions::default(),
+        alignment: AlignmentOptions::default(),
+        diarization: DiarizationOptions::default(),
+    };
+    let request = TranscriptionPipelineRequest {
+        source: TranscriptionSource::Samples {
+            samples: vec![0.1; 16_000],
+            sample_rate: 16_000,
+            channels: 1,
+            source: Some("inline".to_string()),
+        },
+        provider: options.provider.clone(),
+        vad: options.vad.clone(),
+        alignment: options.alignment.clone(),
+        diarization: options.diarization.clone(),
+        output: Default::default(),
+    };
+    let mut runner = NativeTranscriptionRunner::from_providers(
+        options,
+        Box::new(FixedVad),
+        Box::new(ReusingAsr::default()),
+        None,
+        None,
+    );
+    let mut observer = RecordingObserver::default();
+
+    let first = runner.run(request.clone(), &mut observer)?;
+    let second = runner.run(request, &mut observer)?;
+
+    assert!(first
+        .diagnostics
+        .iter()
+        .any(|item| item == "asrModelSession=loaded"));
+    assert!(second
+        .diagnostics
+        .iter()
+        .any(|item| item == "asrModelSession=reused"));
+    assert!(observer
+        .events
+        .contains(&TranscriptionPipelineEvent::ModelReuse {
+            stage: "asr".to_string(),
+            provider: "reusing-asr".to_string(),
+            model_id: "mock-whisper".to_string(),
+        }));
+    second
+        .transcript
+        .validate_strict()
+        .map_err(|error| DetectError::InvalidArgument(error.to_string()))?;
+
+    Ok(())
+}
+
+#[test]
+fn native_transcription_runner_builds_default_native_stack_offline() -> Result<()> {
+    let request = TranscriptionPipelineRequest {
+        source: TranscriptionSource::Samples {
+            samples: vec![0.1; 16_000],
+            sample_rate: 16_000,
+            channels: 1,
+            source: Some("inline".to_string()),
+        },
+        provider: TranscriptionProviderSelection::CandleWhisper(CandleWhisperOptions {
+            device: NativeDevicePreference::Cpu,
+            ..CandleWhisperOptions::default()
+        }),
+        vad: VadOptions::default(),
+        alignment: AlignmentOptions::default(),
+        diarization: DiarizationOptions::default(),
+        output: Default::default(),
+    };
+    let options = NativeTranscriptionRunnerOptions::from_request(&request);
+
+    let _runner = NativeTranscriptionRunner::new(options)?;
+
+    Ok(())
 }
 
 #[test]

@@ -1327,6 +1327,177 @@ impl WhisperXCommandTranscriber {
     }
 }
 
+/// Native runner configuration for repeated finite transcription requests.
+///
+/// The options describe the provider stack the runner owns. Requests passed to
+/// [`NativeTranscriptionRunner::run`] must use the same provider, VAD,
+/// alignment, and diarization options so the runner can safely reuse provider
+/// state across different sources without changing pipeline semantics.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct NativeTranscriptionRunnerOptions {
+    pub provider: TranscriptionProviderSelection,
+    #[serde(default)]
+    pub vad: VadOptions,
+    #[serde(default)]
+    pub alignment: AlignmentOptions,
+    #[serde(default)]
+    pub diarization: DiarizationOptions,
+}
+
+impl NativeTranscriptionRunnerOptions {
+    /// Builds runner options from the reusable parts of a pipeline request.
+    pub fn from_request(request: &TranscriptionPipelineRequest) -> Self {
+        Self {
+            provider: request.provider.clone(),
+            vad: request.vad.clone(),
+            alignment: request.alignment.clone(),
+            diarization: request.diarization.clone(),
+        }
+    }
+}
+
+impl Default for NativeTranscriptionRunnerOptions {
+    fn default() -> Self {
+        Self {
+            provider: TranscriptionProviderSelection::CandleWhisper(CandleWhisperOptions::default()),
+            vad: VadOptions::default(),
+            alignment: AlignmentOptions::default(),
+            diarization: DiarizationOptions::default(),
+        }
+    }
+}
+
+/// Owning native transcription runner for repeated finite requests.
+///
+/// Use this when callers want the crate to own native provider/session
+/// lifecycle across multiple compatible requests. Advanced callers can still
+/// call [`run_transcription_pipeline_with_observer`] directly with their own
+/// provider trait implementations.
+pub struct NativeTranscriptionRunner {
+    options: NativeTranscriptionRunnerOptions,
+    vad_provider: Box<dyn TranscriptionVadProvider>,
+    asr_provider: Box<dyn AudioTranscriptionProvider>,
+    alignment_provider: Option<Box<dyn ForcedAlignmentProvider>>,
+    diarization_provider: Option<Box<dyn TranscriptDiarizationProvider>>,
+}
+
+impl NativeTranscriptionRunner {
+    /// Builds the default native provider stack for the configured provider.
+    ///
+    /// Candle Whisper requests use [`ReusableCandleWhisperTranscriber`] so
+    /// compatible repeated requests can report reuse through
+    /// [`TranscriptionPipelineEvent::ModelReuse`] and response diagnostics such
+    /// as `asrModelSession=reused`.
+    pub fn new(options: NativeTranscriptionRunnerOptions) -> Result<Self> {
+        let asr_provider: Box<dyn AudioTranscriptionProvider> = match &options.provider {
+            TranscriptionProviderSelection::CandleWhisper(provider_options) => Box::new(
+                ReusableCandleWhisperTranscriber::new(provider_options.clone()),
+            ),
+            TranscriptionProviderSelection::WhisperCpp(provider_options) => {
+                Box::new(WhisperCppTranscriber {
+                    options: provider_options.clone(),
+                })
+            }
+            TranscriptionProviderSelection::ExternalWhisperX(_) => {
+                return Err(invalid_request(
+                    "native transcription runner does not execute external WhisperX command providers",
+                ));
+            }
+        };
+
+        let alignment_provider = options.alignment.enabled.then(|| {
+            Box::new(CtcForcedAligner {
+                options: options.alignment.clone(),
+            }) as Box<dyn ForcedAlignmentProvider>
+        });
+
+        #[cfg(feature = "diarization")]
+        let diarization_provider = options.diarization.enabled.then(|| {
+            Box::new(NativeSpeakerDiarizationProvider) as Box<dyn TranscriptDiarizationProvider>
+        });
+        #[cfg(not(feature = "diarization"))]
+        let diarization_provider = None;
+
+        Ok(Self::from_providers(
+            options,
+            Box::new(EnergyVadTranscriptionProvider),
+            asr_provider,
+            alignment_provider,
+            diarization_provider,
+        ))
+    }
+
+    /// Builds a runner from caller-provided provider adapters.
+    ///
+    /// This keeps the customization seam at the existing provider traits rather
+    /// than introducing a separate test-only abstraction.
+    pub fn from_providers(
+        options: NativeTranscriptionRunnerOptions,
+        vad_provider: Box<dyn TranscriptionVadProvider>,
+        asr_provider: Box<dyn AudioTranscriptionProvider>,
+        alignment_provider: Option<Box<dyn ForcedAlignmentProvider>>,
+        diarization_provider: Option<Box<dyn TranscriptDiarizationProvider>>,
+    ) -> Self {
+        Self {
+            options,
+            vad_provider,
+            asr_provider,
+            alignment_provider,
+            diarization_provider,
+        }
+    }
+
+    /// Runs a compatible request through the owned provider stack.
+    pub fn run(
+        &mut self,
+        request: TranscriptionPipelineRequest,
+        observer: &mut dyn TranscriptionPipelineObserver,
+    ) -> Result<TranscriptionPipelineResponse> {
+        self.validate_compatible_request(&request)?;
+        let alignment_provider = self
+            .alignment_provider
+            .as_mut()
+            .map(|provider| provider.as_mut() as &mut dyn ForcedAlignmentProvider);
+        let diarization_provider = self
+            .diarization_provider
+            .as_mut()
+            .map(|provider| provider.as_mut() as &mut dyn TranscriptDiarizationProvider);
+        run_transcription_pipeline_with_observer(
+            request,
+            self.vad_provider.as_mut(),
+            self.asr_provider.as_mut(),
+            alignment_provider,
+            diarization_provider,
+            observer,
+        )
+    }
+
+    fn validate_compatible_request(&self, request: &TranscriptionPipelineRequest) -> Result<()> {
+        if request.provider != self.options.provider {
+            return Err(invalid_request(
+                "native transcription runner request provider does not match runner provider",
+            ));
+        }
+        if request.vad != self.options.vad {
+            return Err(invalid_request(
+                "native transcription runner request VAD options do not match runner options",
+            ));
+        }
+        if request.alignment != self.options.alignment {
+            return Err(invalid_request(
+                "native transcription runner request alignment options do not match runner options",
+            ));
+        }
+        if request.diarization != self.options.diarization {
+            return Err(invalid_request(
+                "native transcription runner request diarization options do not match runner options",
+            ));
+        }
+        Ok(())
+    }
+}
+
 fn run_native_transcription_pipeline(
     request: TranscriptionPipelineRequest,
     vad: &mut dyn TranscriptionVadProvider,
