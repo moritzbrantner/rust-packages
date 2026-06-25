@@ -1376,10 +1376,17 @@ impl Default for NativeTranscriptionRunnerOptions {
 /// provider trait implementations.
 pub struct NativeTranscriptionRunner {
     options: NativeTranscriptionRunnerOptions,
+    mode: NativeTranscriptionRunnerMode,
     vad_provider: Box<dyn TranscriptionVadProvider>,
     asr_provider: Box<dyn AudioTranscriptionProvider>,
     alignment_provider: Option<Box<dyn ForcedAlignmentProvider>>,
     diarization_provider: Option<Box<dyn TranscriptDiarizationProvider>>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum NativeTranscriptionRunnerMode {
+    DefaultStack,
+    CallerProviders,
 }
 
 impl NativeTranscriptionRunner {
@@ -1390,6 +1397,10 @@ impl NativeTranscriptionRunner {
     /// [`TranscriptionPipelineEvent::ModelReuse`] and response diagnostics such
     /// as `asrModelSession=reused`.
     pub fn new(options: NativeTranscriptionRunnerOptions) -> Result<Self> {
+        Self::default_stack_for_options(options)
+    }
+
+    fn default_stack_for_options(options: NativeTranscriptionRunnerOptions) -> Result<Self> {
         let asr_provider: Box<dyn AudioTranscriptionProvider> = match &options.provider {
             TranscriptionProviderSelection::CandleWhisper(provider_options) => Box::new(
                 ReusableCandleWhisperTranscriber::new(provider_options.clone()),
@@ -1419,13 +1430,19 @@ impl NativeTranscriptionRunner {
         #[cfg(not(feature = "diarization"))]
         let diarization_provider = None;
 
-        Ok(Self::from_providers(
+        Ok(Self {
             options,
-            Box::new(EnergyVadTranscriptionProvider),
+            mode: NativeTranscriptionRunnerMode::DefaultStack,
+            vad_provider: Box::new(EnergyVadTranscriptionProvider),
             asr_provider,
             alignment_provider,
             diarization_provider,
-        ))
+        })
+    }
+
+    fn rebuild_default_stack(&mut self, options: NativeTranscriptionRunnerOptions) -> Result<()> {
+        *self = Self::default_stack_for_options(options)?;
+        Ok(())
     }
 
     /// Builds a runner from caller-provided provider adapters.
@@ -1441,6 +1458,7 @@ impl NativeTranscriptionRunner {
     ) -> Self {
         Self {
             options,
+            mode: NativeTranscriptionRunnerMode::CallerProviders,
             vad_provider,
             asr_provider,
             alignment_provider,
@@ -1448,13 +1466,18 @@ impl NativeTranscriptionRunner {
         }
     }
 
-    /// Runs a compatible request through the owned provider stack.
+    /// Runs a request through the owned provider stack.
+    ///
+    /// Default runners rebuild their crate-owned providers when request
+    /// options change. Runners built from caller-provided adapters still
+    /// require exact option compatibility because the runner cannot rebuild
+    /// external provider state.
     pub fn run(
         &mut self,
         request: TranscriptionPipelineRequest,
         observer: &mut dyn TranscriptionPipelineObserver,
     ) -> Result<TranscriptionPipelineResponse> {
-        self.validate_compatible_request(&request)?;
+        self.prepare_for_request(&request)?;
         let alignment_provider = self
             .alignment_provider
             .as_mut()
@@ -1471,6 +1494,21 @@ impl NativeTranscriptionRunner {
             diarization_provider,
             observer,
         )
+    }
+
+    fn prepare_for_request(&mut self, request: &TranscriptionPipelineRequest) -> Result<()> {
+        match self.mode {
+            NativeTranscriptionRunnerMode::CallerProviders => {
+                self.validate_compatible_request(request)
+            }
+            NativeTranscriptionRunnerMode::DefaultStack => {
+                let request_options = NativeTranscriptionRunnerOptions::from_request(request);
+                if request_options != self.options {
+                    self.rebuild_default_stack(request_options)?;
+                }
+                Ok(())
+            }
+        }
     }
 
     fn validate_compatible_request(&self, request: &TranscriptionPipelineRequest) -> Result<()> {
@@ -5487,8 +5525,14 @@ mod tests {
     #[test]
     #[cfg(feature = "alignment")]
     fn native_pipeline_runs_alignment_before_diarization() {
+        let temp = tempfile::tempdir().expect("tempdir");
+        write_tiny_wav2vec2_bundle(temp.path());
         let mut request = sample_request();
-        request.alignment.enabled = true;
+        request.alignment = AlignmentOptions {
+            enabled: true,
+            model_bundle: Some(temp.path().to_path_buf()),
+            ..AlignmentOptions::default()
+        };
         request.diarization.enabled = true;
         let mut vad = EnergyVadTranscriptionProvider;
         let mut asr = MockAsrProvider;
