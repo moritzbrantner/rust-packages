@@ -10,6 +10,17 @@ paths use FFmpeg-backed `audio-analysis-io` decode and then normalize/resample
 through the same native 16 kHz mono boundary. This opt-in media decode is not
 WhisperX parity and is not part of default tests.
 
+Reusable native VAD providers are opt-in and independent from diarization.
+The `silero-vad` feature exposes `SileroVadOptions` and
+`SileroVadTranscriptionProvider`; the `pyannote-vad` feature exposes
+`PyannoteVadOptions` and `PyannoteVadTranscriptionProvider`. Both implement
+`TranscriptionVadProvider`, require 16 kHz mono audio, and execute caller-
+supplied local ONNX resources through `runtime-onnx`. Pyannote VAD validates
+compatible local model metadata or a colocated manifest and never aliases
+energy or Silero behavior. Provider IDs and diagnostics remain distinct so
+pipeline consumers can observe `silero-vad`, `pyannote-vad`, window/frame
+counts, and native completion.
+
 Native Whisper tries model timestamp tokens automatically when the tokenizer
 defines Whisper timestamp metadata. If timestamp decoding does not produce
 bounded text segments, it falls back to chunk/window segment timing. Native
@@ -93,7 +104,11 @@ provide their own `TranscriptionVadProvider`, `AudioTranscriptionProvider`,
 This is the provider-agnostic primitive seam for tests, experiments, and package
 surfaces that already own custom provider construction. The observer variant
 emits phase-level `TranscriptionPipelineObserver` events for validation, decode,
-VAD, ASR, alignment, diarization, and model load/reuse activity.
+VAD, ASR, alignment, diarization, model resolution/download, and model
+load/reuse activity. Observer methods for resolution, download, and cooperative
+cancellation have default no-op behavior so existing observers remain source
+compatible. A cancellation request stops execution at the next safe pipeline
+or model-resolution boundary.
 
 Use `NativeTranscriptionRunner` with `NativeTranscriptionRunnerOptions` for
 repeated native finite transcription requests. The runner owns the native
