@@ -1,5 +1,6 @@
 #[cfg(test)]
 use std::collections::BTreeMap;
+use std::collections::BTreeSet;
 use std::path::{Path, PathBuf};
 
 use candle_core::{DType, Device, IndexOp, Tensor, D};
@@ -18,11 +19,12 @@ use video_analysis_core::Result;
 use crate::native_device::{resolve_native_device, ResolvedNativeDevice};
 use crate::{
     candle_batch_count, invalid_request, model_output_mismatch, setup_error, validate_asr_request,
-    AsrRequest, AsrResponse, CandleWhisperComputeType, CandleWhisperDecodeConfig,
+    AsrRequest, AsrResponse, CandleWhisperComputeType, CandleWhisperDecodeRequestConfig,
     CandleWhisperDecodeRuntime, CandleWhisperOptions, CandleWhisperRuntimeControls,
     SpeechActivitySegment, TranscriptionTask,
 };
 
+#[cfg(any(feature = "model-bundles", test))]
 const REQUIRED_WHISPER_FILES: &[&str] = &[
     "config.json",
     "generation_config.json",
@@ -114,9 +116,47 @@ struct WhisperTimedWindow {
     timing: WhisperWindowTiming,
     fallback_reason: Option<&'static str>,
     diagnostics: WhisperDecodeDiagnostics,
+    conditioning_token_ids: Vec<u32>,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Default)]
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct WhisperRequestPromptState {
+    initial_prompt_tokens: Vec<u32>,
+    previous_text_tokens: Vec<u32>,
+    condition_on_previous_text: bool,
+}
+
+impl WhisperRequestPromptState {
+    fn new(config: &CandleWhisperDecodeRequestConfig) -> Self {
+        Self {
+            initial_prompt_tokens: config.initial_prompt_tokens.clone(),
+            previous_text_tokens: Vec::new(),
+            condition_on_previous_text: config.condition_on_previous_text,
+        }
+    }
+
+    fn current_prompt_tokens(&self) -> Vec<u32> {
+        let mut tokens = self.initial_prompt_tokens.clone();
+        if self.condition_on_previous_text {
+            tokens.extend_from_slice(&self.previous_text_tokens);
+        }
+        tokens
+    }
+
+    fn record_generated_tokens(&mut self, tokens: &[u32], max_prompt_tokens: usize) {
+        if !self.condition_on_previous_text {
+            return;
+        }
+        self.previous_text_tokens.extend_from_slice(tokens);
+        let keep = max_prompt_tokens.saturating_sub(self.initial_prompt_tokens.len());
+        if self.previous_text_tokens.len() > keep {
+            let remove = self.previous_text_tokens.len() - keep;
+            self.previous_text_tokens.drain(..remove);
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Default)]
 struct WhisperDecodeDiagnostics {
     timestamp_tokens_requested: bool,
     timestamp_tokens_present: bool,
@@ -131,6 +171,11 @@ struct WhisperDecodeDiagnostics {
     decoder_active_row_compaction_count: usize,
     decoder_self_attention_cache_reused: bool,
     decoder_cross_attention_cache_reused: bool,
+    average_log_probability: f64,
+    no_speech_probability: Option<f64>,
+    compression_ratio: f64,
+    attempted_temperatures: Vec<f64>,
+    no_speech_rejected: bool,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -175,11 +220,131 @@ struct WhisperAutoregressiveRow {
     cache_position: usize,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq)]
 struct ActiveWhisperDecodeRow {
     original_index: usize,
     row: WhisperAutoregressiveRow,
     stats: WhisperGenerationStats,
+    score: f64,
+    no_speech_probability: Option<f64>,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+struct WhisperTokenDecodeResult {
+    token_ids: Vec<u32>,
+    stats: WhisperGenerationStats,
+    average_log_probability: f64,
+    no_speech_probability: Option<f64>,
+    attempted_temperatures: Vec<f64>,
+    no_speech_rejected: bool,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum WhisperFallbackAttemptDecision {
+    Accept,
+    Retry,
+    RejectNoSpeech,
+}
+
+fn fallback_attempt_decision(
+    config: &CandleWhisperDecodeRequestConfig,
+    average_log_probability: f64,
+    no_speech_probability: Option<f64>,
+    compression_ratio: f64,
+) -> WhisperFallbackAttemptDecision {
+    if config
+        .max_no_speech_probability
+        .zip(no_speech_probability)
+        .is_some_and(|(maximum, observed)| observed > maximum)
+    {
+        return WhisperFallbackAttemptDecision::RejectNoSpeech;
+    }
+    if config
+        .min_average_log_probability
+        .is_some_and(|minimum| average_log_probability < minimum)
+        || config
+            .max_compression_ratio
+            .is_some_and(|maximum| compression_ratio > maximum)
+    {
+        return WhisperFallbackAttemptDecision::Retry;
+    }
+    WhisperFallbackAttemptDecision::Accept
+}
+
+fn apply_no_speech_rejection(
+    decision: WhisperFallbackAttemptDecision,
+    token_ids: &mut Vec<u32>,
+) -> bool {
+    let rejected = decision == WhisperFallbackAttemptDecision::RejectNoSpeech;
+    if rejected {
+        token_ids.clear();
+    }
+    rejected
+}
+
+fn run_ordered_temperature_fallback<T>(
+    temperatures: &[f64],
+    mut attempt: impl FnMut(usize, f64) -> Result<T>,
+    mut should_retry: impl FnMut(&T) -> bool,
+) -> Result<(T, Vec<f64>)> {
+    if temperatures.is_empty() {
+        return Err(invalid_request(
+            "Candle Whisper temperature_schedule must not be empty",
+        ));
+    }
+    let mut attempted = Vec::new();
+    for (index, temperature) in temperatures.iter().copied().enumerate() {
+        let result = attempt(index, temperature)?;
+        attempted.push(temperature);
+        if !should_retry(&result) || index + 1 == temperatures.len() {
+            return Ok((result, attempted));
+        }
+    }
+    unreachable!("non-empty temperature schedule always returns its final attempt")
+}
+
+fn token_probability(logits: &[f32], token_id: u32) -> Option<f64> {
+    let target = *logits.get(token_id as usize)? as f64;
+    if !target.is_finite() {
+        return Some(0.0);
+    }
+    let max = logits
+        .iter()
+        .copied()
+        .filter(|value| value.is_finite())
+        .max_by(f32::total_cmp)? as f64;
+    let denominator = logits
+        .iter()
+        .copied()
+        .filter(|value| value.is_finite())
+        .map(|value| (value as f64 - max).exp())
+        .sum::<f64>();
+    Some((target - max).exp() / denominator)
+}
+
+fn token_log_probability(logits: &[f32], token_id: u32) -> Option<f64> {
+    token_probability(logits, token_id).map(f64::ln)
+}
+
+/// Compact, dependency-free repeated-byte estimate used for Whisper's
+/// repetition fallback. Ordinary text is near 1.0; repeated runs rise above it.
+fn text_compression_ratio(text: &str) -> f64 {
+    let bytes = text.as_bytes();
+    if bytes.is_empty() {
+        return 0.0;
+    }
+    let mut encoded_len = 0_usize;
+    let mut index = 0_usize;
+    while index < bytes.len() {
+        let byte = bytes[index];
+        let mut end = index + 1;
+        while end < bytes.len() && bytes[end] == byte {
+            end += 1;
+        }
+        encoded_len += (end - index).min(2);
+        index = end;
+    }
+    bytes.len() as f64 / encoded_len.max(1) as f64
 }
 
 impl WhisperAutoregressiveRow {
@@ -326,7 +491,7 @@ pub(crate) fn transcribe(
     transcribe_with_load_observer(
         options,
         &CandleWhisperRuntimeControls::default(),
-        &CandleWhisperDecodeConfig::default(),
+        &CandleWhisperDecodeRequestConfig::default(),
         request,
         |_| Ok(()),
     )
@@ -334,17 +499,25 @@ pub(crate) fn transcribe(
 
 pub(crate) enum WhisperModelResolutionEvent {
     ResolutionStart,
+    #[allow(dead_code)] // emitted only by the optional model-bundles resolver
     DownloadStart,
-    DownloadEnd { duration_seconds: f64 },
-    ResolutionEnd { source: &'static str },
+    #[allow(dead_code)] // emitted only by the optional model-bundles resolver
+    DownloadEnd {
+        duration_seconds: f64,
+    },
+    ResolutionEnd {
+        source: &'static str,
+    },
     LoadStart,
-    LoadEnd { duration_seconds: f64 },
+    LoadEnd {
+        duration_seconds: f64,
+    },
 }
 
 pub(crate) fn transcribe_with_load_observer(
     options: &CandleWhisperOptions,
     controls: &CandleWhisperRuntimeControls,
-    decode: &CandleWhisperDecodeConfig,
+    decode: &CandleWhisperDecodeRequestConfig,
     request: AsrRequest,
     mut on_resolution: impl FnMut(WhisperModelResolutionEvent) -> Result<()>,
 ) -> Result<AsrResponse> {
@@ -412,7 +585,7 @@ impl ReusableCandleWhisperSession {
         current: &mut Option<Self>,
         options: &CandleWhisperOptions,
         controls: &CandleWhisperRuntimeControls,
-        decode: &CandleWhisperDecodeConfig,
+        decode: &CandleWhisperDecodeRequestConfig,
         request: AsrRequest,
         mut observe: impl FnMut(ReusableCandleWhisperSessionEvent) -> Result<()>,
     ) -> Result<AsrResponse> {
@@ -698,6 +871,7 @@ fn whisper_model_spec(model_id: &str) -> model_runtime::HuggingFaceModelSpec {
     spec
 }
 
+#[cfg(feature = "model-bundles")]
 fn missing_whisper_model_error(
     model_id: &str,
     options: &CandleWhisperOptions,
@@ -714,6 +888,7 @@ fn missing_whisper_model_error(
     ))
 }
 
+#[cfg(feature = "model-bundles")]
 fn missing_whisper_model_error_with_source(
     model_id: &str,
     options: &CandleWhisperOptions,
@@ -1265,10 +1440,12 @@ impl CandleWhisperSession {
         &mut self,
         options: &CandleWhisperOptions,
         controls: &CandleWhisperRuntimeControls,
-        decode: &CandleWhisperDecodeConfig,
+        decode: &CandleWhisperDecodeRequestConfig,
         request: AsrRequest,
     ) -> Result<AsrResponse> {
-        debug_assert!(decode.uses_default_greedy_path() || !decode.temperature_schedule.is_empty());
+        debug_assert!(
+            decode.preserves_legacy_greedy_path() || !decode.search.temperature_schedule.is_empty()
+        );
         let mut segments = Vec::new();
         let mut next_index = 0_u64;
         let mut used_timestamp_tokens = false;
@@ -1287,21 +1464,36 @@ impl CandleWhisperSession {
         let mut decoder_active_row_compaction_count = 0_usize;
         let mut decoder_self_attention_cache_reused = false;
         let mut decoder_cross_attention_cache_reused = false;
+        let mut average_log_probabilities = Vec::new();
+        let mut no_speech_probabilities = Vec::new();
+        let mut compression_ratios = Vec::new();
+        let mut attempted_temperatures = Vec::new();
+        let mut no_speech_rejected = false;
+        let mut prompt_state = WhisperRequestPromptState::new(decode);
+        let max_prompt_tokens = self.model.config.max_target_positions / 2;
         let batch_size = candle_batch_size(options, request.chunks.len());
         for batch in request.chunks.chunks(batch_size) {
             let windows =
                 collect_chunk_windows(&request.audio.samples, request.audio.sample_rate, batch)?;
             let timed_windows = match options.decode_runtime {
-                CandleWhisperDecodeRuntime::AutoregressiveKvCache => windows
-                    .iter()
-                    .map(|window| {
-                        self.decode_window_with_timing_mode(
+                CandleWhisperDecodeRuntime::AutoregressiveKvCache => {
+                    let mut decoded = Vec::with_capacity(windows.len());
+                    for window in &windows {
+                        let mut window_decode = decode.clone();
+                        window_decode.initial_prompt_tokens = prompt_state.current_prompt_tokens();
+                        let timed = self.decode_window_with_timing_mode(
                             &window.samples,
                             WhisperDecodeTimingMode::Auto,
-                            decode,
-                        )
-                    })
-                    .collect::<Result<Vec<_>>>()?,
+                            &window_decode,
+                        )?;
+                        prompt_state.record_generated_tokens(
+                            &timed.conditioning_token_ids,
+                            max_prompt_tokens,
+                        );
+                        decoded.push(timed);
+                    }
+                    decoded
+                }
                 CandleWhisperDecodeRuntime::ActiveRowTensorBatch => self
                     .decode_windows_with_timing_mode(
                         &windows,
@@ -1335,6 +1527,14 @@ impl CandleWhisperSession {
                     timed.diagnostics.decoder_self_attention_cache_reused;
                 decoder_cross_attention_cache_reused |=
                     timed.diagnostics.decoder_cross_attention_cache_reused;
+                average_log_probabilities.push(timed.diagnostics.average_log_probability);
+                if let Some(probability) = timed.diagnostics.no_speech_probability {
+                    no_speech_probabilities.push(probability);
+                }
+                compression_ratios.push(timed.diagnostics.compression_ratio);
+                attempted_temperatures
+                    .extend(timed.diagnostics.attempted_temperatures.iter().copied());
+                no_speech_rejected |= timed.diagnostics.no_speech_rejected;
                 if let Some(reason) = timed.fallback_reason {
                     if !timing_fallbacks.contains(&reason) {
                         timing_fallbacks.push(reason);
@@ -1397,9 +1597,9 @@ impl CandleWhisperSession {
                 "timing=expandedVadWindow".to_string()
             },
         ]);
-        let decode_strategy = if decode.uses_default_greedy_path() {
+        let decode_strategy = if decode.preserves_legacy_greedy_path() {
             "greedy"
-        } else if decode.beam_size > 1 {
+        } else if decode.search.beam_size > 1 {
             "beamSearch"
         } else {
             "temperatureSampling"
@@ -1409,17 +1609,48 @@ impl CandleWhisperSession {
             format!(
                 "temperatureSchedule={}",
                 decode
+                    .search
                     .temperature_schedule
                     .iter()
                     .map(ToString::to_string)
                     .collect::<Vec<_>>()
                     .join(",")
             ),
-            format!("bestOf={}", decode.best_of),
-            format!("beamSize={}", decode.beam_size),
-            format!("beamPatience={}", decode.patience),
-            format!("lengthPenalty={}", decode.length_penalty),
-            format!("samplingSeed={}", decode.seed),
+            format!("bestOf={}", decode.search.best_of),
+            format!("beamSize={}", decode.search.beam_size),
+            format!("beamPatience={}", decode.search.patience),
+            format!("lengthPenalty={}", decode.search.length_penalty),
+            format!("samplingSeed={}", decode.search.seed),
+            format!(
+                "averageLogProbability={}",
+                average_log_probabilities.iter().sum::<f64>()
+                    / average_log_probabilities.len().max(1) as f64
+            ),
+            format!(
+                "noSpeechProbability={}",
+                no_speech_probabilities
+                    .iter()
+                    .copied()
+                    .max_by(f64::total_cmp)
+                    .map_or_else(|| "unavailable".to_string(), |value| value.to_string())
+            ),
+            format!(
+                "compressionRatio={}",
+                compression_ratios
+                    .iter()
+                    .copied()
+                    .max_by(f64::total_cmp)
+                    .unwrap_or(0.0)
+            ),
+            format!(
+                "temperatureFallbackAttempts={}",
+                attempted_temperatures
+                    .iter()
+                    .map(ToString::to_string)
+                    .collect::<Vec<_>>()
+                    .join(",")
+            ),
+            format!("noSpeechRejected={no_speech_rejected}"),
         ]);
         if let Some(language) = &self.setup.language {
             diagnostics.push(format!("language={language}"));
@@ -1506,13 +1737,14 @@ impl CandleWhisperSession {
         &mut self,
         samples: &[f32],
         mode: WhisperDecodeTimingMode,
-        decode: &CandleWhisperDecodeConfig,
+        decode: &CandleWhisperDecodeRequestConfig,
     ) -> Result<WhisperTimedWindow> {
         match mode {
             WhisperDecodeTimingMode::NoTimestamps => {
                 let decoded =
                     self.decode_window(samples, WhisperDecodeMode::WithoutTimestamps, decode)?;
                 Ok(WhisperTimedWindow {
+                    conditioning_token_ids: decoded.diagnostics.decoded_token_ids.clone(),
                     decoded: decoded.window,
                     timing: WhisperWindowTiming::ChunkWindow,
                     fallback_reason: None,
@@ -1526,6 +1758,7 @@ impl CandleWhisperSession {
                     let diagnostics = decoded.diagnostics.clone();
                     if has_stable_timestamp_segments(&decoded.window, samples) {
                         return Ok(WhisperTimedWindow {
+                            conditioning_token_ids: diagnostics.decoded_token_ids.clone(),
                             decoded: decoded.window,
                             timing: WhisperWindowTiming::WhisperTimestampTokens,
                             fallback_reason: None,
@@ -1567,6 +1800,7 @@ impl CandleWhisperSession {
                     ));
                 }
                 Ok(WhisperTimedWindow {
+                    conditioning_token_ids: diagnostics.decoded_token_ids.clone(),
                     decoded: decoded.window,
                     timing: WhisperWindowTiming::WhisperTimestampTokens,
                     fallback_reason: None,
@@ -1580,7 +1814,7 @@ impl CandleWhisperSession {
         &mut self,
         windows: &[ChunkWindow],
         mode: WhisperDecodeTimingMode,
-        decode: &CandleWhisperDecodeConfig,
+        decode: &CandleWhisperDecodeRequestConfig,
     ) -> Result<Vec<WhisperTimedWindow>> {
         if windows.is_empty() {
             return Ok(Vec::new());
@@ -1591,6 +1825,7 @@ impl CandleWhisperSession {
                 .into_iter()
                 .map(|decoded| {
                     Ok(WhisperTimedWindow {
+                        conditioning_token_ids: decoded.diagnostics.decoded_token_ids.clone(),
                         decoded: decoded.window,
                         timing: WhisperWindowTiming::ChunkWindow,
                         fallback_reason: None,
@@ -1619,6 +1854,7 @@ impl CandleWhisperSession {
                     let diagnostics = decoded.diagnostics.clone();
                     if has_stable_timestamp_segments(&decoded.window, &window.samples) {
                         results[index] = Some(WhisperTimedWindow {
+                            conditioning_token_ids: diagnostics.decoded_token_ids.clone(),
                             decoded: decoded.window,
                             timing: WhisperWindowTiming::WhisperTimestampTokens,
                             fallback_reason: None,
@@ -1674,6 +1910,7 @@ impl CandleWhisperSession {
                             ));
                         }
                         Ok(WhisperTimedWindow {
+                            conditioning_token_ids: diagnostics.decoded_token_ids.clone(),
                             decoded: decoded.window,
                             timing: WhisperWindowTiming::WhisperTimestampTokens,
                             fallback_reason: None,
@@ -1689,7 +1926,7 @@ impl CandleWhisperSession {
         &mut self,
         samples: &[f32],
         mode: WhisperDecodeMode,
-        decode: &CandleWhisperDecodeConfig,
+        decode: &CandleWhisperDecodeRequestConfig,
     ) -> Result<WhisperDecodeOutput> {
         self.decode_window_batch(
             &[ChunkWindow {
@@ -1710,16 +1947,14 @@ impl CandleWhisperSession {
         &mut self,
         windows: &[ChunkWindow],
         mode: WhisperDecodeMode,
-        decode: &CandleWhisperDecodeConfig,
+        decode: &CandleWhisperDecodeRequestConfig,
     ) -> Result<Vec<WhisperDecodeOutput>> {
         let audio_features = self.encode_window_batch(windows)?;
         let token_outputs =
             self.decode_tokens_batch(&audio_features, windows.len(), mode, decode)?;
         token_outputs
             .into_iter()
-            .map(|(token_ids, generation_stats)| {
-                self.tokens_to_decode_output(token_ids, generation_stats, mode)
-            })
+            .map(|decoded| self.tokens_to_decode_output(decoded, mode))
             .collect()
     }
 
@@ -1775,10 +2010,18 @@ impl CandleWhisperSession {
 
     fn tokens_to_decode_output(
         &self,
-        token_ids: Vec<u32>,
-        generation_stats: WhisperGenerationStats,
+        decoded: WhisperTokenDecodeResult,
         mode: WhisperDecodeMode,
     ) -> Result<WhisperDecodeOutput> {
+        let WhisperTokenDecodeResult {
+            token_ids,
+            stats: generation_stats,
+            average_log_probability,
+            no_speech_probability,
+            attempted_temperatures,
+            no_speech_rejected,
+        } = decoded;
+        let decoded_text = decode_text_tokens(&self.tokenizer, &token_ids)?;
         let mut diagnostics = WhisperDecodeDiagnostics {
             timestamp_tokens_requested: mode == WhisperDecodeMode::TimestampTokens,
             timestamp_tokens_present: timestamp_spec_for_timing_mode(
@@ -1791,13 +2034,18 @@ impl CandleWhisperSession {
                     .any(|token| timestamp_seconds(*token, &spec).is_some())
             }),
             decoded_token_ids: token_ids.clone(),
+            average_log_probability,
+            no_speech_probability,
+            compression_ratio: text_compression_ratio(&decoded_text),
+            attempted_temperatures,
+            no_speech_rejected,
             ..WhisperDecodeDiagnostics::default()
         };
         generation_stats.extend(&mut diagnostics);
         match mode {
             WhisperDecodeMode::WithoutTimestamps => Ok(WhisperDecodeOutput {
                 window: WhisperDecodedWindow {
-                    text: decode_text_tokens(&self.tokenizer, &token_ids)?,
+                    text: decoded_text,
                     segments: Vec::new(),
                 },
                 diagnostics,
@@ -1813,7 +2061,7 @@ impl CandleWhisperSession {
                     .unwrap_or_else(|| {
                         Ok(WhisperDecodeOutput {
                             window: WhisperDecodedWindow {
-                                text: decode_text_tokens(&self.tokenizer, &token_ids)?,
+                                text: decoded_text,
                                 segments: Vec::new(),
                             },
                             diagnostics,
@@ -1828,10 +2076,10 @@ impl CandleWhisperSession {
         audio_features: &Tensor,
         row_count: usize,
         mode: WhisperDecodeMode,
-        decode: &CandleWhisperDecodeConfig,
-    ) -> Result<Vec<(Vec<u32>, WhisperGenerationStats)>> {
-        if decode.uses_default_greedy_path() {
-            return self.decode_tokens_batch_greedy(audio_features, row_count, mode);
+        decode: &CandleWhisperDecodeRequestConfig,
+    ) -> Result<Vec<WhisperTokenDecodeResult>> {
+        if decode.preserves_legacy_greedy_path() {
+            return self.decode_tokens_batch_greedy(audio_features, row_count, mode, decode);
         }
 
         let mut outputs = Vec::with_capacity(row_count);
@@ -1853,44 +2101,85 @@ impl CandleWhisperSession {
         &mut self,
         audio_features: &Tensor,
         mode: WhisperDecodeMode,
-        decode: &CandleWhisperDecodeConfig,
-    ) -> Result<(Vec<u32>, WhisperGenerationStats)> {
+        decode: &CandleWhisperDecodeRequestConfig,
+    ) -> Result<WhisperTokenDecodeResult> {
         let eos = self.eos_token_id()?;
         let max_length = self
             .generation
             .max_length
             .unwrap_or(self.model.config.max_target_positions)
             .min(self.model.config.max_target_positions);
-        let initial_tokens = self.initial_tokens(mode)?;
+        let initial_tokens = self.initial_tokens(mode, &decode.initial_prompt_tokens)?;
         let max_generated_tokens = max_length.saturating_sub(initial_tokens.len());
         let mut stats = WhisperGenerationStats::default();
-        let search = crate::native_whisper_decode::decode_with_config(
-            decode,
-            eos,
-            max_generated_tokens,
-            |generated| {
-                self.configured_search_logits(
-                    audio_features,
-                    &initial_tokens,
-                    generated,
-                    mode,
-                    &mut stats,
-                )
+        let temperatures = decode.search.temperature_schedule.clone();
+        let (
+            (mut search, average_log_probability, no_speech_probability, decision),
+            attempted_temperatures,
+        ) = run_ordered_temperature_fallback(
+            &temperatures,
+            |temperature_index, temperature| {
+                let mut no_speech_probability = None;
+                let search = crate::native_whisper_decode::decode_at_temperature(
+                    &decode.search,
+                    temperature_index,
+                    temperature,
+                    eos,
+                    max_generated_tokens,
+                    &mut |generated| {
+                        self.configured_search_logits(
+                            audio_features,
+                            &initial_tokens,
+                            generated,
+                            mode,
+                            decode,
+                            &mut no_speech_probability,
+                            &mut stats,
+                        )
+                    },
+                )?;
+                for _ in &search.token_ids {
+                    stats.record_generated_token();
+                }
+                let average_log_probability = search.score / search.token_ids.len().max(1) as f64;
+                let text = decode_text_tokens(&self.tokenizer, &search.token_ids)?;
+                let compression_ratio = text_compression_ratio(&text);
+                let decision = fallback_attempt_decision(
+                    decode,
+                    average_log_probability,
+                    no_speech_probability,
+                    compression_ratio,
+                );
+                Ok((
+                    search,
+                    average_log_probability,
+                    no_speech_probability,
+                    decision,
+                ))
             },
+            |attempt| attempt.3 == WhisperFallbackAttemptDecision::Retry,
         )?;
-        for _ in &search.token_ids {
-            stats.record_generated_token();
-        }
+        let no_speech_rejected = apply_no_speech_rejection(decision, &mut search.token_ids);
         stats.record_completed_row();
-        Ok((search.token_ids, stats))
+        Ok(WhisperTokenDecodeResult {
+            token_ids: search.token_ids,
+            stats,
+            average_log_probability,
+            no_speech_probability,
+            attempted_temperatures,
+            no_speech_rejected,
+        })
     }
 
+    #[allow(clippy::too_many_arguments)]
     fn configured_search_logits(
         &mut self,
         audio_features: &Tensor,
         initial_tokens: &[u32],
         generated: &[u32],
         mode: WhisperDecodeMode,
+        decode: &CandleWhisperDecodeRequestConfig,
+        no_speech_probability: &mut Option<f64>,
         stats: &mut WhisperGenerationStats,
     ) -> Result<Vec<f32>> {
         self.model.reset_kv_cache();
@@ -1930,7 +2219,11 @@ impl CandleWhisperSession {
             .map_err(|error| {
                 model_output_mismatch(format!("Whisper search decode failed: {error}"))
             })?;
-        self.apply_logit_filters(&mut next_logits, mode, generated)?;
+        if generated.is_empty() && no_speech_probability.is_none() {
+            *no_speech_probability = token_id(&self.tokenizer, "<|nospeech|>")
+                .and_then(|token| token_probability(&next_logits, token));
+        }
+        self.apply_logit_filters(&mut next_logits, mode, generated, decode)?;
         Ok(next_logits)
     }
 
@@ -1939,7 +2232,8 @@ impl CandleWhisperSession {
         audio_features: &Tensor,
         row_count: usize,
         mode: WhisperDecodeMode,
-    ) -> Result<Vec<(Vec<u32>, WhisperGenerationStats)>> {
+        decode: &CandleWhisperDecodeRequestConfig,
+    ) -> Result<Vec<WhisperTokenDecodeResult>> {
         self.model.reset_kv_cache();
         let eos = self.eos_token_id()?;
         let max_length = self
@@ -1947,16 +2241,18 @@ impl CandleWhisperSession {
             .max_length
             .unwrap_or(self.model.config.max_target_positions)
             .min(self.model.config.max_target_positions);
-        let initial_tokens = self.initial_tokens(mode)?;
+        let initial_tokens = self.initial_tokens(mode, &decode.initial_prompt_tokens)?;
         let mut active_rows = (0..row_count)
             .map(|original_index| ActiveWhisperDecodeRow {
                 original_index,
                 row: WhisperAutoregressiveRow::new(initial_tokens.clone()),
                 stats: WhisperGenerationStats::default(),
+                score: 0.0,
+                no_speech_probability: None,
             })
             .collect::<Vec<_>>();
         let mut active_features = audio_features.clone();
-        let mut completed: Vec<Option<(Vec<u32>, WhisperGenerationStats)>> = vec![None; row_count];
+        let mut completed: Vec<Option<WhisperTokenDecodeResult>> = vec![None; row_count];
 
         while !active_rows.is_empty() && active_rows[0].row.tokens.len() < max_length {
             let active_len_before_step = active_rows.len();
@@ -2006,7 +2302,9 @@ impl CandleWhisperSession {
             })?;
             let seq_index = input.token_ids.len() - 1;
             let mut next_tokens = Vec::with_capacity(active_rows.len());
-            for (active_index, active) in std::mem::take(&mut active_rows).into_iter().enumerate() {
+            for (active_index, mut active) in
+                std::mem::take(&mut active_rows).into_iter().enumerate()
+            {
                 let mut next_logits = logits
                     .i((active_index, seq_index, ..))
                     .and_then(|logits| logits.to_dtype(DType::F32))
@@ -2016,12 +2314,23 @@ impl CandleWhisperSession {
                             "Whisper batched greedy decode failed: {error}"
                         ))
                     })?;
-                self.apply_logit_filters(&mut next_logits, mode, active.row.generated_tokens())?;
+                if active.row.generated_tokens().is_empty() {
+                    active.no_speech_probability = token_id(&self.tokenizer, "<|nospeech|>")
+                        .and_then(|token| token_probability(&next_logits, token));
+                }
+                self.apply_logit_filters(
+                    &mut next_logits,
+                    mode,
+                    active.row.generated_tokens(),
+                    decode,
+                )?;
                 let next = argmax_finite(&next_logits).ok_or_else(|| {
                     model_output_mismatch(
                         "Whisper logits were fully suppressed during batched decode",
                     )
                 })? as u32;
+                active.score +=
+                    token_log_probability(&next_logits, next).unwrap_or(f64::NEG_INFINITY);
                 next_tokens.push((active, next));
             }
             let (mut survivors, survivor_indices) =
@@ -2062,8 +2371,15 @@ impl CandleWhisperSession {
 
         for mut active in active_rows {
             active.stats.record_completed_row();
-            completed[active.original_index] =
-                Some((active.row.into_generated_tokens(), active.stats));
+            let token_ids = active.row.into_generated_tokens();
+            completed[active.original_index] = Some(WhisperTokenDecodeResult {
+                average_log_probability: active.score / token_ids.len().max(1) as f64,
+                token_ids,
+                stats: active.stats,
+                no_speech_probability: active.no_speech_probability,
+                attempted_temperatures: vec![0.0],
+                no_speech_rejected: false,
+            });
         }
         completed
             .into_iter()
@@ -2078,6 +2394,7 @@ impl CandleWhisperSession {
         logits: &mut [f32],
         mode: WhisperDecodeMode,
         generated: &[u32],
+        decode: &CandleWhisperDecodeRequestConfig,
     ) -> Result<()> {
         for token in &self.generation.suppress_tokens {
             suppress_token(logits, *token);
@@ -2086,6 +2403,9 @@ impl CandleWhisperSession {
             for token in &self.generation.begin_suppress_tokens {
                 suppress_token(logits, *token);
             }
+        }
+        for token in request_suppressed_token_ids(&self.tokenizer, decode) {
+            suppress_token(logits, token);
         }
         let no_timestamps = self
             .generation
@@ -2110,14 +2430,16 @@ impl CandleWhisperSession {
         Ok(())
     }
 
-    fn initial_tokens(&self, mode: WhisperDecodeMode) -> Result<Vec<u32>> {
-        Self::initial_prompt_tokens_for_mode(
+    fn initial_tokens(&self, mode: WhisperDecodeMode, request_prompt: &[u32]) -> Result<Vec<u32>> {
+        let mut tokens = Self::initial_prompt_tokens_for_mode(
             &self.generation,
             &self.tokenizer,
             self.setup.language.as_deref(),
             self.setup.task,
             mode,
-        )
+        )?;
+        tokens.extend_from_slice(request_prompt);
+        Ok(tokens)
     }
 
     #[cfg(test)]
@@ -2345,7 +2667,7 @@ fn collect_chunk_windows(
 fn apply_active_row_decisions(
     next_tokens: Vec<(ActiveWhisperDecodeRow, u32)>,
     eos: u32,
-    completed: &mut [Option<(Vec<u32>, WhisperGenerationStats)>],
+    completed: &mut [Option<WhisperTokenDecodeResult>],
 ) -> Result<(Vec<ActiveWhisperDecodeRow>, Vec<u32>)> {
     let mut survivors = Vec::new();
     let mut survivor_indices = Vec::new();
@@ -2358,7 +2680,15 @@ fn apply_active_row_decisions(
                 ));
             }
             active.stats.record_completed_row();
-            completed[original_index] = Some((active.row.into_generated_tokens(), active.stats));
+            let token_ids = active.row.into_generated_tokens();
+            completed[original_index] = Some(WhisperTokenDecodeResult {
+                average_log_probability: active.score / token_ids.len().max(1) as f64,
+                token_ids,
+                stats: active.stats,
+                no_speech_probability: active.no_speech_probability,
+                attempted_temperatures: vec![0.0],
+                no_speech_rejected: false,
+            });
         } else {
             active.row.accept(next);
             active.stats.record_generated_token();
@@ -2531,6 +2861,29 @@ fn suppress_token(logits: &mut [f32], token: u32) {
     if let Some(logit) = logits.get_mut(token as usize) {
         *logit = f32::NEG_INFINITY;
     }
+}
+
+fn request_suppressed_token_ids(
+    tokenizer: &Tokenizer,
+    config: &CandleWhisperDecodeRequestConfig,
+) -> BTreeSet<u32> {
+    let mut suppressed = config
+        .suppressed_token_ids
+        .iter()
+        .copied()
+        .collect::<BTreeSet<_>>();
+    if config.suppress_numerals {
+        suppressed.extend(
+            tokenizer
+                .get_vocab(true)
+                .into_iter()
+                .filter_map(|(token, token_id)| {
+                    let special = token.starts_with("<|") && token.ends_with("|>");
+                    (!special && token.chars().any(char::is_numeric)).then_some(token_id)
+                }),
+        );
+    }
+    suppressed
 }
 
 fn suppress_range(logits: &mut [f32], start: u32, end: u32) {
@@ -3037,7 +3390,10 @@ mod tests {
                 "<|de|>": 4,
                 "<|transcribe|>": 5,
                 "<|translate|>": 6,
-                whisper::NO_TIMESTAMPS_TOKEN: 7
+                whisper::NO_TIMESTAMPS_TOKEN: 7,
+                "123": 8,
+                "room2": 9,
+                "<|nospeech|>": 10
             })
             .to_string(),
         )
@@ -3056,6 +3412,7 @@ mod tests {
                 "hello": 10,
                 "world": 11,
                 "again": 12,
+                "123": 13,
                 "<|0.00|>": 100,
                 "<|1.00|>": 150,
                 "<|2.00|>": 200,
@@ -3104,6 +3461,101 @@ mod tests {
         assert!(!step.flush_cache);
         assert_eq!(step.kind, WhisperDecoderInputKind::CachedTokenStep);
         assert_eq!(row.generated_tokens(), &[42]);
+    }
+
+    #[test]
+    fn request_prompt_prefill_appends_tokens_after_whisper_controls() {
+        let generation = test_generation();
+        let tokenizer = test_tokenizer();
+        let mut prompt =
+            CandleWhisperSession::initial_prompt_tokens(&generation, &tokenizer, Some("en"))
+                .unwrap();
+        prompt.extend([42, 43]);
+
+        let row = WhisperAutoregressiveRow::new(prompt);
+        assert_eq!(row.next_decoder_input().token_ids, vec![1, 3, 5, 7, 42, 43]);
+    }
+
+    #[test]
+    fn request_prompt_state_carries_previous_text_and_truncates_to_the_boundary() {
+        let config = CandleWhisperDecodeRequestConfig {
+            initial_prompt_tokens: vec![90, 91],
+            condition_on_previous_text: true,
+            ..CandleWhisperDecodeRequestConfig::default()
+        };
+        let mut state = WhisperRequestPromptState::new(&config);
+        state.record_generated_tokens(&[1, 2, 3, 4], 5);
+
+        assert_eq!(state.current_prompt_tokens(), vec![90, 91, 2, 3, 4]);
+
+        let independent_request = WhisperRequestPromptState::new(&config);
+        assert_eq!(independent_request.current_prompt_tokens(), vec![90, 91]);
+    }
+
+    #[test]
+    fn request_suppression_combines_explicit_ids_and_tokenizer_aware_numerals() {
+        let tokenizer = timestamp_test_tokenizer();
+        let config = CandleWhisperDecodeRequestConfig {
+            suppressed_token_ids: vec![11],
+            suppress_numerals: true,
+            ..CandleWhisperDecodeRequestConfig::default()
+        };
+
+        let suppressed = request_suppressed_token_ids(&tokenizer, &config);
+        assert!(suppressed.contains(&11));
+        assert!(suppressed.contains(&13));
+        assert!(
+            !suppressed.contains(&150),
+            "timestamp controls remain available"
+        );
+    }
+
+    #[test]
+    fn no_speech_threshold_rejects_before_temperature_retry() {
+        let config = CandleWhisperDecodeRequestConfig {
+            max_no_speech_probability: Some(0.6),
+            min_average_log_probability: Some(-1.0),
+            ..CandleWhisperDecodeRequestConfig::default()
+        };
+
+        let decision = fallback_attempt_decision(&config, -5.0, Some(0.8), 1.0);
+        let mut tokens = vec![10, 11];
+        assert!(apply_no_speech_rejection(decision, &mut tokens));
+        assert!(tokens.is_empty());
+    }
+
+    #[test]
+    fn threshold_fallback_visits_temperatures_in_declared_order_until_acceptance() {
+        let observations = [
+            WhisperFallbackAttemptDecision::Retry,
+            WhisperFallbackAttemptDecision::Retry,
+            WhisperFallbackAttemptDecision::Accept,
+        ];
+        let mut called = Vec::new();
+        let (selected, attempted) = run_ordered_temperature_fallback(
+            &[0.0, 0.4, 0.8, 1.0],
+            |index, temperature| {
+                called.push(temperature);
+                Ok(observations[index])
+            },
+            |decision| *decision == WhisperFallbackAttemptDecision::Retry,
+        )
+        .unwrap();
+
+        assert_eq!(selected, WhisperFallbackAttemptDecision::Accept);
+        assert_eq!(called, vec![0.0, 0.4, 0.8]);
+        assert_eq!(attempted, vec![0.0, 0.4, 0.8]);
+    }
+
+    #[test]
+    fn compression_ratio_is_zero_for_empty_output_and_detects_repetition() {
+        assert_eq!(text_compression_ratio(""), 0.0);
+        assert!(text_compression_ratio("aaaaaaaa") > text_compression_ratio("ordinary text"));
+    }
+
+    #[test]
+    fn default_request_config_preserves_the_exact_legacy_greedy_path() {
+        assert!(CandleWhisperDecodeRequestConfig::default().preserves_legacy_greedy_path());
     }
 
     #[test]
@@ -3203,6 +3655,8 @@ mod tests {
                 original_index,
                 row: WhisperAutoregressiveRow::new(vec![1]),
                 stats: WhisperGenerationStats::default(),
+                score: 0.0,
+                no_speech_probability: None,
             })
             .collect::<Vec<_>>();
         let mut completed = vec![None, None, None];
@@ -3221,7 +3675,7 @@ mod tests {
                 .collect::<Vec<_>>(),
             vec![0, 2]
         );
-        assert_eq!(completed[1].as_ref().unwrap().0, Vec::<u32>::new());
+        assert_eq!(completed[1].as_ref().unwrap().token_ids, Vec::<u32>::new());
 
         let (survivors, survivor_indices) = apply_active_row_decisions(
             survivors.into_iter().zip([eos, 14]).collect(),
@@ -3231,7 +3685,7 @@ mod tests {
         .unwrap();
         assert_eq!(survivor_indices, vec![1]);
         assert_eq!(survivors[0].original_index, 2);
-        assert_eq!(completed[0].as_ref().unwrap().0, vec![10]);
+        assert_eq!(completed[0].as_ref().unwrap().token_ids, vec![10]);
 
         let (survivors, survivor_indices) = apply_active_row_decisions(
             survivors.into_iter().zip([eos]).collect(),
@@ -3244,7 +3698,7 @@ mod tests {
 
         let completed_tokens = completed
             .into_iter()
-            .map(|row| row.unwrap().0)
+            .map(|row| row.unwrap().token_ids)
             .collect::<Vec<_>>();
         assert_eq!(completed_tokens, vec![vec![10], vec![], vec![12, 14]]);
     }
@@ -3257,6 +3711,8 @@ mod tests {
                 original_index,
                 row: WhisperAutoregressiveRow::new(vec![1]),
                 stats: WhisperGenerationStats::default(),
+                score: 0.0,
+                no_speech_probability: None,
             })
             .collect::<Vec<_>>();
         rows[0].stats.decoder_input_token_count = 3;
@@ -3272,10 +3728,17 @@ mod tests {
         assert_eq!(survivors[0].stats.decoder_input_token_count, 3);
         assert_eq!(survivors[0].stats.generated_token_count, 1);
         assert_eq!(
-            completed[1].as_ref().unwrap().1.decoder_input_token_count,
+            completed[1]
+                .as_ref()
+                .unwrap()
+                .stats
+                .decoder_input_token_count,
             7
         );
-        assert_eq!(completed[1].as_ref().unwrap().1.generated_token_count, 0);
+        assert_eq!(
+            completed[1].as_ref().unwrap().stats.generated_token_count,
+            0
+        );
     }
 
     #[test]
@@ -3303,6 +3766,7 @@ mod tests {
             decoder_active_row_compaction_count: 0,
             decoder_self_attention_cache_reused: true,
             decoder_cross_attention_cache_reused: true,
+            ..WhisperDecodeDiagnostics::default()
         };
 
         fallback.add_generation_counts_from(&timestamp_attempt);

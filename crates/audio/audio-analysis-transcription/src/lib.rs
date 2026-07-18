@@ -422,6 +422,104 @@ impl CandleWhisperDecodeConfig {
     }
 }
 
+/// Complete request-scoped native Whisper decode configuration.
+///
+/// This additive wrapper keeps [`CandleWhisperDecodeConfig`] exhaustively
+/// constructible while adding prompt, suppression, conditioning, and fallback
+/// controls. All state derived from these fields is owned by one transcription
+/// request and is never retained in reusable model sessions.
+#[derive(Debug, Clone, PartialEq, Default, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CandleWhisperDecodeRequestConfig {
+    /// Token search settings used by each ordered fallback attempt.
+    #[serde(default)]
+    pub search: CandleWhisperDecodeConfig,
+    /// Token IDs appended after Whisper's language/task control prompt.
+    #[serde(default)]
+    pub initial_prompt_tokens: Vec<u32>,
+    /// Token IDs suppressed for every generation step in this request.
+    #[serde(default)]
+    pub suppressed_token_ids: Vec<u32>,
+    /// Suppresses tokenizer entries containing numerals, excluding special controls.
+    #[serde(default)]
+    pub suppress_numerals: bool,
+    /// Carries bounded generated text tokens into later windows in this request.
+    #[serde(default)]
+    pub condition_on_previous_text: bool,
+    /// Retries at the next temperature when average log probability is lower.
+    #[serde(default)]
+    pub min_average_log_probability: Option<f64>,
+    /// Rejects the window when the first-step no-speech probability is higher.
+    #[serde(default)]
+    pub max_no_speech_probability: Option<f64>,
+    /// Retries when the decoded text's repeated-byte compression ratio is higher.
+    #[serde(default)]
+    pub max_compression_ratio: Option<f64>,
+}
+
+impl From<CandleWhisperDecodeConfig> for CandleWhisperDecodeRequestConfig {
+    fn from(search: CandleWhisperDecodeConfig) -> Self {
+        Self {
+            search,
+            ..Self::default()
+        }
+    }
+}
+
+impl CandleWhisperDecodeRequestConfig {
+    fn validate(&self) -> Result<()> {
+        self.search.validate()?;
+        if self
+            .min_average_log_probability
+            .is_some_and(|value| !value.is_finite())
+        {
+            return Err(invalid_request(
+                "Candle Whisper min_average_log_probability must be finite",
+            ));
+        }
+        if self
+            .max_no_speech_probability
+            .is_some_and(|value| !value.is_finite() || !(0.0..=1.0).contains(&value))
+        {
+            return Err(invalid_request(
+                "Candle Whisper max_no_speech_probability must be between zero and one",
+            ));
+        }
+        if self
+            .max_compression_ratio
+            .is_some_and(|value| !value.is_finite() || value <= 0.0)
+        {
+            return Err(invalid_request(
+                "Candle Whisper max_compression_ratio must be finite and greater than zero",
+            ));
+        }
+        Ok(())
+    }
+
+    #[cfg_attr(not(feature = "candle"), allow(dead_code))]
+    fn preserves_legacy_greedy_path(&self) -> bool {
+        self.search.uses_default_greedy_path()
+            && self.initial_prompt_tokens.is_empty()
+            && self.suppressed_token_ids.is_empty()
+            && !self.suppress_numerals
+            && !self.condition_on_previous_text
+            && self.min_average_log_probability.is_none()
+            && self.max_no_speech_probability.is_none()
+            && self.max_compression_ratio.is_none()
+    }
+
+    fn validate_runtime(&self, options: &CandleWhisperOptions) -> Result<()> {
+        if self.condition_on_previous_text
+            && options.decode_runtime == CandleWhisperDecodeRuntime::ActiveRowTensorBatch
+        {
+            return Err(invalid_request(
+                "Candle Whisper condition_on_previous_text requires autoregressiveKvCache decode runtime",
+            ));
+        }
+        Ok(())
+    }
+}
+
 fn default_candle_whisper_temperature_schedule() -> Vec<f64> {
     vec![0.0]
 }
@@ -1246,10 +1344,10 @@ impl CandleWhisperTranscriber {
         request: AsrRequest,
         controls: CandleWhisperRuntimeControls,
     ) -> Result<AsrResponse> {
-        self.transcribe_with_runtime_controls_and_decode_config(
+        self.transcribe_with_runtime_controls_and_decode_request_config(
             request,
             controls,
-            CandleWhisperDecodeConfig::default(),
+            CandleWhisperDecodeRequestConfig::default(),
         )
     }
 
@@ -1259,10 +1357,10 @@ impl CandleWhisperTranscriber {
         request: AsrRequest,
         decode: CandleWhisperDecodeConfig,
     ) -> Result<AsrResponse> {
-        self.transcribe_with_runtime_controls_and_decode_config(
+        self.transcribe_with_runtime_controls_and_decode_request_config(
             request,
             CandleWhisperRuntimeControls::default(),
-            decode,
+            decode.into(),
         )
     }
 
@@ -1273,6 +1371,33 @@ impl CandleWhisperTranscriber {
         controls: CandleWhisperRuntimeControls,
         decode: CandleWhisperDecodeConfig,
     ) -> Result<AsrResponse> {
+        self.transcribe_with_runtime_controls_and_decode_request_config(
+            request,
+            controls,
+            decode.into(),
+        )
+    }
+
+    /// Transcribes one request with complete request-scoped decode controls.
+    pub fn transcribe_with_decode_request_config(
+        &mut self,
+        request: AsrRequest,
+        decode: CandleWhisperDecodeRequestConfig,
+    ) -> Result<AsrResponse> {
+        self.transcribe_with_runtime_controls_and_decode_request_config(
+            request,
+            CandleWhisperRuntimeControls::default(),
+            decode,
+        )
+    }
+
+    /// Transcribes one request with runtime and complete decode controls.
+    pub fn transcribe_with_runtime_controls_and_decode_request_config(
+        &mut self,
+        request: AsrRequest,
+        controls: CandleWhisperRuntimeControls,
+        decode: CandleWhisperDecodeRequestConfig,
+    ) -> Result<AsrResponse> {
         let mut observer = NoopTranscriptionPipelineObserver;
         self.transcribe_with_controls_and_observer(request, controls, decode, &mut observer)
     }
@@ -1281,11 +1406,12 @@ impl CandleWhisperTranscriber {
         &mut self,
         request: AsrRequest,
         controls: CandleWhisperRuntimeControls,
-        decode: CandleWhisperDecodeConfig,
+        decode: CandleWhisperDecodeRequestConfig,
         observer: &mut dyn TranscriptionPipelineObserver,
     ) -> Result<AsrResponse> {
         validate_asr_request(&request)?;
         decode.validate()?;
+        decode.validate_runtime(&self.options)?;
         validate_candle_setup(&self.options, &controls)?;
         let _ = &observer;
         #[cfg(feature = "candle")]
@@ -1376,7 +1502,7 @@ impl AudioTranscriptionProvider for CandleWhisperTranscriber {
         self.transcribe_with_controls_and_observer(
             request,
             CandleWhisperRuntimeControls::default(),
-            CandleWhisperDecodeConfig::default(),
+            CandleWhisperDecodeRequestConfig::default(),
             observer,
         )
     }
@@ -1411,10 +1537,10 @@ impl ReusableCandleWhisperTranscriber {
         request: AsrRequest,
         controls: CandleWhisperRuntimeControls,
     ) -> Result<AsrResponse> {
-        self.transcribe_with_runtime_controls_and_decode_config(
+        self.transcribe_with_runtime_controls_and_decode_request_config(
             request,
             controls,
-            CandleWhisperDecodeConfig::default(),
+            CandleWhisperDecodeRequestConfig::default(),
         )
     }
 
@@ -1424,10 +1550,10 @@ impl ReusableCandleWhisperTranscriber {
         request: AsrRequest,
         decode: CandleWhisperDecodeConfig,
     ) -> Result<AsrResponse> {
-        self.transcribe_with_runtime_controls_and_decode_config(
+        self.transcribe_with_runtime_controls_and_decode_request_config(
             request,
             CandleWhisperRuntimeControls::default(),
-            decode,
+            decode.into(),
         )
     }
 
@@ -1438,6 +1564,33 @@ impl ReusableCandleWhisperTranscriber {
         controls: CandleWhisperRuntimeControls,
         decode: CandleWhisperDecodeConfig,
     ) -> Result<AsrResponse> {
+        self.transcribe_with_runtime_controls_and_decode_request_config(
+            request,
+            controls,
+            decode.into(),
+        )
+    }
+
+    /// Transcribes one request with complete request-scoped decode controls.
+    pub fn transcribe_with_decode_request_config(
+        &mut self,
+        request: AsrRequest,
+        decode: CandleWhisperDecodeRequestConfig,
+    ) -> Result<AsrResponse> {
+        self.transcribe_with_runtime_controls_and_decode_request_config(
+            request,
+            CandleWhisperRuntimeControls::default(),
+            decode,
+        )
+    }
+
+    /// Transcribes one request with runtime and complete decode controls.
+    pub fn transcribe_with_runtime_controls_and_decode_request_config(
+        &mut self,
+        request: AsrRequest,
+        controls: CandleWhisperRuntimeControls,
+        decode: CandleWhisperDecodeRequestConfig,
+    ) -> Result<AsrResponse> {
         let mut observer = NoopTranscriptionPipelineObserver;
         self.transcribe_with_controls_and_observer(request, controls, decode, &mut observer)
     }
@@ -1446,11 +1599,12 @@ impl ReusableCandleWhisperTranscriber {
         &mut self,
         request: AsrRequest,
         controls: CandleWhisperRuntimeControls,
-        decode: CandleWhisperDecodeConfig,
+        decode: CandleWhisperDecodeRequestConfig,
         observer: &mut dyn TranscriptionPipelineObserver,
     ) -> Result<AsrResponse> {
         validate_asr_request(&request)?;
         decode.validate()?;
+        decode.validate_runtime(&self.options)?;
         validate_candle_setup(&self.options, &controls)?;
         let _ = &observer;
         #[cfg(feature = "candle")]
@@ -1564,7 +1718,7 @@ impl AudioTranscriptionProvider for ReusableCandleWhisperTranscriber {
         self.transcribe_with_controls_and_observer(
             request,
             CandleWhisperRuntimeControls::default(),
-            CandleWhisperDecodeConfig::default(),
+            CandleWhisperDecodeRequestConfig::default(),
             observer,
         )
     }
@@ -3817,6 +3971,48 @@ mod tests {
             ..CandleWhisperDecodeConfig::default()
         }
         .uses_default_greedy_path());
+    }
+
+    #[test]
+    fn candle_whisper_decode_request_thresholds_fail_closed() {
+        for config in [
+            CandleWhisperDecodeRequestConfig {
+                min_average_log_probability: Some(f64::NAN),
+                ..CandleWhisperDecodeRequestConfig::default()
+            },
+            CandleWhisperDecodeRequestConfig {
+                max_no_speech_probability: Some(1.1),
+                ..CandleWhisperDecodeRequestConfig::default()
+            },
+            CandleWhisperDecodeRequestConfig {
+                max_compression_ratio: Some(0.0),
+                ..CandleWhisperDecodeRequestConfig::default()
+            },
+        ] {
+            assert!(matches!(
+                config.validate(),
+                Err(DetectError::InvalidArgument(_))
+            ));
+        }
+    }
+
+    #[test]
+    fn previous_text_conditioning_rejects_independent_active_row_batches() {
+        let config = CandleWhisperDecodeRequestConfig {
+            condition_on_previous_text: true,
+            ..CandleWhisperDecodeRequestConfig::default()
+        };
+        let options = CandleWhisperOptions {
+            decode_runtime: CandleWhisperDecodeRuntime::ActiveRowTensorBatch,
+            batch_chunks: true,
+            max_batch_size: Some(2),
+            ..CandleWhisperOptions::default()
+        };
+
+        assert!(matches!(
+            config.validate_runtime(&options),
+            Err(DetectError::InvalidArgument(_))
+        ));
     }
 
     #[cfg(feature = "candle")]
