@@ -434,7 +434,11 @@ pub struct CandleWhisperDecodeRequestConfig {
     /// Token search settings used by each ordered fallback attempt.
     #[serde(default)]
     pub search: CandleWhisperDecodeConfig,
-    /// Token IDs appended after Whisper's language/task control prompt.
+    /// Token IDs placed after `<|startofprev|>` and before Whisper's
+    /// SOT/language/task/timestamp controls.
+    ///
+    /// The prompt and request-local previous-text history are bounded to the
+    /// model context; the oldest tokens are truncated first.
     #[serde(default)]
     pub initial_prompt_tokens: Vec<u32>,
     /// Token IDs suppressed for every generation step in this request.
@@ -452,7 +456,8 @@ pub struct CandleWhisperDecodeRequestConfig {
     /// Rejects when SOT no-speech is higher and text confidence is low.
     #[serde(default)]
     pub max_no_speech_probability: Option<f64>,
-    /// Retries when the decoded text's repeated-byte compression ratio is higher.
+    /// Retries when the decoded text's zlib-compatible Whisper compression
+    /// ratio is higher.
     #[serde(default)]
     pub max_compression_ratio: Option<f64>,
 }
