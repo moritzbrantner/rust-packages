@@ -3574,7 +3574,7 @@ mod tests {
             decoder_threads: Some(3),
         };
 
-        let encoded = serde_json::to_value(&controls).unwrap();
+        let encoded = serde_json::to_value(controls).unwrap();
 
         assert_eq!(encoded["cudaDeviceIndex"], 2);
         assert_eq!(encoded["decoderThreads"], 3);
