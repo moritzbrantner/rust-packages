@@ -40,14 +40,21 @@ translation. Because translated text is not source-language text,
 `alignment.enabled=true` is rejected for native translation requests.
 Diarization remains allowed because speaker assignment can use segment timing.
 
-Native runtime controls are request-scoped through `CandleWhisperOptions`.
+Native runtime controls are request-scoped through the additive
+`CandleWhisperRuntimeControls` API. Pass the controls to
+`CandleWhisperTranscriber::transcribe_with_runtime_controls` or
+`ReusableCandleWhisperTranscriber::transcribe_with_runtime_controls`.
 `cudaDeviceIndex` selects exactly one non-negative CUDA device index and
 defaults to `0`; explicit CPU requests reject nonzero indices instead of
 silently ignoring them. `decoderThreads` accepts an optional positive CPU
 decoder thread count. CPU decoding runs inside a request-local thread pool, so
 different concurrent requests do not mutate process environment variables or
-share thread limits. Omitting both controls preserves automatic device
-selection, CUDA index `0`, and the existing greedy decoder behavior.
+share thread limits. CUDA execution reports an explicitly requested decoder
+thread count as ignored because the pool is CPU-specific. Existing
+`AudioTranscriptionProvider::transcribe` calls use default controls, preserving
+automatic device selection, CUDA index `0`, and the existing greedy decoder
+behavior. Keeping these controls separate also preserves exhaustive downstream
+`CandleWhisperOptions` struct literals.
 
 The external WhisperX command provider remains compatibility and parity tooling.
 It keeps Python-based execution explicit for callers that still need WhisperX

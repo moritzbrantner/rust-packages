@@ -19,7 +19,7 @@ use crate::native_device::{resolve_native_device, ResolvedNativeDevice};
 use crate::{
     candle_batch_count, invalid_request, model_output_mismatch, setup_error, validate_asr_request,
     AsrRequest, AsrResponse, CandleWhisperComputeType, CandleWhisperDecodeRuntime,
-    CandleWhisperOptions, SpeechActivitySegment, TranscriptionTask,
+    CandleWhisperOptions, CandleWhisperRuntimeControls, SpeechActivitySegment, TranscriptionTask,
 };
 
 const REQUIRED_WHISPER_FILES: &[&str] = &[
@@ -322,7 +322,12 @@ pub(crate) fn transcribe(
     options: &CandleWhisperOptions,
     request: AsrRequest,
 ) -> Result<AsrResponse> {
-    transcribe_with_load_observer(options, request, |_| Ok(()))
+    transcribe_with_load_observer(
+        options,
+        &CandleWhisperRuntimeControls::default(),
+        request,
+        |_| Ok(()),
+    )
 }
 
 pub(crate) enum WhisperModelResolutionEvent {
@@ -336,11 +341,13 @@ pub(crate) enum WhisperModelResolutionEvent {
 
 pub(crate) fn transcribe_with_load_observer(
     options: &CandleWhisperOptions,
+    controls: &CandleWhisperRuntimeControls,
     request: AsrRequest,
     mut on_resolution: impl FnMut(WhisperModelResolutionEvent) -> Result<()>,
 ) -> Result<AsrResponse> {
     let setup = WhisperRunSetup::from_options_and_request_with_observer(
         options,
+        controls,
         &request,
         &mut on_resolution,
     )?;
@@ -351,8 +358,8 @@ pub(crate) fn transcribe_with_load_observer(
         duration_seconds: load_started.elapsed().as_secs_f64(),
     })?;
     let resolved_device = session.setup.resolved_device.clone();
-    with_decoder_threads(options.decoder_threads, &resolved_device, || {
-        session.transcribe_chunks(options, request)
+    with_decoder_threads(controls.decoder_threads, &resolved_device, || {
+        session.transcribe_chunks(options, controls, request)
     })
 }
 
@@ -401,11 +408,13 @@ impl ReusableCandleWhisperSession {
     pub(crate) fn transcribe(
         current: &mut Option<Self>,
         options: &CandleWhisperOptions,
+        controls: &CandleWhisperRuntimeControls,
         request: AsrRequest,
         mut observe: impl FnMut(ReusableCandleWhisperSessionEvent) -> Result<()>,
     ) -> Result<AsrResponse> {
         let setup = WhisperRunSetup::from_options_and_request_with_observer(
             options,
+            controls,
             &request,
             &mut |event| {
                 observe(match event {
@@ -451,9 +460,12 @@ impl ReusableCandleWhisperSession {
             .as_mut()
             .expect("reusable Candle Whisper session is loaded");
         let resolved_device = session.session.setup.resolved_device.clone();
-        let mut response = with_decoder_threads(options.decoder_threads, &resolved_device, || {
-            session.session.transcribe_chunks(options, request)
-        })?;
+        let mut response =
+            with_decoder_threads(controls.decoder_threads, &resolved_device, || {
+                session
+                    .session
+                    .transcribe_chunks(options, controls, request)
+            })?;
         response.diagnostics.push(if session_reused {
             "asrModelSession=reused".to_string()
         } else {
@@ -469,17 +481,23 @@ impl WhisperRunSetup {
         options: &CandleWhisperOptions,
         request: &AsrRequest,
     ) -> Result<Self> {
-        Self::from_options_and_request_with_observer(options, request, &mut |_| Ok(()))
+        Self::from_options_and_request_with_observer(
+            options,
+            &CandleWhisperRuntimeControls::default(),
+            request,
+            &mut |_| Ok(()),
+        )
     }
 
     fn from_options_and_request_with_observer(
         options: &CandleWhisperOptions,
+        controls: &CandleWhisperRuntimeControls,
         request: &AsrRequest,
         observe: &mut dyn FnMut(WhisperModelResolutionEvent) -> Result<()>,
     ) -> Result<Self> {
         validate_asr_request(request)?;
         let model = resolve_whisper_model_with_observer(options, &request.model_id, observe)?;
-        let resolved_device = resolve_native_device(options.device, options.cuda_device_index)?;
+        let resolved_device = resolve_native_device(options.device, controls.cuda_device_index)?;
         let resolved_compute_type = options
             .compute_type
             .resolve_for_device(resolved_device.cuda_active())?;
@@ -1242,6 +1260,7 @@ impl CandleWhisperSession {
     fn transcribe_chunks(
         &mut self,
         options: &CandleWhisperOptions,
+        controls: &CandleWhisperRuntimeControls,
         request: AsrRequest,
     ) -> Result<AsrResponse> {
         let mut segments = Vec::new();
@@ -1356,10 +1375,7 @@ impl CandleWhisperSession {
             format!("device={device_label}"),
             format!(
                 "decoderThreads={}",
-                options
-                    .decoder_threads
-                    .map(|threads| threads.to_string())
-                    .unwrap_or_else(|| "default".to_string())
+                decoder_threads_diagnostic(controls, &self.setup.resolved_device)
             ),
             format!("modelId={}", self.setup.model_id),
             format!("bundle={}", self.setup.bundle.root.display()),
@@ -2085,6 +2101,17 @@ impl CandleWhisperSession {
     }
 }
 
+fn decoder_threads_diagnostic(
+    controls: &CandleWhisperRuntimeControls,
+    resolved_device: &ResolvedNativeDevice,
+) -> String {
+    match (controls.decoder_threads, resolved_device.cuda_active()) {
+        (Some(_), true) => "ignored(cuda)".to_string(),
+        (Some(threads), false) => threads.to_string(),
+        (None, _) => "default".to_string(),
+    }
+}
+
 #[derive(Debug, Clone, PartialEq)]
 struct WhisperDecodeOutput {
     window: WhisperDecodedWindow,
@@ -2787,6 +2814,42 @@ mod tests {
         });
 
         assert_eq!(observed.unwrap(), 2);
+    }
+
+    #[test]
+    fn decoder_thread_diagnostics_report_default_and_cpu_application() {
+        assert_eq!(
+            decoder_threads_diagnostic(
+                &CandleWhisperRuntimeControls::default(),
+                &ResolvedNativeDevice::Cpu,
+            ),
+            "default"
+        );
+        assert_eq!(
+            decoder_threads_diagnostic(
+                &CandleWhisperRuntimeControls {
+                    decoder_threads: Some(3),
+                    ..CandleWhisperRuntimeControls::default()
+                },
+                &ResolvedNativeDevice::Cpu,
+            ),
+            "3"
+        );
+    }
+
+    #[cfg(feature = "cuda")]
+    #[test]
+    fn decoder_thread_diagnostics_report_cuda_controls_as_ignored() {
+        assert_eq!(
+            decoder_threads_diagnostic(
+                &CandleWhisperRuntimeControls {
+                    decoder_threads: Some(3),
+                    ..CandleWhisperRuntimeControls::default()
+                },
+                &ResolvedNativeDevice::Cuda(1),
+            ),
+            "ignored(cuda)"
+        );
     }
 
     fn test_generation() -> GenerationConfig {

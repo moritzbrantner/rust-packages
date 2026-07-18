@@ -1,12 +1,14 @@
 use audio_analysis_transcription::{
     import_whisperx_json, transcribe, AlignedWord, AlignmentOptions, AlignmentRequest,
     AlignmentResponse, AsrRequest, AsrResponse, AudioRuntime, AudioTranscriptionProvider,
-    CandleWhisperOptions, DiarizationOptions, ForcedAlignmentProvider, LoadedAudio,
+    CandleWhisperComputeType, CandleWhisperDecodeRuntime, CandleWhisperOptions,
+    CandleWhisperRuntimeControls, DiarizationOptions, ForcedAlignmentProvider, LoadedAudio,
     NativeDevicePreference, NativeTranscriptionRunner, NativeTranscriptionRunnerOptions,
     ReusableCandleWhisperTranscriber, SpeakerDiarizationResponse, SpeakerSegmentPrediction,
     SpeechActivitySegment, TranscriptDiarizationProvider, TranscriptionPipelineEvent,
     TranscriptionPipelineObserver, TranscriptionPipelineRequest, TranscriptionProviderSelection,
-    TranscriptionSource, TranscriptionVadProvider, VadOptions, VadRequest, VadResponse,
+    TranscriptionSource, TranscriptionTask, TranscriptionVadProvider, VadOptions, VadRequest,
+    VadResponse,
 };
 use text_transcripts::{TranscriptSegmentContract, TranscriptWordContract, TranscriptionContract};
 use video_analysis_core::{DetectError, Result};
@@ -336,26 +338,50 @@ fn reusable_candle_whisper_transcriber_is_public_provider_reuse_primitive() {
 }
 
 #[test]
+fn candle_whisper_options_remains_exhaustively_constructible_with_its_original_fields() {
+    let options = CandleWhisperOptions {
+        model_id: "openai/whisper-tiny.en".to_string(),
+        task: TranscriptionTask::Transcribe,
+        language: Some("en".to_string()),
+        device: NativeDevicePreference::Cpu,
+        compute_type: CandleWhisperComputeType::Fp32,
+        model_bundle: None,
+        model_dir: None,
+        model_cache_only: true,
+        batch_chunks: false,
+        max_batch_size: Some(1),
+        decode_runtime: CandleWhisperDecodeRuntime::AutoregressiveKvCache,
+    };
+
+    assert_eq!(options.device, NativeDevicePreference::Cpu);
+}
+
+#[test]
 fn public_candle_provider_rejects_cpu_with_a_nonzero_cuda_index() {
     let mut provider = ReusableCandleWhisperTranscriber::new(CandleWhisperOptions {
         device: NativeDevicePreference::Cpu,
-        cuda_device_index: 1,
         ..CandleWhisperOptions::default()
     });
 
     let error = provider
-        .transcribe(AsrRequest {
-            audio: LoadedAudio {
-                samples: vec![0.0; 16],
-                sample_rate: 16_000,
-                channels: 1,
-                source: None,
+        .transcribe_with_runtime_controls(
+            AsrRequest {
+                audio: LoadedAudio {
+                    samples: vec![0.0; 16],
+                    sample_rate: 16_000,
+                    channels: 1,
+                    source: None,
+                },
+                chunks: vec![SpeechActivitySegment::new(0.0, 0.001, 0.0).unwrap()],
+                task: TranscriptionTask::Transcribe,
+                language: None,
+                model_id: "openai/whisper-large-v3-turbo".to_string(),
             },
-            chunks: vec![SpeechActivitySegment::new(0.0, 0.001, 0.0).unwrap()],
-            task: audio_analysis_transcription::TranscriptionTask::Transcribe,
-            language: None,
-            model_id: "openai/whisper-large-v3-turbo".to_string(),
-        })
+            CandleWhisperRuntimeControls {
+                cuda_device_index: 1,
+                decoder_threads: None,
+            },
+        )
         .unwrap_err();
 
     assert!(matches!(error, DetectError::InvalidArgument(_)));
@@ -365,24 +391,27 @@ fn public_candle_provider_rejects_cpu_with_a_nonzero_cuda_index() {
 
 #[test]
 fn public_candle_provider_rejects_zero_decoder_threads() {
-    let mut provider = ReusableCandleWhisperTranscriber::new(CandleWhisperOptions {
-        decoder_threads: Some(0),
-        ..CandleWhisperOptions::default()
-    });
+    let mut provider = ReusableCandleWhisperTranscriber::new(CandleWhisperOptions::default());
 
     let error = provider
-        .transcribe(AsrRequest {
-            audio: LoadedAudio {
-                samples: vec![0.0; 16],
-                sample_rate: 16_000,
-                channels: 1,
-                source: None,
+        .transcribe_with_runtime_controls(
+            AsrRequest {
+                audio: LoadedAudio {
+                    samples: vec![0.0; 16],
+                    sample_rate: 16_000,
+                    channels: 1,
+                    source: None,
+                },
+                chunks: vec![SpeechActivitySegment::new(0.0, 0.001, 0.0).unwrap()],
+                task: TranscriptionTask::Transcribe,
+                language: None,
+                model_id: "openai/whisper-large-v3-turbo".to_string(),
             },
-            chunks: vec![SpeechActivitySegment::new(0.0, 0.001, 0.0).unwrap()],
-            task: audio_analysis_transcription::TranscriptionTask::Transcribe,
-            language: None,
-            model_id: "openai/whisper-large-v3-turbo".to_string(),
-        })
+            CandleWhisperRuntimeControls {
+                cuda_device_index: 0,
+                decoder_threads: Some(0),
+            },
+        )
         .unwrap_err();
 
     assert!(matches!(error, DetectError::InvalidArgument(_)));
