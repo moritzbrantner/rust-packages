@@ -132,9 +132,10 @@ fn decode_beam_search(
     }];
     let mut completed = Vec::new();
     let completion_target = ((config.beam_size as f64 * config.patience).ceil() as usize).max(1);
+    let mut stopped_for_patience = false;
 
     while !active.is_empty() && active[0].token_ids.len() < max_generated_tokens {
-        let mut expanded = Vec::new();
+        let mut proposals = Vec::new();
         for candidate in std::mem::take(&mut active) {
             let logits = logits_for(&candidate.token_ids)?;
             let log_probabilities = log_probabilities(&logits, 0.0)?;
@@ -145,23 +146,36 @@ fn decode_beam_search(
                 next.score += token_score;
                 if token as u32 == eos_token_id {
                     next.completed = true;
-                    completed.push(next);
                 } else {
                     next.token_ids.push(token as u32);
-                    expanded.push(next);
                 }
+                proposals.push(next);
             }
         }
 
+        proposals
+            .sort_by(|left, right| compare_beam_candidates(right, left, config.length_penalty));
+        let mut next_active = Vec::with_capacity(config.beam_size);
+        for (global_rank, proposal) in proposals.into_iter().enumerate() {
+            if proposal.completed {
+                if global_rank < config.beam_size {
+                    completed.push(proposal);
+                }
+            } else if next_active.len() < config.beam_size {
+                next_active.push(proposal);
+            }
+            if global_rank >= config.beam_size && next_active.len() == config.beam_size {
+                break;
+            }
+        }
+        active = next_active;
         if completed.len() >= completion_target {
+            stopped_for_patience = true;
             break;
         }
-        expanded.sort_by(|left, right| compare_beam_candidates(right, left, config.length_penalty));
-        expanded.truncate(config.beam_size);
-        active = expanded;
     }
 
-    if completed.is_empty() {
+    if !stopped_for_patience {
         completed.extend(active.into_iter().map(|mut candidate| {
             candidate.completed = false;
             candidate
@@ -370,6 +384,7 @@ mod tests {
     fn beam_search_ranks_independent_completed_hypotheses() {
         let config = CandleWhisperDecodeConfig {
             beam_size: 2,
+            length_penalty: 0.0,
             ..CandleWhisperDecodeConfig::default()
         };
 
@@ -388,6 +403,52 @@ mod tests {
     }
 
     #[test]
+    fn beam_patience_ignores_low_probability_eos_expansions_pruned_globally() {
+        let config = CandleWhisperDecodeConfig {
+            beam_size: 2,
+            patience: 1.0,
+            ..CandleWhisperDecodeConfig::default()
+        };
+
+        let result = decode_with_config(&config, 3, 3, |generated| {
+            Ok(match generated {
+                [] => vec![2.0, 1.9, f32::NEG_INFINITY, f32::NEG_INFINITY],
+                [0] | [1] => vec![f32::NEG_INFINITY, f32::NEG_INFINITY, 5.0, -5.0],
+                [0, 2] | [1, 2] => {
+                    vec![f32::NEG_INFINITY, f32::NEG_INFINITY, -5.0, 5.0]
+                }
+                _ => unreachable!("unexpected beam hypothesis: {generated:?}"),
+            })
+        })
+        .unwrap();
+
+        assert_eq!(result.token_ids.len(), 2);
+        assert!(result.completed);
+    }
+
+    #[test]
+    fn beam_token_limit_ranks_active_hypotheses_with_completed_eos_candidates() {
+        let config = CandleWhisperDecodeConfig {
+            beam_size: 2,
+            patience: 2.0,
+            ..CandleWhisperDecodeConfig::default()
+        };
+
+        let result = decode_with_config(&config, 3, 2, |generated| {
+            Ok(match generated {
+                [] => vec![2.0, 1.9, f32::NEG_INFINITY, f32::NEG_INFINITY],
+                [0] => vec![f32::NEG_INFINITY, f32::NEG_INFINITY, 3.0, -3.0],
+                [1] => vec![f32::NEG_INFINITY, f32::NEG_INFINITY, -3.0, 3.0],
+                _ => unreachable!("unexpected beam hypothesis: {generated:?}"),
+            })
+        })
+        .unwrap();
+
+        assert_eq!(result.token_ids, vec![0, 2]);
+        assert!(!result.completed);
+    }
+
+    #[test]
     fn beam_patience_waits_for_more_completed_hypotheses() {
         let run = |patience| {
             let config = CandleWhisperDecodeConfig {
@@ -398,18 +459,18 @@ mod tests {
             let calls = Cell::new(0);
             decode_with_config(&config, 3, 4, |generated| {
                 calls.set(calls.get() + 1);
-                Ok(if generated.is_empty() {
-                    vec![2.0, 1.9, f32::NEG_INFINITY, f32::NEG_INFINITY]
-                } else {
-                    vec![f32::NEG_INFINITY, f32::NEG_INFINITY, 1.0, 0.9]
+                Ok(match generated {
+                    [] => vec![2.0, 1.9, f32::NEG_INFINITY, f32::NEG_INFINITY],
+                    [0] => vec![f32::NEG_INFINITY, f32::NEG_INFINITY, 0.0, 3.0],
+                    [1] => vec![f32::NEG_INFINITY, f32::NEG_INFINITY, 3.0, 2.0],
+                    _ => vec![f32::NEG_INFINITY, f32::NEG_INFINITY, 2.0, 3.0],
                 })
             })
             .unwrap();
             calls.get()
         };
 
-        assert_eq!(run(1.0), 3);
-        assert!(run(2.0) > 3);
+        assert!(run(2.0) > run(1.0));
     }
 
     #[test]
