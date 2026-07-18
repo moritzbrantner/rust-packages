@@ -2362,6 +2362,7 @@ dependencies = [
  "moenarch-text-model-runtime",
  "moenarch-text-transcripts",
  "moenarch-video-analysis-core",
+ "rayon",
  "serde",
  "serde_json",
  "tempfile",

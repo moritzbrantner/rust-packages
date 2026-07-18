@@ -57,7 +57,7 @@ pub(crate) fn align_with_observer(
     validate_loaded_audio(&request.audio)?;
     validate_transcript_ranges(&request)?;
     let resolved = resolve_alignment_model(options, &request.model_id)?;
-    let resolved_device = crate::native_device::resolve_native_device(options.device)?;
+    let resolved_device = crate::native_device::resolve_native_device(options.device, 0)?;
     let model_id = resolved.model_id.clone();
     let aligned = crate::native_wav2vec2::align_wav2vec2_ctc_with_load_observer(
         &resolved.bundle,

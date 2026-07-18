@@ -292,6 +292,20 @@ impl Default for CandleWhisperOptions {
     }
 }
 
+/// Request-scoped execution controls for the native Candle Whisper provider.
+///
+/// These controls are separate from [`CandleWhisperOptions`] so existing
+/// exhaustive option literals remain source compatible. Omitting them keeps
+/// CUDA index `0` and the caller's default Rayon runtime.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CandleWhisperRuntimeControls {
+    #[serde(default)]
+    pub cuda_device_index: usize,
+    #[serde(default)]
+    pub decoder_threads: Option<usize>,
+}
+
 fn default_candle_whisper_model() -> String {
     "openai/whisper-large-v3-turbo".to_string()
 }
@@ -1097,32 +1111,35 @@ impl CandleWhisperTranscriber {
     pub fn new(options: CandleWhisperOptions) -> Self {
         Self { options }
     }
-}
 
-impl AudioTranscriptionProvider for CandleWhisperTranscriber {
-    fn provider_id(&self) -> &str {
-        "candle-whisper"
-    }
-
-    fn transcribe(&mut self, request: AsrRequest) -> Result<AsrResponse> {
-        let mut observer = NoopTranscriptionPipelineObserver;
-        self.transcribe_with_observer(request, &mut observer)
-    }
-
-    fn transcribe_with_observer(
+    /// Transcribes one request with request-scoped native runtime controls.
+    pub fn transcribe_with_runtime_controls(
         &mut self,
         request: AsrRequest,
+        controls: CandleWhisperRuntimeControls,
+    ) -> Result<AsrResponse> {
+        let mut observer = NoopTranscriptionPipelineObserver;
+        self.transcribe_with_runtime_controls_and_observer(request, controls, &mut observer)
+    }
+
+    fn transcribe_with_runtime_controls_and_observer(
+        &mut self,
+        request: AsrRequest,
+        controls: CandleWhisperRuntimeControls,
         observer: &mut dyn TranscriptionPipelineObserver,
     ) -> Result<AsrResponse> {
         validate_asr_request(&request)?;
-        validate_candle_setup(&self.options)?;
+        validate_candle_setup(&self.options, &controls)?;
         let _ = &observer;
         #[cfg(feature = "candle")]
         {
             let chunk_count = request.chunks.len();
             let model_id = request.model_id.clone();
-            let mut response =
-                native_whisper::transcribe_with_load_observer(&self.options, request, |event| {
+            let mut response = native_whisper::transcribe_with_load_observer(
+                &self.options,
+                &controls,
+                request,
+                |event| {
                     match event {
                         native_whisper::WhisperModelResolutionEvent::ResolutionStart => {
                             observer.model_resolution_start("asr", "candle-whisper", &model_id);
@@ -1163,7 +1180,8 @@ impl AudioTranscriptionProvider for CandleWhisperTranscriber {
                         }),
                     }
                     ensure_pipeline_active(observer)
-                })?;
+                },
+            )?;
             extend_missing_candle_batch_diagnostics(
                 &mut response.diagnostics,
                 &self.options,
@@ -1179,6 +1197,29 @@ impl AudioTranscriptionProvider for CandleWhisperTranscriber {
                 candle_whisper_setup_context(&self.options)
             )))
         }
+    }
+}
+
+impl AudioTranscriptionProvider for CandleWhisperTranscriber {
+    fn provider_id(&self) -> &str {
+        "candle-whisper"
+    }
+
+    fn transcribe(&mut self, request: AsrRequest) -> Result<AsrResponse> {
+        let mut observer = NoopTranscriptionPipelineObserver;
+        self.transcribe_with_observer(request, &mut observer)
+    }
+
+    fn transcribe_with_observer(
+        &mut self,
+        request: AsrRequest,
+        observer: &mut dyn TranscriptionPipelineObserver,
+    ) -> Result<AsrResponse> {
+        self.transcribe_with_runtime_controls_and_observer(
+            request,
+            CandleWhisperRuntimeControls::default(),
+            observer,
+        )
     }
 }
 
@@ -1204,34 +1245,25 @@ impl ReusableCandleWhisperTranscriber {
             session: None,
         }
     }
-}
 
-impl std::fmt::Debug for ReusableCandleWhisperTranscriber {
-    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        formatter
-            .debug_struct("ReusableCandleWhisperTranscriber")
-            .field("options", &self.options)
-            .finish_non_exhaustive()
-    }
-}
-
-impl AudioTranscriptionProvider for ReusableCandleWhisperTranscriber {
-    fn provider_id(&self) -> &str {
-        "candle-whisper"
-    }
-
-    fn transcribe(&mut self, request: AsrRequest) -> Result<AsrResponse> {
-        let mut observer = NoopTranscriptionPipelineObserver;
-        self.transcribe_with_observer(request, &mut observer)
-    }
-
-    fn transcribe_with_observer(
+    /// Transcribes one request with request-scoped native runtime controls.
+    pub fn transcribe_with_runtime_controls(
         &mut self,
         request: AsrRequest,
+        controls: CandleWhisperRuntimeControls,
+    ) -> Result<AsrResponse> {
+        let mut observer = NoopTranscriptionPipelineObserver;
+        self.transcribe_with_runtime_controls_and_observer(request, controls, &mut observer)
+    }
+
+    fn transcribe_with_runtime_controls_and_observer(
+        &mut self,
+        request: AsrRequest,
+        controls: CandleWhisperRuntimeControls,
         observer: &mut dyn TranscriptionPipelineObserver,
     ) -> Result<AsrResponse> {
         validate_asr_request(&request)?;
-        validate_candle_setup(&self.options)?;
+        validate_candle_setup(&self.options, &controls)?;
         let _ = &observer;
         #[cfg(feature = "candle")]
         {
@@ -1240,6 +1272,7 @@ impl AudioTranscriptionProvider for ReusableCandleWhisperTranscriber {
             let mut response = native_whisper::ReusableCandleWhisperSession::transcribe(
                 &mut self.session,
                 &self.options,
+                &controls,
                 request,
                 |event| {
                     match event {
@@ -1312,6 +1345,38 @@ impl AudioTranscriptionProvider for ReusableCandleWhisperTranscriber {
                 candle_whisper_setup_context(&self.options)
             )))
         }
+    }
+}
+
+impl std::fmt::Debug for ReusableCandleWhisperTranscriber {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        formatter
+            .debug_struct("ReusableCandleWhisperTranscriber")
+            .field("options", &self.options)
+            .finish_non_exhaustive()
+    }
+}
+
+impl AudioTranscriptionProvider for ReusableCandleWhisperTranscriber {
+    fn provider_id(&self) -> &str {
+        "candle-whisper"
+    }
+
+    fn transcribe(&mut self, request: AsrRequest) -> Result<AsrResponse> {
+        let mut observer = NoopTranscriptionPipelineObserver;
+        self.transcribe_with_observer(request, &mut observer)
+    }
+
+    fn transcribe_with_observer(
+        &mut self,
+        request: AsrRequest,
+        observer: &mut dyn TranscriptionPipelineObserver,
+    ) -> Result<AsrResponse> {
+        self.transcribe_with_runtime_controls_and_observer(
+            request,
+            CandleWhisperRuntimeControls::default(),
+            observer,
+        )
     }
 }
 
@@ -2025,6 +2090,24 @@ pub(crate) fn validate_candle_batch_options(options: &CandleWhisperOptions) -> R
                 "Candle Whisper activeRowTensorBatch decodeRuntime requires max_batch_size greater than one or unbounded batching",
             ));
         }
+    }
+    Ok(())
+}
+
+fn validate_candle_runtime_controls(
+    options: &CandleWhisperOptions,
+    controls: &CandleWhisperRuntimeControls,
+) -> Result<()> {
+    if controls.decoder_threads == Some(0) {
+        return Err(invalid_request(
+            "Candle Whisper decoder_threads must be greater than zero",
+        ));
+    }
+    if options.device == NativeDevicePreference::Cpu && controls.cuda_device_index != 0 {
+        return Err(invalid_request(format!(
+            "Candle Whisper cuda_device_index {} cannot be used with device=cpu; use cuda_device_index=0 for CPU execution or select device=cuda",
+            controls.cuda_device_index
+        )));
     }
     Ok(())
 }
@@ -2748,9 +2831,14 @@ fn apply_alignment_chars(
     Ok(())
 }
 
-fn validate_candle_setup(options: &CandleWhisperOptions) -> Result<()> {
+fn validate_candle_setup(
+    options: &CandleWhisperOptions,
+    controls: &CandleWhisperRuntimeControls,
+) -> Result<()> {
     validate_candle_batch_options(options)?;
-    let resolved_device = native_device::resolve_native_device(options.device)?;
+    validate_candle_runtime_controls(options, controls)?;
+    let resolved_device =
+        native_device::resolve_native_device(options.device, controls.cuda_device_index)?;
     options
         .compute_type
         .resolve_for_device(resolved_device.cuda_active())?;
@@ -3469,10 +3557,74 @@ mod tests {
 
     #[test]
     fn candle_whisper_options_default_to_automatic_compute_type() {
+        let options = CandleWhisperOptions::default();
+        assert_eq!(options.compute_type, CandleWhisperComputeType::Automatic);
+        assert_eq!(options.device, NativeDevicePreference::Auto);
+        assert_eq!(CandleWhisperRuntimeControls::default().cuda_device_index, 0);
         assert_eq!(
-            CandleWhisperOptions::default().compute_type,
-            CandleWhisperComputeType::Automatic
+            CandleWhisperRuntimeControls::default().decoder_threads,
+            None
         );
+    }
+
+    #[test]
+    fn candle_whisper_runtime_controls_serialize_as_public_request_fields() {
+        let controls = CandleWhisperRuntimeControls {
+            cuda_device_index: 2,
+            decoder_threads: Some(3),
+        };
+
+        let encoded = serde_json::to_value(controls).unwrap();
+
+        assert_eq!(encoded["cudaDeviceIndex"], 2);
+        assert_eq!(encoded["decoderThreads"], 3);
+    }
+
+    #[test]
+    fn candle_whisper_rejects_negative_cuda_device_indices_during_request_decode() {
+        let error = serde_json::from_value::<CandleWhisperRuntimeControls>(serde_json::json!({
+            "cudaDeviceIndex": -1
+        }))
+        .unwrap_err();
+
+        assert!(error.to_string().contains("invalid value"));
+    }
+
+    #[test]
+    fn candle_whisper_rejects_zero_decoder_threads() {
+        let error = validate_candle_runtime_controls(
+            &CandleWhisperOptions::default(),
+            &CandleWhisperRuntimeControls {
+                decoder_threads: Some(0),
+                ..CandleWhisperRuntimeControls::default()
+            },
+        )
+        .unwrap_err();
+
+        assert!(matches!(error, DetectError::InvalidArgument(_)));
+        assert!(error
+            .to_string()
+            .contains("decoder_threads must be greater than zero"));
+    }
+
+    #[test]
+    fn candle_whisper_cpu_rejects_nonzero_cuda_device_index() {
+        let error = validate_candle_runtime_controls(
+            &CandleWhisperOptions {
+                device: NativeDevicePreference::Cpu,
+                ..CandleWhisperOptions::default()
+            },
+            &CandleWhisperRuntimeControls {
+                cuda_device_index: 1,
+                ..CandleWhisperRuntimeControls::default()
+            },
+        )
+        .unwrap_err();
+
+        assert!(matches!(error, DetectError::InvalidArgument(_)));
+        assert!(error
+            .to_string()
+            .contains("cuda_device_index 1 cannot be used with device=cpu"));
     }
 
     #[test]
