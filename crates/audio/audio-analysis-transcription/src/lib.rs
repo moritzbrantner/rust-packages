@@ -13,6 +13,8 @@ mod native_wav2vec2;
 mod native_wav2vec2_model;
 #[cfg(feature = "candle")]
 mod native_whisper;
+#[cfg(feature = "candle")]
+mod native_whisper_decode;
 #[cfg(any(feature = "silero-vad", feature = "pyannote-vad", test))]
 mod silero_vad;
 
@@ -304,6 +306,132 @@ pub struct CandleWhisperRuntimeControls {
     pub cuda_device_index: usize,
     #[serde(default)]
     pub decoder_threads: Option<usize>,
+}
+
+/// Request-scoped token selection controls for native Candle Whisper decoding.
+///
+/// The default configuration preserves the existing deterministic greedy path.
+/// Positive temperatures enable seeded sampling, while `beam_size > 1` enables
+/// beam search for an all-zero temperature schedule.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CandleWhisperDecodeConfig {
+    #[serde(default = "default_candle_whisper_temperature_schedule")]
+    pub temperature_schedule: Vec<f64>,
+    #[serde(default = "default_candle_whisper_search_width")]
+    pub best_of: usize,
+    #[serde(default = "default_candle_whisper_search_width")]
+    pub beam_size: usize,
+    #[serde(default = "default_candle_whisper_score_factor")]
+    pub patience: f64,
+    #[serde(default = "default_candle_whisper_score_factor")]
+    pub length_penalty: f64,
+    #[serde(default)]
+    pub seed: u64,
+}
+
+impl Default for CandleWhisperDecodeConfig {
+    fn default() -> Self {
+        Self {
+            temperature_schedule: default_candle_whisper_temperature_schedule(),
+            best_of: default_candle_whisper_search_width(),
+            beam_size: default_candle_whisper_search_width(),
+            patience: default_candle_whisper_score_factor(),
+            length_penalty: default_candle_whisper_score_factor(),
+            seed: 0,
+        }
+    }
+}
+
+impl CandleWhisperDecodeConfig {
+    fn validate(&self) -> Result<()> {
+        if self.temperature_schedule.is_empty() {
+            return Err(invalid_request(
+                "Candle Whisper temperature_schedule must not be empty",
+            ));
+        }
+        if self
+            .temperature_schedule
+            .iter()
+            .any(|temperature| !temperature.is_finite() || *temperature < 0.0)
+        {
+            return Err(invalid_request(
+                "Candle Whisper temperatures must be finite and greater than or equal to zero",
+            ));
+        }
+        if self.best_of == 0 {
+            return Err(invalid_request(
+                "Candle Whisper best_of must be greater than zero",
+            ));
+        }
+        if self.beam_size == 0 {
+            return Err(invalid_request(
+                "Candle Whisper beam_size must be greater than zero",
+            ));
+        }
+        if !self.patience.is_finite() || self.patience <= 0.0 {
+            return Err(invalid_request(
+                "Candle Whisper patience must be finite and greater than zero",
+            ));
+        }
+        if !self.length_penalty.is_finite() || self.length_penalty < 0.0 {
+            return Err(invalid_request(
+                "Candle Whisper length_penalty must be finite and greater than or equal to zero",
+            ));
+        }
+
+        let samples = self
+            .temperature_schedule
+            .iter()
+            .any(|temperature| *temperature > 0.0);
+        if self.beam_size > 1 && samples {
+            return Err(invalid_request(
+                "Candle Whisper beam search requires an all-zero temperature_schedule",
+            ));
+        }
+        if self.beam_size > 1 && self.best_of != 1 {
+            return Err(invalid_request(
+                "Candle Whisper best_of must be 1 when beam_size is greater than 1",
+            ));
+        }
+        if self.beam_size == 1 && self.best_of > 1 && !samples {
+            return Err(invalid_request(
+                "Candle Whisper best_of greater than 1 requires a positive temperature",
+            ));
+        }
+        if self.beam_size == 1 && self.patience != 1.0 {
+            return Err(invalid_request(
+                "Candle Whisper patience only applies when beam_size is greater than 1",
+            ));
+        }
+        if self.beam_size == 1 && self.length_penalty != 1.0 {
+            return Err(invalid_request(
+                "Candle Whisper length_penalty only applies when beam_size is greater than 1",
+            ));
+        }
+        Ok(())
+    }
+
+    #[cfg_attr(not(feature = "candle"), allow(dead_code))]
+    fn uses_default_greedy_path(&self) -> bool {
+        self.temperature_schedule == [0.0]
+            && self.best_of == 1
+            && self.beam_size == 1
+            && self.patience == 1.0
+            && self.length_penalty == 1.0
+    }
+}
+
+fn default_candle_whisper_temperature_schedule() -> Vec<f64> {
+    vec![0.0]
+}
+
+const fn default_candle_whisper_search_width() -> usize {
+    1
+}
+
+const fn default_candle_whisper_score_factor() -> f64 {
+    1.0
 }
 
 fn default_candle_whisper_model() -> String {
@@ -1118,17 +1246,46 @@ impl CandleWhisperTranscriber {
         request: AsrRequest,
         controls: CandleWhisperRuntimeControls,
     ) -> Result<AsrResponse> {
-        let mut observer = NoopTranscriptionPipelineObserver;
-        self.transcribe_with_runtime_controls_and_observer(request, controls, &mut observer)
+        self.transcribe_with_runtime_controls_and_decode_config(
+            request,
+            controls,
+            CandleWhisperDecodeConfig::default(),
+        )
     }
 
-    fn transcribe_with_runtime_controls_and_observer(
+    /// Transcribes one request with request-scoped token selection controls.
+    pub fn transcribe_with_decode_config(
+        &mut self,
+        request: AsrRequest,
+        decode: CandleWhisperDecodeConfig,
+    ) -> Result<AsrResponse> {
+        self.transcribe_with_runtime_controls_and_decode_config(
+            request,
+            CandleWhisperRuntimeControls::default(),
+            decode,
+        )
+    }
+
+    /// Transcribes one request with request-scoped runtime and token selection controls.
+    pub fn transcribe_with_runtime_controls_and_decode_config(
         &mut self,
         request: AsrRequest,
         controls: CandleWhisperRuntimeControls,
+        decode: CandleWhisperDecodeConfig,
+    ) -> Result<AsrResponse> {
+        let mut observer = NoopTranscriptionPipelineObserver;
+        self.transcribe_with_controls_and_observer(request, controls, decode, &mut observer)
+    }
+
+    fn transcribe_with_controls_and_observer(
+        &mut self,
+        request: AsrRequest,
+        controls: CandleWhisperRuntimeControls,
+        decode: CandleWhisperDecodeConfig,
         observer: &mut dyn TranscriptionPipelineObserver,
     ) -> Result<AsrResponse> {
         validate_asr_request(&request)?;
+        decode.validate()?;
         validate_candle_setup(&self.options, &controls)?;
         let _ = &observer;
         #[cfg(feature = "candle")]
@@ -1138,6 +1295,7 @@ impl CandleWhisperTranscriber {
             let mut response = native_whisper::transcribe_with_load_observer(
                 &self.options,
                 &controls,
+                &decode,
                 request,
                 |event| {
                     match event {
@@ -1215,9 +1373,10 @@ impl AudioTranscriptionProvider for CandleWhisperTranscriber {
         request: AsrRequest,
         observer: &mut dyn TranscriptionPipelineObserver,
     ) -> Result<AsrResponse> {
-        self.transcribe_with_runtime_controls_and_observer(
+        self.transcribe_with_controls_and_observer(
             request,
             CandleWhisperRuntimeControls::default(),
+            CandleWhisperDecodeConfig::default(),
             observer,
         )
     }
@@ -1252,17 +1411,46 @@ impl ReusableCandleWhisperTranscriber {
         request: AsrRequest,
         controls: CandleWhisperRuntimeControls,
     ) -> Result<AsrResponse> {
-        let mut observer = NoopTranscriptionPipelineObserver;
-        self.transcribe_with_runtime_controls_and_observer(request, controls, &mut observer)
+        self.transcribe_with_runtime_controls_and_decode_config(
+            request,
+            controls,
+            CandleWhisperDecodeConfig::default(),
+        )
     }
 
-    fn transcribe_with_runtime_controls_and_observer(
+    /// Transcribes one request with request-scoped token selection controls.
+    pub fn transcribe_with_decode_config(
+        &mut self,
+        request: AsrRequest,
+        decode: CandleWhisperDecodeConfig,
+    ) -> Result<AsrResponse> {
+        self.transcribe_with_runtime_controls_and_decode_config(
+            request,
+            CandleWhisperRuntimeControls::default(),
+            decode,
+        )
+    }
+
+    /// Transcribes one request with request-scoped runtime and token selection controls.
+    pub fn transcribe_with_runtime_controls_and_decode_config(
         &mut self,
         request: AsrRequest,
         controls: CandleWhisperRuntimeControls,
+        decode: CandleWhisperDecodeConfig,
+    ) -> Result<AsrResponse> {
+        let mut observer = NoopTranscriptionPipelineObserver;
+        self.transcribe_with_controls_and_observer(request, controls, decode, &mut observer)
+    }
+
+    fn transcribe_with_controls_and_observer(
+        &mut self,
+        request: AsrRequest,
+        controls: CandleWhisperRuntimeControls,
+        decode: CandleWhisperDecodeConfig,
         observer: &mut dyn TranscriptionPipelineObserver,
     ) -> Result<AsrResponse> {
         validate_asr_request(&request)?;
+        decode.validate()?;
         validate_candle_setup(&self.options, &controls)?;
         let _ = &observer;
         #[cfg(feature = "candle")]
@@ -1273,6 +1461,7 @@ impl ReusableCandleWhisperTranscriber {
                 &mut self.session,
                 &self.options,
                 &controls,
+                &decode,
                 request,
                 |event| {
                     match event {
@@ -1372,9 +1561,10 @@ impl AudioTranscriptionProvider for ReusableCandleWhisperTranscriber {
         request: AsrRequest,
         observer: &mut dyn TranscriptionPipelineObserver,
     ) -> Result<AsrResponse> {
-        self.transcribe_with_runtime_controls_and_observer(
+        self.transcribe_with_controls_and_observer(
             request,
             CandleWhisperRuntimeControls::default(),
+            CandleWhisperDecodeConfig::default(),
             observer,
         )
     }
@@ -3565,6 +3755,139 @@ mod tests {
             CandleWhisperRuntimeControls::default().decoder_threads,
             None
         );
+    }
+
+    #[test]
+    fn candle_whisper_decode_validation_rejects_invalid_search_combinations() {
+        let invalid = [
+            CandleWhisperDecodeConfig {
+                temperature_schedule: vec![f64::NAN],
+                ..CandleWhisperDecodeConfig::default()
+            },
+            CandleWhisperDecodeConfig {
+                best_of: 0,
+                ..CandleWhisperDecodeConfig::default()
+            },
+            CandleWhisperDecodeConfig {
+                beam_size: 0,
+                ..CandleWhisperDecodeConfig::default()
+            },
+            CandleWhisperDecodeConfig {
+                temperature_schedule: vec![0.4],
+                beam_size: 2,
+                ..CandleWhisperDecodeConfig::default()
+            },
+            CandleWhisperDecodeConfig {
+                best_of: 2,
+                ..CandleWhisperDecodeConfig::default()
+            },
+            CandleWhisperDecodeConfig {
+                beam_size: 2,
+                best_of: 2,
+                ..CandleWhisperDecodeConfig::default()
+            },
+            CandleWhisperDecodeConfig {
+                patience: 2.0,
+                ..CandleWhisperDecodeConfig::default()
+            },
+            CandleWhisperDecodeConfig {
+                length_penalty: -1.0,
+                ..CandleWhisperDecodeConfig::default()
+            },
+        ];
+
+        for config in invalid {
+            assert!(matches!(
+                config.validate(),
+                Err(DetectError::InvalidArgument(_))
+            ));
+        }
+    }
+
+    #[test]
+    fn candle_whisper_default_decode_config_selects_the_legacy_greedy_path() {
+        assert!(CandleWhisperDecodeConfig::default().uses_default_greedy_path());
+        assert!(!CandleWhisperDecodeConfig {
+            temperature_schedule: vec![0.2],
+            ..CandleWhisperDecodeConfig::default()
+        }
+        .uses_default_greedy_path());
+        assert!(!CandleWhisperDecodeConfig {
+            beam_size: 2,
+            ..CandleWhisperDecodeConfig::default()
+        }
+        .uses_default_greedy_path());
+    }
+
+    #[cfg(feature = "candle")]
+    #[test]
+    fn real_tiny_whisper_bundle_runs_greedy_sampling_and_beam_paths_when_requested() {
+        if std::env::var("RUN_CANDLE_WHISPER_DECODE_TESTS").as_deref() != Ok("1") {
+            eprintln!(
+                "skipping native Whisper decode smoke; set RUN_CANDLE_WHISPER_DECODE_TESTS=1"
+            );
+            return;
+        }
+        let bundle = std::env::var_os("CANDLE_WHISPER_TINY_BUNDLE")
+            .map(PathBuf::from)
+            .expect("CANDLE_WHISPER_TINY_BUNDLE is required for the decode smoke");
+        let mut provider = ReusableCandleWhisperTranscriber::new(CandleWhisperOptions {
+            model_id: "openai/whisper-tiny.en".to_string(),
+            language: Some("en".to_string()),
+            device: NativeDevicePreference::Cpu,
+            compute_type: CandleWhisperComputeType::Fp32,
+            model_bundle: Some(bundle),
+            model_cache_only: true,
+            batch_chunks: false,
+            max_batch_size: Some(1),
+            ..CandleWhisperOptions::default()
+        });
+        let request = || AsrRequest {
+            audio: LoadedAudio {
+                samples: vec![0.0; 16_000],
+                sample_rate: 16_000,
+                channels: 1,
+                source: Some("decode-smoke".to_string()),
+            },
+            chunks: vec![SpeechActivitySegment::new(0.0, 1.0, 1.0).unwrap()],
+            task: TranscriptionTask::Transcribe,
+            language: Some("en".to_string()),
+            model_id: "openai/whisper-tiny.en".to_string(),
+        };
+        let paths = [
+            (
+                CandleWhisperDecodeConfig::default(),
+                "decodeStrategy=greedy",
+            ),
+            (
+                CandleWhisperDecodeConfig {
+                    temperature_schedule: vec![0.2],
+                    best_of: 2,
+                    seed: 7,
+                    ..CandleWhisperDecodeConfig::default()
+                },
+                "decodeStrategy=temperatureSampling",
+            ),
+            (
+                CandleWhisperDecodeConfig {
+                    beam_size: 2,
+                    patience: 1.0,
+                    length_penalty: 1.0,
+                    ..CandleWhisperDecodeConfig::default()
+                },
+                "decodeStrategy=beamSearch",
+            ),
+        ];
+
+        for (decode, expected_diagnostic) in paths {
+            let response = provider
+                .transcribe_with_decode_config(request(), decode)
+                .expect("configured native Whisper execution path should run");
+            assert!(response
+                .diagnostics
+                .iter()
+                .any(|diagnostic| diagnostic == expected_diagnostic));
+        }
     }
 
     #[test]
