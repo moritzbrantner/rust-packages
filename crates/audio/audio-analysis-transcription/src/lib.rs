@@ -449,7 +449,7 @@ pub struct CandleWhisperDecodeRequestConfig {
     /// Retries at the next temperature when average log probability is lower.
     #[serde(default)]
     pub min_average_log_probability: Option<f64>,
-    /// Rejects the window when the first-step no-speech probability is higher.
+    /// Rejects when SOT no-speech is higher and text confidence is low.
     #[serde(default)]
     pub max_no_speech_probability: Option<f64>,
     /// Retries when the decoded text's repeated-byte compression ratio is higher.

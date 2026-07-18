@@ -82,8 +82,10 @@ Previous-text conditioning uses the sequential autoregressive runtime because
 later windows depend on earlier output.
 
 Threshold fallback evaluates `temperatureSchedule` strictly in declaration
-order. A high no-speech probability rejects the window immediately. A low
-average log probability or high repeated-byte compression estimate advances to
+order. A high no-speech probability rejects the window when average log
+probability is also below its configured minimum (or when no minimum is set),
+so confident text is retained. A low average log probability or high zlib
+compression ratio advances to
 the next temperature, and the first passing attempt is returned (or the final
 attempt when none pass). Candidates from different temperatures are never
 ranked against one another. Response diagnostics expose

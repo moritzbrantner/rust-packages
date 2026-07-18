@@ -20,6 +20,7 @@ candle-core = { workspace = true, optional = true }
 candle-nn = { workspace = true, optional = true }
 candle-transformers = { workspace = true, optional = true }
 hound.workspace = true
+flate2 = { workspace = true, optional = true }
 rayon = { workspace = true, optional = true }
 model-runtime = { workspace = true, optional = true }
 runtime-onnx = { workspace = true, optional = true }
@@ -35,7 +36,7 @@ audio-analysis-speakers = { package = "moenarch-audio-analysis-speakers", versio
 
 [features]
 default = []
-candle = ["dep:candle-core", "dep:candle-nn", "dep:candle-transformers", "dep:rayon", "dep:text-model-runtime", "dep:tokenizers"]
+candle = ["dep:candle-core", "dep:candle-nn", "dep:candle-transformers", "dep:flate2", "dep:rayon", "dep:text-model-runtime", "dep:tokenizers"]
 cuda = ["candle", "candle-core/cuda", "candle-nn/cuda", "candle-transformers/cuda", "text-model-runtime/cuda"]
 alignment = ["candle", "dep:tokenizers"]
 diarization = []
