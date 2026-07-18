@@ -1,14 +1,14 @@
 use audio_analysis_transcription::{
     import_whisperx_json, transcribe, AlignedWord, AlignmentOptions, AlignmentRequest,
     AlignmentResponse, AsrRequest, AsrResponse, AudioRuntime, AudioTranscriptionProvider,
-    CandleWhisperComputeType, CandleWhisperDecodeRuntime, CandleWhisperOptions,
-    CandleWhisperRuntimeControls, DiarizationOptions, ForcedAlignmentProvider, LoadedAudio,
-    NativeDevicePreference, NativeTranscriptionRunner, NativeTranscriptionRunnerOptions,
-    ReusableCandleWhisperTranscriber, SpeakerDiarizationResponse, SpeakerSegmentPrediction,
-    SpeechActivitySegment, TranscriptDiarizationProvider, TranscriptionPipelineEvent,
-    TranscriptionPipelineObserver, TranscriptionPipelineRequest, TranscriptionProviderSelection,
-    TranscriptionSource, TranscriptionTask, TranscriptionVadProvider, VadOptions, VadRequest,
-    VadResponse,
+    CandleWhisperComputeType, CandleWhisperDecodeConfig, CandleWhisperDecodeRuntime,
+    CandleWhisperOptions, CandleWhisperRuntimeControls, DiarizationOptions,
+    ForcedAlignmentProvider, LoadedAudio, NativeDevicePreference, NativeTranscriptionRunner,
+    NativeTranscriptionRunnerOptions, ReusableCandleWhisperTranscriber, SpeakerDiarizationResponse,
+    SpeakerSegmentPrediction, SpeechActivitySegment, TranscriptDiarizationProvider,
+    TranscriptionPipelineEvent, TranscriptionPipelineObserver, TranscriptionPipelineRequest,
+    TranscriptionProviderSelection, TranscriptionSource, TranscriptionTask,
+    TranscriptionVadProvider, VadOptions, VadRequest, VadResponse,
 };
 use text_transcripts::{TranscriptSegmentContract, TranscriptWordContract, TranscriptionContract};
 use video_analysis_core::{DetectError, Result};
@@ -357,6 +357,34 @@ fn candle_whisper_options_remains_exhaustively_constructible_with_its_original_f
 }
 
 #[test]
+fn public_candle_decode_config_exposes_request_scoped_search_controls() {
+    let config = CandleWhisperDecodeConfig {
+        temperature_schedule: vec![0.0, 0.2, 0.4],
+        best_of: 3,
+        beam_size: 1,
+        patience: 1.0,
+        length_penalty: 1.0,
+        seed: 42,
+    };
+
+    let encoded = serde_json::to_value(&config).unwrap();
+    assert_eq!(
+        encoded["temperatureSchedule"],
+        serde_json::json!([0.0, 0.2, 0.4])
+    );
+    assert_eq!(encoded["bestOf"], 3);
+    assert_eq!(encoded["beamSize"], 1);
+    assert_eq!(encoded["patience"], 1.0);
+    assert_eq!(encoded["lengthPenalty"], 1.0);
+    assert_eq!(encoded["seed"], 42);
+
+    assert_eq!(
+        CandleWhisperDecodeConfig::default().temperature_schedule,
+        vec![0.0]
+    );
+}
+
+#[test]
 fn public_candle_provider_rejects_cpu_with_a_nonzero_cuda_index() {
     let mut provider = ReusableCandleWhisperTranscriber::new(CandleWhisperOptions {
         device: NativeDevicePreference::Cpu,
@@ -418,6 +446,37 @@ fn public_candle_provider_rejects_zero_decoder_threads() {
     assert!(error
         .to_string()
         .contains("decoder_threads must be greater than zero"));
+}
+
+#[test]
+fn public_candle_provider_rejects_an_empty_temperature_schedule() {
+    let mut provider = ReusableCandleWhisperTranscriber::new(CandleWhisperOptions::default());
+
+    let error = provider
+        .transcribe_with_decode_config(
+            AsrRequest {
+                audio: LoadedAudio {
+                    samples: vec![0.0; 16],
+                    sample_rate: 16_000,
+                    channels: 1,
+                    source: None,
+                },
+                chunks: vec![SpeechActivitySegment::new(0.0, 0.001, 0.0).unwrap()],
+                task: TranscriptionTask::Transcribe,
+                language: None,
+                model_id: "openai/whisper-large-v3-turbo".to_string(),
+            },
+            CandleWhisperDecodeConfig {
+                temperature_schedule: Vec::new(),
+                ..CandleWhisperDecodeConfig::default()
+            },
+        )
+        .unwrap_err();
+
+    assert!(matches!(error, DetectError::InvalidArgument(_)));
+    assert!(error
+        .to_string()
+        .contains("temperature_schedule must not be empty"));
 }
 
 #[test]

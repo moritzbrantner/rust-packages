@@ -56,6 +56,20 @@ automatic device selection, CUDA index `0`, and the existing greedy decoder
 behavior. Keeping these controls separate also preserves exhaustive downstream
 `CandleWhisperOptions` struct literals.
 
+Token selection is independently request-scoped through the additive
+`CandleWhisperDecodeConfig` API and the `transcribe_with_decode_config` or
+`transcribe_with_runtime_controls_and_decode_config` provider methods. The
+default temperature schedule `[0.0]` uses the unchanged deterministic,
+KV-cached greedy path. Positive temperatures use the caller's `seed` and
+`bestOf` candidates, ranked by average log probability. An all-zero schedule
+with `beamSize > 1` enables independent beam hypotheses; `patience` controls
+how many completed hypotheses are collected and `lengthPenalty` applies
+length-normalized ranking. Sampling and beam search are mutually exclusive,
+and invalid widths, temperatures, or search-only combinations return
+`DetectError::InvalidArgument`. Non-default search recomputes each independent
+hypothesis instead of sharing branched decoder caches. Diagnostics report the
+selected strategy and controls.
+
 The external WhisperX command provider remains compatibility and parity tooling.
 It keeps Python-based execution explicit for callers that still need WhisperX
 decoding, batched ASR, alignment, or pyannote-backed diarization outside the
@@ -307,6 +321,18 @@ export HF_TOKEN=...
 No default build or test downloads models, requires CUDA, or requires network
 access. Default tests also do not require Python, WhisperX, Hugging Face tokens,
 external model files, or FFmpeg.
+
+The opt-in native tiny-model decode smoke exercises greedy, seeded sampling,
+and beam search against one local bundle:
+
+```bash
+RUN_CANDLE_WHISPER_DECODE_TESTS=1 \
+CANDLE_WHISPER_TINY_BUNDLE="$SMOKE_ROOT/whisper-tiny" \
+cargo test -p moenarch-audio-analysis-transcription \
+  --features candle \
+  real_tiny_whisper_bundle_runs_greedy_sampling_and_beam_paths_when_requested \
+  -- --nocapture
+```
 
 Optional external WhisperX parity can be run manually when local tools and media
 are configured:
