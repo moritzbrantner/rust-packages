@@ -70,6 +70,30 @@ and invalid widths, temperatures, or search-only combinations return
 hypothesis instead of sharing branched decoder caches. Diagnostics report the
 selected strategy and controls.
 
+Complete request-scoped decoding is available through the additive
+`CandleWhisperDecodeRequestConfig` API and the
+`transcribe_with_decode_request_config` or
+`transcribe_with_runtime_controls_and_decode_request_config` methods. It wraps
+the search config while adding initial prompt token IDs, explicit suppressed
+token IDs, tokenizer-aware numeral suppression, and optional previous-window
+text conditioning. Previous text is kept only in the current request and is
+bounded by the model prompt budget; it is never stored in a reusable session.
+Previous-text conditioning uses the sequential autoregressive runtime because
+later windows depend on earlier output.
+
+Threshold fallback evaluates `temperatureSchedule` strictly in declaration
+order. A high no-speech probability rejects the window when average log
+probability is also below its configured minimum (or when no minimum is set),
+so confident text is retained. A low average log probability or high zlib
+compression ratio advances to
+the next temperature, and the first passing attempt is returned (or the final
+attempt when none pass). Candidates from different temperatures are never
+ranked against one another. Response diagnostics expose
+`averageLogProbability`, `noSpeechProbability`, `compressionRatio`, the ordered
+`temperatureFallbackAttempts`, and whether no-speech rejection occurred. The
+default request config still dispatches the exact pre-existing KV-cached greedy
+path.
+
 The external WhisperX command provider remains compatibility and parity tooling.
 It keeps Python-based execution explicit for callers that still need WhisperX
 decoding, batched ASR, alignment, or pyannote-backed diarization outside the

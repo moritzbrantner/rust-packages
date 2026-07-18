@@ -1,14 +1,14 @@
 use audio_analysis_transcription::{
     import_whisperx_json, transcribe, AlignedWord, AlignmentOptions, AlignmentRequest,
     AlignmentResponse, AsrRequest, AsrResponse, AudioRuntime, AudioTranscriptionProvider,
-    CandleWhisperComputeType, CandleWhisperDecodeConfig, CandleWhisperDecodeRuntime,
-    CandleWhisperOptions, CandleWhisperRuntimeControls, DiarizationOptions,
-    ForcedAlignmentProvider, LoadedAudio, NativeDevicePreference, NativeTranscriptionRunner,
-    NativeTranscriptionRunnerOptions, ReusableCandleWhisperTranscriber, SpeakerDiarizationResponse,
-    SpeakerSegmentPrediction, SpeechActivitySegment, TranscriptDiarizationProvider,
-    TranscriptionPipelineEvent, TranscriptionPipelineObserver, TranscriptionPipelineRequest,
-    TranscriptionProviderSelection, TranscriptionSource, TranscriptionTask,
-    TranscriptionVadProvider, VadOptions, VadRequest, VadResponse,
+    CandleWhisperComputeType, CandleWhisperDecodeConfig, CandleWhisperDecodeRequestConfig,
+    CandleWhisperDecodeRuntime, CandleWhisperOptions, CandleWhisperRuntimeControls,
+    DiarizationOptions, ForcedAlignmentProvider, LoadedAudio, NativeDevicePreference,
+    NativeTranscriptionRunner, NativeTranscriptionRunnerOptions, ReusableCandleWhisperTranscriber,
+    SpeakerDiarizationResponse, SpeakerSegmentPrediction, SpeechActivitySegment,
+    TranscriptDiarizationProvider, TranscriptionPipelineEvent, TranscriptionPipelineObserver,
+    TranscriptionPipelineRequest, TranscriptionProviderSelection, TranscriptionSource,
+    TranscriptionTask, TranscriptionVadProvider, VadOptions, VadRequest, VadResponse,
 };
 use text_transcripts::{TranscriptSegmentContract, TranscriptWordContract, TranscriptionContract};
 use video_analysis_core::{DetectError, Result};
@@ -382,6 +382,32 @@ fn public_candle_decode_config_exposes_request_scoped_search_controls() {
         CandleWhisperDecodeConfig::default().temperature_schedule,
         vec![0.0]
     );
+}
+
+#[test]
+fn public_candle_decode_request_config_exposes_prompt_and_fallback_controls() {
+    let config = CandleWhisperDecodeRequestConfig {
+        search: CandleWhisperDecodeConfig {
+            temperature_schedule: vec![0.0, 0.4],
+            ..CandleWhisperDecodeConfig::default()
+        },
+        initial_prompt_tokens: vec![10, 11],
+        suppressed_token_ids: vec![12, 13],
+        suppress_numerals: true,
+        condition_on_previous_text: true,
+        min_average_log_probability: Some(-1.0),
+        max_no_speech_probability: Some(0.6),
+        max_compression_ratio: Some(2.4),
+    };
+
+    let encoded = serde_json::to_value(config).unwrap();
+    assert_eq!(encoded["initialPromptTokens"], serde_json::json!([10, 11]));
+    assert_eq!(encoded["suppressedTokenIds"], serde_json::json!([12, 13]));
+    assert_eq!(encoded["suppressNumerals"], true);
+    assert_eq!(encoded["conditionOnPreviousText"], true);
+    assert_eq!(encoded["minAverageLogProbability"], -1.0);
+    assert_eq!(encoded["maxNoSpeechProbability"], 0.6);
+    assert_eq!(encoded["maxCompressionRatio"], 2.4);
 }
 
 #[test]

@@ -2348,11 +2348,12 @@ dependencies = [
 
 [[package]]
 name = "moenarch-audio-analysis-transcription"
-version = "0.1.12"
+version = "0.1.13"
 dependencies = [
  "candle-core",
  "candle-nn",
  "candle-transformers",
+ "flate2",
  "hound",
  "moenarch-audio-analysis-io",
  "moenarch-audio-analysis-speakers",

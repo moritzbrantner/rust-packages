@@ -10,6 +10,12 @@ pub(crate) struct WhisperSearchResult {
     pub forward_calls: usize,
 }
 
+impl WhisperSearchResult {
+    pub(crate) fn average_log_probability(&self) -> f64 {
+        self.score / (self.token_ids.len() + usize::from(self.completed)).max(1) as f64
+    }
+}
+
 #[derive(Debug, Clone)]
 struct SearchCandidate {
     token_ids: Vec<u32>,
@@ -19,12 +25,16 @@ struct SearchCandidate {
 }
 
 impl SearchCandidate {
+    fn scored_token_count(&self) -> usize {
+        (self.token_ids.len() + usize::from(self.completed)).max(1)
+    }
+
     fn average_score(&self) -> f64 {
-        self.score / self.token_ids.len().max(1) as f64
+        self.score / self.scored_token_count() as f64
     }
 
     fn beam_score(&self, length_penalty: f64) -> f64 {
-        let length = self.token_ids.len().max(1) as f64;
+        let length = self.scored_token_count() as f64;
         let penalty = ((5.0 + length) / 6.0).powf(length_penalty);
         self.score / penalty
     }
@@ -44,6 +54,7 @@ impl SearchCandidate {
 /// The provider receives generated tokens only and returns filtered logits for
 /// the next token. Model execution, cache policy, and Whisper-specific logit
 /// rules remain behind that seam.
+#[cfg(test)]
 pub(crate) fn decode_with_config(
     config: &CandleWhisperDecodeConfig,
     eos_token_id: u32,
@@ -53,29 +64,46 @@ pub(crate) fn decode_with_config(
     if config.beam_size > 1 {
         return decode_beam_search(config, eos_token_id, max_generated_tokens, &mut logits_for);
     }
-    decode_temperature_schedule(config, eos_token_id, max_generated_tokens, &mut logits_for)
+    let temperature = config
+        .temperature_schedule
+        .first()
+        .copied()
+        .ok_or_else(|| invalid_request("Candle Whisper temperature_schedule must not be empty"))?;
+    decode_at_temperature(
+        config,
+        0,
+        temperature,
+        eos_token_id,
+        max_generated_tokens,
+        &mut logits_for,
+    )
 }
 
-fn decode_temperature_schedule(
+/// Decodes and ranks candidates for one declared temperature. The native
+/// fallback controller invokes this in declaration order and decides whether
+/// the next temperature is needed from the completed attempt's thresholds.
+pub(crate) fn decode_at_temperature(
     config: &CandleWhisperDecodeConfig,
+    temperature_index: usize,
+    temperature: f64,
     eos_token_id: u32,
     max_generated_tokens: usize,
     logits_for: &mut impl FnMut(&[u32]) -> Result<Vec<f32>>,
 ) -> Result<WhisperSearchResult> {
+    if config.beam_size > 1 {
+        return decode_beam_search(config, eos_token_id, max_generated_tokens, logits_for);
+    }
     let mut candidates = Vec::new();
-    for (temperature_index, temperature) in config.temperature_schedule.iter().copied().enumerate()
-    {
-        let candidate_count = if temperature > 0.0 { config.best_of } else { 1 };
-        for candidate_index in 0..candidate_count {
-            let seed = derived_seed(config.seed, temperature_index, candidate_index);
-            candidates.push(decode_one_candidate(
-                temperature,
-                seed,
-                eos_token_id,
-                max_generated_tokens,
-                logits_for,
-            )?);
-        }
+    let candidate_count = if temperature > 0.0 { config.best_of } else { 1 };
+    for candidate_index in 0..candidate_count {
+        let seed = derived_seed(config.seed, temperature_index, candidate_index);
+        candidates.push(decode_one_candidate(
+            temperature,
+            seed,
+            eos_token_id,
+            max_generated_tokens,
+            logits_for,
+        )?);
     }
     candidates
         .into_iter()
@@ -101,14 +129,19 @@ fn decode_one_candidate(
     while candidate.token_ids.len() < max_generated_tokens {
         let logits = logits_for(&candidate.token_ids)?;
         candidate.forward_calls += 1;
-        let log_probabilities = log_probabilities(&logits, temperature)?;
-        let token = if temperature == 0.0 {
-            argmax_log_probability(&log_probabilities)
+        let model_log_probabilities = log_probabilities(&logits, 0.0)?;
+        let sampling_log_probabilities = if temperature == 0.0 {
+            model_log_probabilities.clone()
         } else {
-            sample_log_probabilities(&log_probabilities, &mut rng)
+            log_probabilities(&logits, temperature)?
+        };
+        let token = if temperature == 0.0 {
+            argmax_log_probability(&sampling_log_probabilities)
+        } else {
+            sample_log_probabilities(&sampling_log_probabilities, &mut rng)
         }
         .ok_or_else(|| invalid_request("Candle Whisper logits were fully suppressed"))?;
-        candidate.score += log_probabilities[token];
+        candidate.score += model_log_probabilities[token];
         if token as u32 == eos_token_id {
             candidate.completed = true;
             break;
@@ -337,7 +370,64 @@ mod tests {
     }
 
     #[test]
-    fn temperature_schedule_evaluates_greedy_once_and_best_of_for_sampling_steps() {
+    fn completed_average_log_probability_includes_the_scored_eos_token() {
+        let completed = WhisperSearchResult {
+            token_ids: vec![7],
+            score: -2.0,
+            completed: true,
+            forward_calls: 2,
+        };
+        let unfinished = WhisperSearchResult {
+            completed: false,
+            ..completed.clone()
+        };
+
+        assert_eq!(completed.average_log_probability(), -1.0);
+        assert_eq!(unfinished.average_log_probability(), -2.0);
+    }
+
+    #[test]
+    fn sampling_temperature_does_not_rescale_reported_model_score() {
+        let run = |temperature| {
+            decode_one_candidate(temperature, 17, 2, 2, &mut |generated| {
+                Ok(if generated.is_empty() {
+                    vec![10.0, 0.0, f32::NEG_INFINITY]
+                } else {
+                    vec![f32::NEG_INFINITY, f32::NEG_INFINITY, 0.0]
+                })
+            })
+            .unwrap()
+        };
+        let cool = run(0.5);
+        let warm = run(2.0);
+
+        assert_eq!(cool.token_ids, vec![0]);
+        assert_eq!(warm.token_ids, cool.token_ids);
+        assert!((cool.score - warm.score).abs() < 1e-12);
+    }
+
+    #[test]
+    fn best_of_and_beam_lengths_count_completed_eos() {
+        let completed = SearchCandidate {
+            token_ids: vec![7],
+            score: -1.0,
+            completed: true,
+            forward_calls: 2,
+        };
+        let unfinished = SearchCandidate {
+            token_ids: vec![7],
+            score: -0.75,
+            completed: false,
+            forward_calls: 1,
+        };
+
+        assert_eq!(completed.scored_token_count(), 2);
+        assert!(compare_average_candidates(&completed, &unfinished).is_gt());
+        assert_eq!(completed.beam_score(0.0), -1.0);
+    }
+
+    #[test]
+    fn decode_with_config_only_evaluates_the_first_declared_temperature() {
         let config = CandleWhisperDecodeConfig {
             temperature_schedule: vec![0.0, 0.4, 0.8],
             best_of: 2,
@@ -352,7 +442,26 @@ mod tests {
         })
         .unwrap();
 
-        assert_eq!(calls.get(), 5);
+        assert_eq!(calls.get(), 1);
+    }
+
+    #[test]
+    fn one_temperature_attempt_ranks_only_its_own_best_of_candidates() {
+        let config = CandleWhisperDecodeConfig {
+            temperature_schedule: vec![0.0, 0.4],
+            best_of: 2,
+            seed: 3,
+            ..CandleWhisperDecodeConfig::default()
+        };
+        let calls = Cell::new(0);
+
+        decode_at_temperature(&config, 1, 0.4, 1, 1, &mut |_| {
+            calls.set(calls.get() + 1);
+            Ok(vec![f32::NEG_INFINITY, 0.0])
+        })
+        .unwrap();
+
+        assert_eq!(calls.get(), 2);
     }
 
     #[test]
