@@ -336,6 +336,62 @@ fn reusable_candle_whisper_transcriber_is_public_provider_reuse_primitive() {
 }
 
 #[test]
+fn public_candle_provider_rejects_cpu_with_a_nonzero_cuda_index() {
+    let mut provider = ReusableCandleWhisperTranscriber::new(CandleWhisperOptions {
+        device: NativeDevicePreference::Cpu,
+        cuda_device_index: 1,
+        ..CandleWhisperOptions::default()
+    });
+
+    let error = provider
+        .transcribe(AsrRequest {
+            audio: LoadedAudio {
+                samples: vec![0.0; 16],
+                sample_rate: 16_000,
+                channels: 1,
+                source: None,
+            },
+            chunks: vec![SpeechActivitySegment::new(0.0, 0.001, 0.0).unwrap()],
+            task: audio_analysis_transcription::TranscriptionTask::Transcribe,
+            language: None,
+            model_id: "openai/whisper-large-v3-turbo".to_string(),
+        })
+        .unwrap_err();
+
+    assert!(matches!(error, DetectError::InvalidArgument(_)));
+    assert!(error.to_string().contains("cuda_device_index 1"));
+    assert!(error.to_string().contains("device=cpu"));
+}
+
+#[test]
+fn public_candle_provider_rejects_zero_decoder_threads() {
+    let mut provider = ReusableCandleWhisperTranscriber::new(CandleWhisperOptions {
+        decoder_threads: Some(0),
+        ..CandleWhisperOptions::default()
+    });
+
+    let error = provider
+        .transcribe(AsrRequest {
+            audio: LoadedAudio {
+                samples: vec![0.0; 16],
+                sample_rate: 16_000,
+                channels: 1,
+                source: None,
+            },
+            chunks: vec![SpeechActivitySegment::new(0.0, 0.001, 0.0).unwrap()],
+            task: audio_analysis_transcription::TranscriptionTask::Transcribe,
+            language: None,
+            model_id: "openai/whisper-large-v3-turbo".to_string(),
+        })
+        .unwrap_err();
+
+    assert!(matches!(error, DetectError::InvalidArgument(_)));
+    assert!(error
+        .to_string()
+        .contains("decoder_threads must be greater than zero"));
+}
+
+#[test]
 fn native_transcription_runner_reuses_adapter_state_across_compatible_requests() -> Result<()> {
     let options = NativeTranscriptionRunnerOptions {
         provider: TranscriptionProviderSelection::CandleWhisper(CandleWhisperOptions {

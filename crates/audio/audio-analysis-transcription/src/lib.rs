@@ -259,6 +259,10 @@ pub struct CandleWhisperOptions {
     #[serde(default)]
     pub device: NativeDevicePreference,
     #[serde(default)]
+    pub cuda_device_index: usize,
+    #[serde(default)]
+    pub decoder_threads: Option<usize>,
+    #[serde(default)]
     pub compute_type: CandleWhisperComputeType,
     #[serde(default)]
     pub model_bundle: Option<PathBuf>,
@@ -281,6 +285,8 @@ impl Default for CandleWhisperOptions {
             task: TranscriptionTask::Transcribe,
             language: None,
             device: NativeDevicePreference::Auto,
+            cuda_device_index: 0,
+            decoder_threads: None,
             compute_type: CandleWhisperComputeType::Automatic,
             model_bundle: None,
             model_dir: None,
@@ -2006,6 +2012,17 @@ fn validate_task_options_for_request(request: &TranscriptionPipelineRequest) -> 
 }
 
 pub(crate) fn validate_candle_batch_options(options: &CandleWhisperOptions) -> Result<()> {
+    if options.decoder_threads == Some(0) {
+        return Err(invalid_request(
+            "Candle Whisper decoder_threads must be greater than zero",
+        ));
+    }
+    if options.device == NativeDevicePreference::Cpu && options.cuda_device_index != 0 {
+        return Err(invalid_request(format!(
+            "Candle Whisper cuda_device_index {} cannot be used with device=cpu; use cuda_device_index=0 for CPU execution or select device=cuda",
+            options.cuda_device_index
+        )));
+    }
     if options.max_batch_size == Some(0) {
         return Err(invalid_request(
             "Candle Whisper max_batch_size must be greater than zero",
@@ -2750,7 +2767,8 @@ fn apply_alignment_chars(
 
 fn validate_candle_setup(options: &CandleWhisperOptions) -> Result<()> {
     validate_candle_batch_options(options)?;
-    let resolved_device = native_device::resolve_native_device(options.device)?;
+    let resolved_device =
+        native_device::resolve_native_device(options.device, options.cuda_device_index)?;
     options
         .compute_type
         .resolve_for_device(resolved_device.cuda_active())?;
@@ -3469,10 +3487,64 @@ mod tests {
 
     #[test]
     fn candle_whisper_options_default_to_automatic_compute_type() {
-        assert_eq!(
-            CandleWhisperOptions::default().compute_type,
-            CandleWhisperComputeType::Automatic
-        );
+        let options = CandleWhisperOptions::default();
+        assert_eq!(options.compute_type, CandleWhisperComputeType::Automatic);
+        assert_eq!(options.device, NativeDevicePreference::Auto);
+        assert_eq!(options.cuda_device_index, 0);
+        assert_eq!(options.decoder_threads, None);
+    }
+
+    #[test]
+    fn candle_whisper_runtime_controls_serialize_as_public_request_fields() {
+        let options = CandleWhisperOptions {
+            cuda_device_index: 2,
+            decoder_threads: Some(3),
+            ..CandleWhisperOptions::default()
+        };
+
+        let encoded = serde_json::to_value(&options).unwrap();
+
+        assert_eq!(encoded["cudaDeviceIndex"], 2);
+        assert_eq!(encoded["decoderThreads"], 3);
+    }
+
+    #[test]
+    fn candle_whisper_rejects_negative_cuda_device_indices_during_request_decode() {
+        let error = serde_json::from_value::<CandleWhisperOptions>(serde_json::json!({
+            "cudaDeviceIndex": -1
+        }))
+        .unwrap_err();
+
+        assert!(error.to_string().contains("invalid value"));
+    }
+
+    #[test]
+    fn candle_whisper_rejects_zero_decoder_threads() {
+        let error = validate_candle_batch_options(&CandleWhisperOptions {
+            decoder_threads: Some(0),
+            ..CandleWhisperOptions::default()
+        })
+        .unwrap_err();
+
+        assert!(matches!(error, DetectError::InvalidArgument(_)));
+        assert!(error
+            .to_string()
+            .contains("decoder_threads must be greater than zero"));
+    }
+
+    #[test]
+    fn candle_whisper_cpu_rejects_nonzero_cuda_device_index() {
+        let error = validate_candle_batch_options(&CandleWhisperOptions {
+            device: NativeDevicePreference::Cpu,
+            cuda_device_index: 1,
+            ..CandleWhisperOptions::default()
+        })
+        .unwrap_err();
+
+        assert!(matches!(error, DetectError::InvalidArgument(_)));
+        assert!(error
+            .to_string()
+            .contains("cuda_device_index 1 cannot be used with device=cpu"));
     }
 
     #[test]
