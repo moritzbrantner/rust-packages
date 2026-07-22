@@ -1,9 +1,13 @@
 use audio_analysis_core::ChannelMix;
 use audio_analysis_io::{
-    decode_audio_to_mono_f32, open_audio_input, AudioFrameSource, AudioInput, AudioInputOptions,
+    decode_audio_to_mono_f32, decode_selected_media_to_mono_f32, open_audio_input,
+    AudioFrameSource, AudioInput, AudioInputOptions, AudioIoError, SelectedMediaSource,
 };
 use video_analysis_core::{AudioBuffer, AudioSampleFormat};
-use video_analysis_ffmpeg::{is_ffmpeg_available, is_ffprobe_available};
+use video_analysis_ffmpeg::{
+    is_ffmpeg_available, is_ffprobe_available, write_two_audio_stream_test_media,
+    AudioStreamSelection, AudioStreamSelectionErrorReason, FfmpegError,
+};
 
 fn sine(freq_hz: f32, sample_rate: u32, seconds: f32) -> Vec<f32> {
     let samples = (sample_rate as f32 * seconds) as usize;
@@ -49,6 +53,13 @@ fn write_pcm16_wav(
         file.write_all(&value.to_le_bytes())?;
     }
     Ok(())
+}
+
+fn zero_crossings(samples: &[f32]) -> usize {
+    samples
+        .windows(2)
+        .filter(|window| window[0] <= 0.0 && window[1] > 0.0)
+        .count()
 }
 
 #[test]
@@ -130,4 +141,76 @@ fn decodes_compressed_audio_when_ffmpeg_is_available() {
 
     assert_eq!(metadata.channels, 1);
     assert!(mono.iter().any(|sample| sample.abs() > 0.01));
+}
+
+#[test]
+fn selected_media_decodes_distinguishable_tracks_and_preserves_default() {
+    let required = std::env::var("FFMPEG_EXTERNAL_TESTS").ok().as_deref() == Some("1");
+    if !required {
+        eprintln!("skipping selected-media test; set FFMPEG_EXTERNAL_TESTS=1");
+        return;
+    }
+    if !(is_ffmpeg_available() && is_ffprobe_available()) {
+        panic!("FFMPEG_EXTERNAL_TESTS=1 but ffmpeg/ffprobe is unavailable");
+    }
+
+    let dir = tempfile::tempdir().unwrap();
+    let path = dir.path().join("two-audio-streams.mkv");
+    write_two_audio_stream_test_media(&path).unwrap();
+
+    let (_, default) = decode_selected_media_to_mono_f32(
+        SelectedMediaSource::new(&path),
+        AudioInputOptions::recorded(),
+        ChannelMix::Average,
+    )
+    .unwrap();
+    let (_, first) = decode_selected_media_to_mono_f32(
+        SelectedMediaSource::new(&path).audio_stream_index(0),
+        AudioInputOptions::recorded(),
+        ChannelMix::Average,
+    )
+    .unwrap();
+    let (_, second) = decode_selected_media_to_mono_f32(
+        SelectedMediaSource::new(&path).audio_stream_index(1),
+        AudioInputOptions::recorded(),
+        ChannelMix::Average,
+    )
+    .unwrap();
+
+    assert_eq!(zero_crossings(&default), zero_crossings(&first));
+    assert!(zero_crossings(&second) > zero_crossings(&first) * 3 / 2);
+}
+
+#[test]
+fn invalid_selected_media_retains_typed_available_streams() {
+    let required = std::env::var("FFMPEG_EXTERNAL_TESTS").ok().as_deref() == Some("1");
+    if !required {
+        eprintln!("skipping selected-media test; set FFMPEG_EXTERNAL_TESTS=1");
+        return;
+    }
+    if !(is_ffmpeg_available() && is_ffprobe_available()) {
+        panic!("FFMPEG_EXTERNAL_TESTS=1 but ffmpeg/ffprobe is unavailable");
+    }
+
+    let dir = tempfile::tempdir().unwrap();
+    let path = dir.path().join("two-audio-streams.mkv");
+    write_two_audio_stream_test_media(&path).unwrap();
+    let error = decode_selected_media_to_mono_f32(
+        SelectedMediaSource::new(path).audio_stream_index(2),
+        AudioInputOptions::recorded(),
+        ChannelMix::Average,
+    )
+    .unwrap_err();
+
+    let AudioIoError::Ffmpeg(FfmpegError::InvalidAudioStreamSelection {
+        selection,
+        reason,
+        available_streams,
+    }) = error
+    else {
+        panic!("expected typed selected-stream error");
+    };
+    assert_eq!(selection, AudioStreamSelection::AudioOrdinal(2));
+    assert_eq!(reason, AudioStreamSelectionErrorReason::OutOfRange);
+    assert_eq!(available_streams.streams.len(), 3);
 }

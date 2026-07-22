@@ -29,6 +29,30 @@ let filter = build_ffmpeg_audio_filter_chain(&FfmpegAudioEditSpec {
 let _ = (clip, filter);
 ```
 
+For finite containers with multiple audio streams, use the additive
+`SelectedMediaSource` API. Omitting the selection keeps the existing first/default
+audio-stream behavior; an explicit index is the zero-based ordinal among audio
+streams:
+
+```rust,ignore
+use audio_analysis_io::{
+    decode_selected_media_to_mono_f32, AudioInputOptions, ChannelMix, SelectedMediaSource,
+};
+
+let source = SelectedMediaSource::new("fixtures/interview.mkv").audio_stream_index(1);
+let (_metadata, samples) = decode_selected_media_to_mono_f32(
+    source,
+    AudioInputOptions::recorded(),
+    ChannelMix::Average,
+)?;
+# let _ = samples;
+```
+
+Checked selected-media functions return `AudioIoError`. Match
+`AudioIoError::Ffmpeg(FfmpegError::InvalidAudioStreamSelection { .. })` to
+inspect the requested selection, failure reason, and typed inventory of every
+available stream without parsing FFmpeg diagnostics.
+
 ## Hybrid File Editing
 
 `decode_audio_to_clip` and `write_clip_as_wav` bridge file IO and the pure Rust

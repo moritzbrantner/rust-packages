@@ -36,6 +36,8 @@ const CANDLE_WHISPER_AUTOREGRESSIVE_KV_CACHE_EXECUTION: &str =
 const CANDLE_WHISPER_ACTIVE_ROW_TENSOR_BATCH_EXECUTION: &str =
     "candle-whisper-active-row-tensor-batch";
 
+#[cfg(feature = "audio-io")]
+pub use audio_analysis_io::{AudioIoError, SelectedMediaSource};
 pub use audio_analysis_speakers::{
     AudioRuntime, SpeakerDiarizationOptions, SpeakerDiarizationResponse, SpeakerSegmentPrediction,
     SpeakerTranscriptAssignmentPolicy,
@@ -960,11 +962,60 @@ impl LoadedAudio {
         native_audio::mono_16khz_from_source(source)
     }
 
+    /// Predecodes a finite media path with an optional zero-based audio-stream ordinal.
+    ///
+    /// Stream validation is completed by the FFmpeg provider before this function
+    /// returns, and typed available-stream context is preserved in [`AudioIoError`].
+    #[cfg(feature = "audio-io")]
+    pub fn mono_16khz_from_selected_media(
+        path: impl AsRef<Path>,
+        audio_stream_index: Option<usize>,
+    ) -> audio_analysis_io::AudioIoResult<Self> {
+        native_audio::mono_16khz_from_selected_media(path.as_ref(), audio_stream_index)
+    }
+
     pub fn duration_seconds(&self) -> f64 {
         if self.sample_rate == 0 || self.channels == 0 {
             return 0.0;
         }
         self.samples.len() as f64 / self.channels as f64 / self.sample_rate as f64
+    }
+}
+
+/// Error returned by selected-media transcription entrypoints.
+#[cfg(feature = "audio-io")]
+#[derive(Debug)]
+pub enum SelectedMediaTranscriptionError {
+    /// Media decode or typed audio-stream validation failed.
+    Decode(audio_analysis_io::AudioIoError),
+    /// The transcription pipeline failed after media validation and decode.
+    Pipeline(DetectError),
+}
+
+#[cfg(feature = "audio-io")]
+impl std::fmt::Display for SelectedMediaTranscriptionError {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Decode(error) => error.fmt(formatter),
+            Self::Pipeline(error) => error.fmt(formatter),
+        }
+    }
+}
+
+#[cfg(feature = "audio-io")]
+impl std::error::Error for SelectedMediaTranscriptionError {
+    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
+        match self {
+            Self::Decode(error) => Some(error),
+            Self::Pipeline(error) => Some(error),
+        }
+    }
+}
+
+#[cfg(feature = "audio-io")]
+impl From<audio_analysis_io::AudioIoError> for SelectedMediaTranscriptionError {
+    fn from(error: audio_analysis_io::AudioIoError) -> Self {
+        Self::Decode(error)
     }
 }
 
@@ -1998,6 +2049,22 @@ impl NativeTranscriptionRunner {
         )
     }
 
+    /// Predecodes a selected audio stream, then runs it through the owned provider stack.
+    ///
+    /// Invalid stream selections return before request compatibility checks can
+    /// rebuild crate-owned providers and before the observer receives progress.
+    #[cfg(feature = "audio-io")]
+    pub fn run_selected_media(
+        &mut self,
+        request: TranscriptionPipelineRequest,
+        audio_stream_index: Option<usize>,
+        observer: &mut dyn TranscriptionPipelineObserver,
+    ) -> std::result::Result<TranscriptionPipelineResponse, SelectedMediaTranscriptionError> {
+        let request = predecode_selected_media_request(request, audio_stream_index)?;
+        self.run(request, observer)
+            .map_err(SelectedMediaTranscriptionError::Pipeline)
+    }
+
     fn prepare_for_request(&mut self, request: &TranscriptionPipelineRequest) -> Result<()> {
         match self.mode {
             NativeTranscriptionRunnerMode::CallerProviders => {
@@ -2104,6 +2171,67 @@ pub fn transcribe(request: TranscriptionPipelineRequest) -> Result<Transcription
             }
         }
     }
+}
+
+/// Predecodes an optional zero-based audio stream, then transcribes it.
+///
+/// The request must retain its existing [`TranscriptionSource::Path`] shape.
+/// Omitting `audio_stream_index` preserves first/default-stream behavior. The
+/// media is validated and decoded before native providers are constructed, so
+/// invalid selections cannot start model resolution, cache work, or progress.
+#[cfg(feature = "audio-io")]
+pub fn transcribe_selected_media(
+    request: TranscriptionPipelineRequest,
+    audio_stream_index: Option<usize>,
+) -> std::result::Result<TranscriptionPipelineResponse, SelectedMediaTranscriptionError> {
+    let request = predecode_selected_media_request(request, audio_stream_index)?;
+    transcribe(request).map_err(SelectedMediaTranscriptionError::Pipeline)
+}
+
+/// Predecodes selected media before running the provider-agnostic pipeline.
+#[cfg(feature = "audio-io")]
+pub fn run_transcription_pipeline_from_selected_media_with_observer(
+    request: TranscriptionPipelineRequest,
+    audio_stream_index: Option<usize>,
+    vad_provider: &mut dyn TranscriptionVadProvider,
+    asr_provider: &mut dyn AudioTranscriptionProvider,
+    alignment_provider: Option<&mut dyn ForcedAlignmentProvider>,
+    diarization_provider: Option<&mut dyn TranscriptDiarizationProvider>,
+    observer: &mut dyn TranscriptionPipelineObserver,
+) -> std::result::Result<TranscriptionPipelineResponse, SelectedMediaTranscriptionError> {
+    let request = predecode_selected_media_request(request, audio_stream_index)?;
+    run_transcription_pipeline_with_observer(
+        request,
+        vad_provider,
+        asr_provider,
+        alignment_provider,
+        diarization_provider,
+        observer,
+    )
+    .map_err(SelectedMediaTranscriptionError::Pipeline)
+}
+
+#[cfg(feature = "audio-io")]
+fn predecode_selected_media_request(
+    mut request: TranscriptionPipelineRequest,
+    audio_stream_index: Option<usize>,
+) -> std::result::Result<TranscriptionPipelineRequest, SelectedMediaTranscriptionError> {
+    let path = match &request.source {
+        TranscriptionSource::Path { path } => path.clone(),
+        TranscriptionSource::Samples { .. } => {
+            return Err(SelectedMediaTranscriptionError::Pipeline(invalid_request(
+                "selected-media transcription requires a path source",
+            )))
+        }
+    };
+    let audio = LoadedAudio::mono_16khz_from_selected_media(&path, audio_stream_index)?;
+    request.source = TranscriptionSource::Samples {
+        samples: audio.samples,
+        sample_rate: audio.sample_rate,
+        channels: audio.channels,
+        source: audio.source,
+    };
+    Ok(request)
 }
 
 /// Runs the provider-agnostic native transcription pipeline.
@@ -5621,6 +5749,142 @@ mod tests {
             Some(path.to_string_lossy().as_ref())
         );
         Ok(())
+    }
+
+    #[cfg(feature = "audio-io")]
+    #[test]
+    fn selected_media_pipeline_transcribes_distinguishable_tracks_and_preserves_default() {
+        use video_analysis_ffmpeg::{
+            is_ffmpeg_available, is_ffprobe_available, write_two_audio_stream_test_media,
+        };
+
+        if !(is_ffmpeg_available() && is_ffprobe_available()) {
+            eprintln!("skipping selected-media test because ffmpeg/ffprobe is unavailable");
+            return;
+        }
+
+        #[derive(Default)]
+        struct FrequencyAsr;
+
+        impl AudioTranscriptionProvider for FrequencyAsr {
+            fn provider_id(&self) -> &str {
+                "frequency-asr"
+            }
+
+            fn transcribe(&mut self, request: AsrRequest) -> Result<AsrResponse> {
+                let crossings = request
+                    .audio
+                    .samples
+                    .windows(2)
+                    .filter(|window| window[0] <= 0.0 && window[1] > 0.0)
+                    .count();
+                let label = if crossings > 120 { "high" } else { "low" };
+                let mut segment = TranscriptSegmentContract::new(0, label);
+                segment.start_seconds = Some(0.0);
+                segment.end_seconds = Some(request.audio.duration_seconds());
+                Ok(AsrResponse {
+                    model_id: request.model_id,
+                    language: Some("en".to_string()),
+                    transcript: TranscriptionContract::from_segments(
+                        request.audio.source,
+                        Some("en".to_string()),
+                        vec![segment],
+                    )
+                    .map_err(|error| DetectError::InvalidArgument(error.to_string()))?,
+                    diagnostics: Vec::new(),
+                })
+            }
+        }
+
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("two-audio-streams.mkv");
+        write_two_audio_stream_test_media(&path).unwrap();
+
+        let run = |selection| {
+            let mut request = sample_request();
+            request.source = TranscriptionSource::Path { path: path.clone() };
+            request.vad.enabled = false;
+            let mut vad = EnergyVadTranscriptionProvider;
+            let mut asr = FrequencyAsr;
+            let mut observer = RecordingObserver::default();
+            run_transcription_pipeline_from_selected_media_with_observer(
+                request,
+                selection,
+                &mut vad,
+                &mut asr,
+                None,
+                None,
+                &mut observer,
+            )
+            .unwrap()
+            .transcript
+            .text
+            .unwrap()
+        };
+
+        assert_eq!(run(None), "low");
+        assert_eq!(run(Some(0)), "low");
+        assert_eq!(run(Some(1)), "high");
+    }
+
+    #[cfg(feature = "audio-io")]
+    #[test]
+    fn invalid_selected_media_is_typed_before_progress_or_provider_work() {
+        use video_analysis_ffmpeg::{
+            is_ffmpeg_available, is_ffprobe_available, write_two_audio_stream_test_media,
+            AudioStreamSelection, AudioStreamSelectionErrorReason, FfmpegError,
+        };
+
+        if !(is_ffmpeg_available() && is_ffprobe_available()) {
+            eprintln!("skipping selected-media test because ffmpeg/ffprobe is unavailable");
+            return;
+        }
+
+        struct PanickingAsr;
+        impl AudioTranscriptionProvider for PanickingAsr {
+            fn provider_id(&self) -> &str {
+                "panicking-asr"
+            }
+
+            fn transcribe(&mut self, _request: AsrRequest) -> Result<AsrResponse> {
+                panic!("invalid selection must be rejected before provider work")
+            }
+        }
+
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("two-audio-streams.mkv");
+        write_two_audio_stream_test_media(&path).unwrap();
+        let mut request = sample_request();
+        request.source = TranscriptionSource::Path { path };
+        let mut vad = EnergyVadTranscriptionProvider;
+        let mut asr = PanickingAsr;
+        let mut observer = RecordingObserver::default();
+
+        let error = run_transcription_pipeline_from_selected_media_with_observer(
+            request,
+            Some(2),
+            &mut vad,
+            &mut asr,
+            None,
+            None,
+            &mut observer,
+        )
+        .unwrap_err();
+
+        let SelectedMediaTranscriptionError::Decode(audio_analysis_io::AudioIoError::Ffmpeg(
+            FfmpegError::InvalidAudioStreamSelection {
+                selection,
+                reason,
+                available_streams,
+            },
+        )) = error
+        else {
+            panic!("expected typed selected-stream error");
+        };
+        assert_eq!(selection, AudioStreamSelection::AudioOrdinal(2));
+        assert_eq!(reason, AudioStreamSelectionErrorReason::OutOfRange);
+        assert_eq!(available_streams.streams.len(), 3);
+        assert!(observer.events.is_empty());
     }
 
     #[cfg(feature = "audio-io")]

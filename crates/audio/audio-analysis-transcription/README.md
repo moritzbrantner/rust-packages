@@ -248,6 +248,22 @@ crate.
 Use `audio-io` only when native non-WAV media/container decode is explicitly
 needed and local FFmpeg support is available:
 
+```rust,ignore
+use audio_analysis_transcription::{transcribe_selected_media, TranscriptionPipelineRequest};
+
+let request: TranscriptionPipelineRequest = build_request_with_path_source();
+let response = transcribe_selected_media(request, Some(1))?;
+# let _ = response;
+```
+
+`transcribe_selected_media` keeps the existing `TranscriptionSource::Path`
+request shape and accepts an optional zero-based audio-stream ordinal. It
+validates and predecodes through `audio-analysis-io` before constructing native
+providers or emitting pipeline progress. `None` preserves the first/default
+stream. Invalid selections return `SelectedMediaTranscriptionError::Decode`
+with the typed FFmpeg stream inventory. `NativeTranscriptionRunner::run_selected_media`
+provides the same ordering for reusable runners.
+
 ```bash
 RUN_NATIVE_MEDIA_DECODE_TESTS=1 \
 TRANSCRIPTION_MEDIA_PATH=/path/to/video-or-audio-container \

@@ -1,6 +1,6 @@
 [package]
 name = "moenarch-audio-analysis-io"
-version.workspace = true
+version = "0.1.1"
 edition.workspace = true
 license.workspace = true
 rust-version.workspace = true
@@ -26,3 +26,4 @@ video-analysis-ingest.workspace = true
 
 [dev-dependencies]
 tempfile.workspace = true
+video-analysis-ffmpeg = { workspace = true, features = ["test-utils"] }
