@@ -1491,7 +1491,24 @@ impl CandleWhisperTranscriber {
         decode: CandleWhisperDecodeRequestConfig,
     ) -> Result<AsrResponse> {
         let mut observer = NoopTranscriptionPipelineObserver;
-        self.transcribe_with_controls_and_observer(request, controls, decode, &mut observer)
+        self.transcribe_with_runtime_controls_and_decode_request_config_and_observer(
+            request,
+            controls,
+            decode,
+            &mut observer,
+        )
+    }
+
+    /// Transcribes one request with complete request-scoped controls while
+    /// preserving pipeline progress and cancellation observations.
+    pub fn transcribe_with_runtime_controls_and_decode_request_config_and_observer(
+        &mut self,
+        request: AsrRequest,
+        controls: CandleWhisperRuntimeControls,
+        decode: CandleWhisperDecodeRequestConfig,
+        observer: &mut dyn TranscriptionPipelineObserver,
+    ) -> Result<AsrResponse> {
+        self.transcribe_with_controls_and_observer(request, controls, decode, observer)
     }
 
     fn transcribe_with_controls_and_observer(
@@ -1684,7 +1701,24 @@ impl ReusableCandleWhisperTranscriber {
         decode: CandleWhisperDecodeRequestConfig,
     ) -> Result<AsrResponse> {
         let mut observer = NoopTranscriptionPipelineObserver;
-        self.transcribe_with_controls_and_observer(request, controls, decode, &mut observer)
+        self.transcribe_with_runtime_controls_and_decode_request_config_and_observer(
+            request,
+            controls,
+            decode,
+            &mut observer,
+        )
+    }
+
+    /// Transcribes one request with complete request-scoped controls while
+    /// preserving pipeline progress, reuse, and cancellation observations.
+    pub fn transcribe_with_runtime_controls_and_decode_request_config_and_observer(
+        &mut self,
+        request: AsrRequest,
+        controls: CandleWhisperRuntimeControls,
+        decode: CandleWhisperDecodeRequestConfig,
+        observer: &mut dyn TranscriptionPipelineObserver,
+    ) -> Result<AsrResponse> {
+        self.transcribe_with_controls_and_observer(request, controls, decode, observer)
     }
 
     fn transcribe_with_controls_and_observer(
@@ -4300,6 +4334,54 @@ mod tests {
             .diagnostics
             .iter()
             .any(|diagnostic| diagnostic.starts_with("phaseTiming.asrSeconds=")));
+    }
+
+    #[test]
+    fn candle_whisper_controlled_observer_entrypoints_are_public_and_validate_before_runtime() {
+        let request = || AsrRequest {
+            audio: LoadedAudio {
+                samples: vec![0.0; 16],
+                sample_rate: 16_000,
+                channels: 1,
+                source: Some("controlled-observer".to_string()),
+            },
+            chunks: vec![SpeechActivitySegment::new(0.0, 0.001, 1.0).unwrap()],
+            task: TranscriptionTask::Transcribe,
+            language: Some("en".to_string()),
+            model_id: "openai/whisper-tiny.en".to_string(),
+        };
+        let controls = CandleWhisperRuntimeControls {
+            decoder_threads: Some(0),
+            ..CandleWhisperRuntimeControls::default()
+        };
+        let decode = CandleWhisperDecodeRequestConfig::default();
+        let mut observer = RecordingObserver::default();
+        let mut single = CandleWhisperTranscriber::new(CandleWhisperOptions::default());
+        let mut reusable = ReusableCandleWhisperTranscriber::new(CandleWhisperOptions::default());
+
+        let single_error = single
+            .transcribe_with_runtime_controls_and_decode_request_config_and_observer(
+                request(),
+                controls.clone(),
+                decode.clone(),
+                &mut observer,
+            )
+            .unwrap_err();
+        let reusable_error = reusable
+            .transcribe_with_runtime_controls_and_decode_request_config_and_observer(
+                request(),
+                controls,
+                decode,
+                &mut observer,
+            )
+            .unwrap_err();
+
+        assert!(single_error
+            .to_string()
+            .contains("decoder_threads must be greater than zero"));
+        assert!(reusable_error
+            .to_string()
+            .contains("decoder_threads must be greater than zero"));
     }
 
     #[test]
