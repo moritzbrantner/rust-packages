@@ -6,7 +6,11 @@ use model_runtime::{ModelPreset, ModelTask};
 use support::scene;
 use tempfile::tempdir;
 use video_analysis_core::BoundingBox;
-use video_analysis_ffmpeg::{is_ffmpeg_available, FfmpegAudioSourceOptions, FfmpegSourceOptions};
+use video_analysis_ffmpeg::{
+    is_ffmpeg_available, validate_audio_stream_selection, AudioStreamSelection,
+    AudioStreamSelectionErrorReason, FfmpegAudioSourceOptions, FfmpegError, FfmpegSourceOptions,
+    MediaStream, MediaStreamInventory, MediaType,
+};
 use video_analysis_gaussian_splatting::{
     project_scene, render_projected_splats, Gaussian3d, GaussianScene, ProjectionConfig,
     SplatRenderConfig,
@@ -28,9 +32,34 @@ use video_analysis_synthesis::{
 fn runtime_and_projection_crates_expose_hermetic_public_surfaces(
 ) -> Result<(), Box<dyn std::error::Error>> {
     let recorded = FfmpegSourceOptions::recorded().extra_input_arg("-nostdin");
-    let audio = FfmpegAudioSourceOptions::live().samples_per_chunk(0);
+    let audio = FfmpegAudioSourceOptions::live()
+        .samples_per_chunk(0)
+        .audio_stream_index(1);
     assert!(!recorded.realtime);
     assert_eq!(audio.samples_per_chunk, 1);
+    assert_eq!(audio.audio_stream_index, Some(1));
+    let inventory = MediaStreamInventory {
+        streams: vec![MediaStream {
+            index: 0,
+            media_type: MediaType::Video,
+            audio_stream_ordinal: None,
+            codec: Some("h264".to_string()),
+            channels: None,
+            sample_rate: None,
+            language: None,
+            default_disposition: Some(true),
+        }],
+    };
+    let error =
+        validate_audio_stream_selection(&inventory, AudioStreamSelection::GlobalStreamIndex(0))
+            .unwrap_err();
+    assert!(matches!(
+        error,
+        FfmpegError::InvalidAudioStreamSelection {
+            reason: AudioStreamSelectionErrorReason::NotAudio,
+            ..
+        }
+    ));
     let _ = is_ffmpeg_available();
 
     let preset = ModelPreset::YolosTiny.spec();

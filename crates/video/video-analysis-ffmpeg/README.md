@@ -15,11 +15,21 @@ FFmpeg-backed media ingest for `moritzbrantner-video-analysis`.
 ## Example
 
 ```rust,ignore
-use video_analysis_ffmpeg::{FfmpegVideoSource, FfmpegVideoSourceOptions};
+use video_analysis_ffmpeg::{
+    probe_streams, FfmpegAudioSource, FfmpegAudioSourceOptions,
+};
 
-let source = FfmpegVideoSource::open("video.mp4", FfmpegVideoSourceOptions::recorded())?;
-let _ = source.stream_info()?;
+let inventory = probe_streams("video.mkv")?;
+let source = FfmpegAudioSource::open_path_with_options_checked(
+    "video.mkv",
+    FfmpegAudioSourceOptions::recorded().audio_stream_index(1),
+)?;
 ```
+
+`probe_streams` returns every stream with its global container index and, for
+audio, its zero-based audio ordinal. Explicit audio selection is validated
+against that inventory before FFmpeg decode starts. Omitting the selector keeps
+the existing first-audio-stream behavior.
 
 ## Related crates
 
