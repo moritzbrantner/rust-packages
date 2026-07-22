@@ -38,6 +38,153 @@ pub enum FfmpegError {
     #[error("missing or invalid video metadata: {0}")]
     /// The invalid metadata variant.
     InvalidMetadata(String),
+    #[error("invalid audio stream selection {selection:?}: {reason:?}")]
+    /// Audio stream selection failed before decode.
+    InvalidAudioStreamSelection {
+        /// Requested stream selection.
+        selection: AudioStreamSelection,
+        /// Why the selection failed.
+        reason: AudioStreamSelectionErrorReason,
+        /// All streams available in the probed input.
+        available_streams: MediaStreamInventory,
+    },
+    #[error("unsupported FFmpeg runtime for decode: {message}")]
+    /// The selected runtime cannot perform this decode operation.
+    UnsupportedRuntime {
+        /// Diagnostic message for this variant.
+        message: String,
+    },
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+/// A typed way to identify an audio stream.
+pub enum AudioStreamSelection {
+    /// Zero-based ordinal among audio streams (`0:a:N` in FFmpeg syntax).
+    AudioOrdinal(usize),
+    /// Global container stream index, useful for validating inventory-driven choices.
+    GlobalStreamIndex(u32),
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+/// Reason an audio stream selection could not be resolved.
+pub enum AudioStreamSelectionErrorReason {
+    /// The input contains no audio streams.
+    NoAudioStreams,
+    /// The requested ordinal or global index is not present.
+    OutOfRange,
+    /// The requested global stream exists but is not audio.
+    NotAudio,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+/// Media type reported for an FFprobe stream.
+pub enum MediaType {
+    /// Video stream.
+    Video,
+    /// Audio stream.
+    Audio,
+    /// Subtitle stream.
+    Subtitle,
+    /// Data stream.
+    Data,
+    /// Attachment stream.
+    Attachment,
+    /// A stream type not recognized by this crate version.
+    Unknown(String),
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+/// Typed FFprobe metadata for one media stream.
+pub struct MediaStream {
+    /// Global stream index within the input container.
+    pub index: u32,
+    /// Media type reported by FFprobe.
+    pub media_type: MediaType,
+    /// Zero-based ordinal among audio streams, when this is an audio stream.
+    pub audio_stream_ordinal: Option<usize>,
+    /// Codec name, when reported.
+    pub codec: Option<String>,
+    /// Channel count for audio streams, when reported.
+    pub channels: Option<u16>,
+    /// Sample rate in hertz for audio streams, when reported.
+    pub sample_rate: Option<u32>,
+    /// Language tag, when reported.
+    pub language: Option<String>,
+    /// Whether FFmpeg marks this stream as the default, when reported.
+    pub default_disposition: Option<bool>,
+}
+
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+/// Typed inventory of every stream reported by FFprobe.
+pub struct MediaStreamInventory {
+    /// Streams in FFprobe order.
+    pub streams: Vec<MediaStream>,
+}
+
+/// Resolves and validates an audio stream selection against a probed inventory.
+pub fn validate_audio_stream_selection(
+    inventory: &MediaStreamInventory,
+    selection: AudioStreamSelection,
+) -> std::result::Result<&MediaStream, FfmpegError> {
+    let selected = match selection {
+        AudioStreamSelection::AudioOrdinal(ordinal) => {
+            if !inventory
+                .streams
+                .iter()
+                .any(|stream| stream.media_type == MediaType::Audio)
+            {
+                return Err(invalid_audio_stream_selection(
+                    inventory,
+                    selection,
+                    AudioStreamSelectionErrorReason::NoAudioStreams,
+                ));
+            }
+            inventory
+                .streams
+                .iter()
+                .find(|stream| stream.audio_stream_ordinal == Some(ordinal))
+        }
+        AudioStreamSelection::GlobalStreamIndex(index) => {
+            let stream = inventory
+                .streams
+                .iter()
+                .find(|stream| stream.index == index);
+            if stream.is_some_and(|stream| stream.media_type != MediaType::Audio) {
+                return Err(invalid_audio_stream_selection(
+                    inventory,
+                    selection,
+                    AudioStreamSelectionErrorReason::NotAudio,
+                ));
+            }
+            stream
+        }
+    };
+    selected.ok_or_else(|| {
+        invalid_audio_stream_selection(
+            inventory,
+            selection,
+            AudioStreamSelectionErrorReason::OutOfRange,
+        )
+    })
+}
+
+fn invalid_audio_stream_selection(
+    inventory: &MediaStreamInventory,
+    selection: AudioStreamSelection,
+    reason: AudioStreamSelectionErrorReason,
+) -> FfmpegError {
+    FfmpegError::InvalidAudioStreamSelection {
+        selection,
+        reason,
+        available_streams: inventory.clone(),
+    }
+}
+
+fn into_detect_error(error: FfmpegError) -> DetectError {
+    match error {
+        FfmpegError::UnsupportedRuntime { message } => DetectError::InvalidArgument(message),
+        error => DetectError::Source(error.to_string()),
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -212,6 +359,10 @@ pub struct FfmpegAudioSourceOptions {
     pub samples_per_chunk: usize,
     /// The extra input args value.
     pub extra_input_args: Vec<String>,
+    /// Zero-based ordinal of the audio stream to decode.
+    ///
+    /// When omitted, FFmpeg's existing first-audio-stream behavior is retained.
+    pub audio_stream_index: Option<usize>,
     /// Runtime options.
     pub runtime: FfmpegRuntimeOptions,
 }
@@ -224,6 +375,7 @@ impl FfmpegAudioSourceOptions {
             realtime: false,
             samples_per_chunk: 1024,
             extra_input_args: Vec::new(),
+            audio_stream_index: None,
             runtime: FfmpegRuntimeOptions::command(),
         }
     }
@@ -235,6 +387,7 @@ impl FfmpegAudioSourceOptions {
             realtime: true,
             samples_per_chunk: 1024,
             extra_input_args: Vec::new(),
+            audio_stream_index: None,
             runtime: FfmpegRuntimeOptions::command(),
         }
     }
@@ -248,6 +401,12 @@ impl FfmpegAudioSourceOptions {
     /// Returns extra input arg.
     pub fn extra_input_arg(mut self, arg: impl Into<String>) -> Self {
         self.extra_input_args.push(arg.into());
+        self
+    }
+
+    /// Selects a zero-based audio-stream ordinal for decoding.
+    pub fn audio_stream_index(mut self, index: usize) -> Self {
+        self.audio_stream_index = Some(index);
         self
     }
 
@@ -509,10 +668,23 @@ impl FfmpegAudioSource {
         path: impl AsRef<Path>,
         options: FfmpegAudioSourceOptions,
     ) -> Result<Self> {
+        Self::open_path_with_options_checked(path, options).map_err(into_detect_error)
+    }
+
+    /// Opens a path while preserving typed FFprobe and stream-selection errors.
+    pub fn open_path_with_options_checked(
+        path: impl AsRef<Path>,
+        options: FfmpegAudioSourceOptions,
+    ) -> std::result::Result<Self, FfmpegError> {
         let path = path.as_ref().to_path_buf();
         let input = path.to_string_lossy().into_owned();
-        let metadata = probe_audio_path_with_runtime(&path, options.mode, &options.runtime)
-            .map_err(|err| DetectError::Source(err.to_string()))?;
+        let metadata = probe_selected_audio_input(
+            &input,
+            Some(path),
+            options.mode,
+            &options.runtime,
+            options.audio_stream_index,
+        )?;
         Self::spawn(input, metadata, options)
     }
 
@@ -531,9 +703,22 @@ impl FfmpegAudioSource {
         input: impl Into<String>,
         options: FfmpegAudioSourceOptions,
     ) -> Result<Self> {
+        Self::open_input_with_options_checked(input, options).map_err(into_detect_error)
+    }
+
+    /// Opens an input while preserving typed FFprobe and stream-selection errors.
+    pub fn open_input_with_options_checked(
+        input: impl Into<String>,
+        options: FfmpegAudioSourceOptions,
+    ) -> std::result::Result<Self, FfmpegError> {
         let input = input.into();
-        let metadata = probe_audio_input_with_runtime(&input, None, options.mode, &options.runtime)
-            .map_err(|err| DetectError::Source(err.to_string()))?;
+        let metadata = probe_selected_audio_input(
+            &input,
+            None,
+            options.mode,
+            &options.runtime,
+            options.audio_stream_index,
+        )?;
         Self::spawn(input, metadata, options)
     }
 
@@ -541,8 +726,12 @@ impl FfmpegAudioSource {
         input: String,
         metadata: AudioMetadata,
         options: FfmpegAudioSourceOptions,
-    ) -> Result<Self> {
-        reject_native_runtime(&options.runtime)?;
+    ) -> std::result::Result<Self, FfmpegError> {
+        if matches!(options.runtime.backend, FfmpegRuntimeBackend::Native) {
+            return Err(FfmpegError::UnsupportedRuntime {
+                message: "ffmpeg-native runtime is available for probing in this build; decode/extract still uses the command backend".to_string(),
+            });
+        }
         let source_info = MediaSourceInfo {
             input: metadata.input.clone(),
             mode: metadata.mode,
@@ -554,45 +743,29 @@ impl FfmpegAudioSource {
             }],
             text: Vec::new(),
         };
+        let selected_audio_stream = options.audio_stream_index.unwrap_or(0);
         let mut command = Command::new("ffmpeg");
-        command.arg("-v").arg("error");
-        if options.realtime {
-            command
-                .arg("-fflags")
-                .arg("nobuffer")
-                .arg("-flags")
-                .arg("low_delay");
-        }
-        for arg in &options.extra_input_args {
-            command.arg(arg);
-        }
         command
-            .arg("-i")
-            .arg(&input)
-            .arg("-map")
-            .arg("0:a:0")
-            .arg("-vn")
-            .arg("-f")
-            .arg("f32le")
-            .arg("-acodec")
-            .arg("pcm_f32le")
-            .arg("pipe:1")
+            .args(build_audio_ffmpeg_args(
+                &input,
+                &options,
+                selected_audio_stream,
+            ))
             .stdin(Stdio::null())
             .stdout(Stdio::piped())
             .stderr(Stdio::piped());
 
-        let mut child = command.spawn().map_err(|err| {
-            DetectError::Source(
-                FfmpegError::StartFailed {
-                    input: input.clone(),
-                    message: err.to_string(),
-                }
-                .to_string(),
-            )
+        let mut child = command.spawn().map_err(|err| FfmpegError::StartFailed {
+            input: input.clone(),
+            message: err.to_string(),
         })?;
-        let stdout = child.stdout.take().ok_or_else(|| {
-            DetectError::Source("ffmpeg stdout pipe was not available".to_string())
-        })?;
+        let stdout = child
+            .stdout
+            .take()
+            .ok_or_else(|| FfmpegError::StartFailed {
+                input: input.clone(),
+                message: "ffmpeg stdout pipe was not available".to_string(),
+            })?;
         Ok(Self {
             metadata,
             source_info,
@@ -650,6 +823,35 @@ impl FfmpegAudioSource {
         )
         .map(Some)
     }
+}
+
+fn build_audio_ffmpeg_args(
+    input: &str,
+    options: &FfmpegAudioSourceOptions,
+    selected_audio_stream: usize,
+) -> Vec<String> {
+    let mut args = vec!["-v".to_string(), "error".to_string()];
+    if options.realtime {
+        args.extend(
+            ["-fflags", "nobuffer", "-flags", "low_delay"]
+                .into_iter()
+                .map(str::to_owned),
+        );
+    }
+    args.extend(options.extra_input_args.iter().cloned());
+    args.extend([
+        "-i".to_string(),
+        input.to_string(),
+        "-map".to_string(),
+        format!("0:a:{selected_audio_stream}"),
+        "-vn".to_string(),
+        "-f".to_string(),
+        "f32le".to_string(),
+        "-acodec".to_string(),
+        "pcm_f32le".to_string(),
+        "pipe:1".to_string(),
+    ]);
+    args
 }
 
 impl Drop for FfmpegAudioSource {
@@ -722,6 +924,41 @@ pub fn probe_audio_input(
     probe_audio_input_with_mode(input.as_ref(), None, SourceMode::Recorded)
 }
 
+/// Probes and returns a typed inventory of every stream in a media file.
+pub fn probe_streams(
+    path: impl AsRef<Path>,
+) -> std::result::Result<MediaStreamInventory, FfmpegError> {
+    let path = path.as_ref();
+    probe_streams_input(path.to_string_lossy())
+}
+
+/// Probes and returns a typed inventory of every stream in a media input.
+pub fn probe_streams_input(
+    input: impl AsRef<str>,
+) -> std::result::Result<MediaStreamInventory, FfmpegError> {
+    let input = input.as_ref();
+    let output = Command::new("ffprobe")
+        .arg("-v")
+        .arg("error")
+        .arg("-show_entries")
+        .arg("stream=index,codec_type,codec_name,channels,sample_rate:stream_tags=language:stream_disposition=default")
+        .arg("-of")
+        .arg("json")
+        .arg(input)
+        .output()
+        .map_err(|err| FfmpegError::ProbeFailed {
+            input: input.to_string(),
+            message: err.to_string(),
+        })?;
+    if !output.status.success() {
+        return Err(FfmpegError::ProbeFailed {
+            input: input.to_string(),
+            message: String::from_utf8_lossy(&output.stderr).trim().to_string(),
+        });
+    }
+    parse_stream_inventory(&String::from_utf8_lossy(&output.stdout))
+}
+
 fn probe_path_with_mode(
     path: impl AsRef<Path>,
     mode: SourceMode,
@@ -762,10 +999,43 @@ fn probe_audio_input_with_runtime(
     mode: SourceMode,
     runtime: &FfmpegRuntimeOptions,
 ) -> std::result::Result<AudioMetadata, FfmpegError> {
+    probe_audio_input_with_runtime_and_ordinal(input, path, mode, runtime, 0)
+}
+
+fn probe_audio_input_with_runtime_and_ordinal(
+    input: &str,
+    path: Option<PathBuf>,
+    mode: SourceMode,
+    runtime: &FfmpegRuntimeOptions,
+    audio_stream_ordinal: usize,
+) -> std::result::Result<AudioMetadata, FfmpegError> {
     match runtime.backend {
-        FfmpegRuntimeBackend::Command => probe_audio_input_with_mode(input, path, mode),
+        FfmpegRuntimeBackend::Command => {
+            probe_audio_input_with_mode_and_ordinal(input, path, mode, audio_stream_ordinal)
+        }
         FfmpegRuntimeBackend::Native => native_probe_audio_input(input, path, mode),
     }
+}
+
+fn probe_selected_audio_input(
+    input: &str,
+    path: Option<PathBuf>,
+    mode: SourceMode,
+    runtime: &FfmpegRuntimeOptions,
+    audio_stream_index: Option<usize>,
+) -> std::result::Result<AudioMetadata, FfmpegError> {
+    let Some(audio_stream_index) = audio_stream_index else {
+        return probe_audio_input_with_runtime(input, path, mode, runtime);
+    };
+    if matches!(runtime.backend, FfmpegRuntimeBackend::Native) {
+        return native_probe_audio_input(input, path, mode);
+    }
+    let inventory = probe_streams_input(input)?;
+    validate_audio_stream_selection(
+        &inventory,
+        AudioStreamSelection::AudioOrdinal(audio_stream_index),
+    )?;
+    probe_audio_input_with_runtime_and_ordinal(input, path, mode, runtime, audio_stream_index)
 }
 
 fn probe_input_with_runtime(
@@ -785,11 +1055,20 @@ fn probe_audio_input_with_mode(
     path: Option<PathBuf>,
     mode: SourceMode,
 ) -> std::result::Result<AudioMetadata, FfmpegError> {
+    probe_audio_input_with_mode_and_ordinal(input, path, mode, 0)
+}
+
+fn probe_audio_input_with_mode_and_ordinal(
+    input: &str,
+    path: Option<PathBuf>,
+    mode: SourceMode,
+    audio_stream_ordinal: usize,
+) -> std::result::Result<AudioMetadata, FfmpegError> {
     let output = Command::new("ffprobe")
         .arg("-v")
         .arg("error")
         .arg("-select_streams")
-        .arg("a:0")
+        .arg(format!("a:{audio_stream_ordinal}"))
         .arg("-show_entries")
         .arg("stream=sample_rate,channels,duration")
         .arg("-of")
@@ -1059,6 +1338,55 @@ pub fn write_test_audio(path: impl AsRef<Path>) -> Result<()> {
     }
 }
 
+#[cfg(feature = "test-utils")]
+/// Writes a small Matroska file with video and two distinguishable audio streams.
+pub fn write_two_audio_stream_test_media(path: impl AsRef<Path>) -> Result<()> {
+    let path = path.as_ref();
+    let status = Command::new("ffmpeg")
+        .arg("-y")
+        .arg("-v")
+        .arg("error")
+        .arg("-f")
+        .arg("lavfi")
+        .arg("-i")
+        .arg("color=c=black:s=16x16:d=0.2:r=10")
+        .arg("-f")
+        .arg("lavfi")
+        .arg("-i")
+        .arg("sine=frequency=440:duration=0.2:sample_rate=48000")
+        .arg("-f")
+        .arg("lavfi")
+        .arg("-i")
+        .arg("sine=frequency=880:duration=0.2:sample_rate=24000")
+        .arg("-map")
+        .arg("0:v:0")
+        .arg("-map")
+        .arg("1:a:0")
+        .arg("-map")
+        .arg("2:a:0")
+        .arg("-c:v")
+        .arg("ffv1")
+        .arg("-c:a")
+        .arg("pcm_s16le")
+        .arg("-metadata:s:a:0")
+        .arg("language=eng")
+        .arg("-metadata:s:a:1")
+        .arg("language=deu")
+        .arg("-disposition:a:0")
+        .arg("default")
+        .arg("-disposition:a:1")
+        .arg("0")
+        .arg(path)
+        .status()?;
+    if status.success() {
+        Ok(())
+    } else {
+        Err(DetectError::Source(
+            "ffmpeg failed to generate two-audio-stream test media".to_string(),
+        ))
+    }
+}
+
 fn parse_u32(value: Option<&str>, name: &str) -> std::result::Result<u32, FfmpegError> {
     value
         .ok_or_else(|| FfmpegError::InvalidMetadata(format!("missing {name}")))?
@@ -1091,6 +1419,79 @@ fn parse_rate(value: &str) -> std::result::Result<Rational64, FfmpegError> {
         ));
     }
     Ok(Rational64::new(num, den))
+}
+
+fn parse_stream_inventory(json: &str) -> std::result::Result<MediaStreamInventory, FfmpegError> {
+    let value: serde_json::Value = serde_json::from_str(json)
+        .map_err(|err| FfmpegError::InvalidMetadata(format!("invalid ffprobe JSON: {err}")))?;
+    let streams = value
+        .get("streams")
+        .and_then(serde_json::Value::as_array)
+        .ok_or_else(|| FfmpegError::InvalidMetadata("missing streams array".to_string()))?;
+    let mut audio_stream_ordinal = 0_usize;
+    let streams = streams
+        .iter()
+        .map(|stream| {
+            let index = stream
+                .get("index")
+                .and_then(serde_json::Value::as_u64)
+                .and_then(|value| u32::try_from(value).ok())
+                .ok_or_else(|| {
+                    FfmpegError::InvalidMetadata("missing or invalid stream index".to_string())
+                })?;
+            let media_type = match stream
+                .get("codec_type")
+                .and_then(serde_json::Value::as_str)
+                .unwrap_or("unknown")
+            {
+                "video" => MediaType::Video,
+                "audio" => MediaType::Audio,
+                "subtitle" => MediaType::Subtitle,
+                "data" => MediaType::Data,
+                "attachment" => MediaType::Attachment,
+                other => MediaType::Unknown(other.to_string()),
+            };
+            let ordinal = if media_type == MediaType::Audio {
+                let ordinal = audio_stream_ordinal;
+                audio_stream_ordinal += 1;
+                Some(ordinal)
+            } else {
+                None
+            };
+            let sample_rate = stream
+                .get("sample_rate")
+                .and_then(serde_json::Value::as_str)
+                .and_then(|value| value.parse::<u32>().ok());
+            let channels = stream
+                .get("channels")
+                .and_then(serde_json::Value::as_u64)
+                .and_then(|value| u16::try_from(value).ok());
+            let language = stream
+                .get("tags")
+                .and_then(|tags| tags.get("language"))
+                .and_then(serde_json::Value::as_str)
+                .map(str::to_owned);
+            let default_disposition = stream
+                .get("disposition")
+                .and_then(|disposition| disposition.get("default"))
+                .and_then(serde_json::Value::as_u64)
+                .map(|value| value != 0);
+            Ok(MediaStream {
+                index,
+                media_type,
+                audio_stream_ordinal: ordinal,
+                codec: stream
+                    .get("codec_name")
+                    .and_then(serde_json::Value::as_str)
+                    .map(str::to_owned),
+                channels,
+                sample_rate,
+                language,
+                default_disposition,
+            })
+        })
+        .collect::<std::result::Result<Vec<_>, FfmpegError>>()?;
+    Ok(MediaStreamInventory { streams })
 }
 
 /// Returns ensure parent dir.
@@ -1163,6 +1564,119 @@ mod tests {
                 .samples_per_chunk,
             1
         );
+        assert_eq!(
+            FfmpegAudioSourceOptions::recorded()
+                .audio_stream_index(1)
+                .audio_stream_index,
+            Some(1)
+        );
+    }
+
+    #[test]
+    fn stream_inventory_parses_all_media_and_assigns_audio_ordinals() {
+        let inventory = parse_stream_inventory(
+            r#"{"streams":[
+                {"index":0,"codec_name":"h264","codec_type":"video","disposition":{"default":1}},
+                {"index":1,"codec_name":"aac","codec_type":"audio","sample_rate":"48000","channels":2,"tags":{"language":"eng"},"disposition":{"default":1}},
+                {"index":2,"codec_name":"subrip","codec_type":"subtitle"},
+                {"index":3,"codec_name":"opus","codec_type":"audio","sample_rate":"24000","channels":1,"tags":{"language":"deu"},"disposition":{"default":0}}
+            ]}"#,
+        )
+        .unwrap();
+
+        assert_eq!(inventory.streams.len(), 4);
+        assert_eq!(inventory.streams[0].media_type, MediaType::Video);
+        assert_eq!(inventory.streams[0].audio_stream_ordinal, None);
+        assert_eq!(inventory.streams[1].audio_stream_ordinal, Some(0));
+        assert_eq!(inventory.streams[1].sample_rate, Some(48_000));
+        assert_eq!(inventory.streams[1].channels, Some(2));
+        assert_eq!(inventory.streams[1].language.as_deref(), Some("eng"));
+        assert_eq!(inventory.streams[1].default_disposition, Some(true));
+        assert_eq!(inventory.streams[2].media_type, MediaType::Subtitle);
+        assert_eq!(inventory.streams[3].audio_stream_ordinal, Some(1));
+        assert_eq!(inventory.streams[3].default_disposition, Some(false));
+    }
+
+    #[test]
+    fn audio_stream_selection_resolves_audio_ordinals() {
+        let inventory = parse_stream_inventory(
+            r#"{"streams":[
+                {"index":0,"codec_type":"video"},
+                {"index":1,"codec_type":"audio","sample_rate":"48000","channels":1},
+                {"index":2,"codec_type":"audio","sample_rate":"24000","channels":2}
+            ]}"#,
+        )
+        .unwrap();
+
+        let selected =
+            validate_audio_stream_selection(&inventory, AudioStreamSelection::AudioOrdinal(1))
+                .unwrap();
+
+        assert_eq!(selected.index, 2);
+        assert_eq!(selected.audio_stream_ordinal, Some(1));
+    }
+
+    #[test]
+    fn invalid_audio_stream_selections_are_typed_and_retain_inventory() {
+        let inventory = parse_stream_inventory(
+            r#"{"streams":[
+                {"index":0,"codec_type":"video"},
+                {"index":1,"codec_type":"audio","sample_rate":"48000","channels":1}
+            ]}"#,
+        )
+        .unwrap();
+
+        for (selection, expected_reason) in [
+            (
+                AudioStreamSelection::AudioOrdinal(2),
+                AudioStreamSelectionErrorReason::OutOfRange,
+            ),
+            (
+                AudioStreamSelection::GlobalStreamIndex(0),
+                AudioStreamSelectionErrorReason::NotAudio,
+            ),
+        ] {
+            let error = validate_audio_stream_selection(&inventory, selection).unwrap_err();
+            let FfmpegError::InvalidAudioStreamSelection {
+                reason,
+                available_streams,
+                ..
+            } = error
+            else {
+                panic!("expected typed selection error");
+            };
+            assert_eq!(reason, expected_reason);
+            assert_eq!(available_streams, inventory);
+        }
+
+        let no_audio =
+            parse_stream_inventory(r#"{"streams":[{"index":0,"codec_type":"video"}]}"#).unwrap();
+        let error =
+            validate_audio_stream_selection(&no_audio, AudioStreamSelection::AudioOrdinal(0))
+                .unwrap_err();
+        assert!(matches!(
+            error,
+            FfmpegError::InvalidAudioStreamSelection {
+                reason: AudioStreamSelectionErrorReason::NoAudioStreams,
+                ..
+            }
+        ));
+    }
+
+    #[test]
+    fn audio_decode_map_is_an_output_option_after_the_input() {
+        let options = FfmpegAudioSourceOptions::recorded()
+            .extra_input_arg("-nostdin")
+            .audio_stream_index(2);
+        let args = build_audio_ffmpeg_args("input.mkv", &options, 2);
+
+        let input_position = args.iter().position(|arg| arg == "-i").unwrap();
+        let input_path_position = args.iter().position(|arg| arg == "input.mkv").unwrap();
+        let map_position = args.iter().position(|arg| arg == "-map").unwrap();
+        assert!(args.iter().position(|arg| arg == "-nostdin").unwrap() < input_position);
+        assert_eq!(input_path_position, input_position + 1);
+        assert!(map_position > input_path_position);
+        assert_eq!(args[map_position + 1], "0:a:2");
     }
 
     #[test]
@@ -1261,6 +1775,115 @@ mod tests {
             count >= 4,
             "expected at least 4 decoded frames, got {count}"
         );
+    }
+
+    #[test]
+    #[cfg(feature = "ffmpeg-tests")]
+    fn probes_generated_two_audio_stream_inventory() {
+        if !(is_ffmpeg_available() && is_ffprobe_available()) {
+            eprintln!("skipping FFmpeg test because ffmpeg/ffprobe is unavailable");
+            return;
+        }
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("two-audio-streams.mkv");
+        write_two_audio_stream_test_media(&path).unwrap();
+
+        let inventory = probe_streams(&path).unwrap();
+        assert_eq!(inventory.streams.len(), 3);
+        assert_eq!(inventory.streams[0].media_type, MediaType::Video);
+        assert_eq!(inventory.streams[1].audio_stream_ordinal, Some(0));
+        assert_eq!(inventory.streams[1].sample_rate, Some(48_000));
+        assert_eq!(inventory.streams[1].language.as_deref(), Some("eng"));
+        assert_eq!(inventory.streams[1].default_disposition, Some(true));
+        assert_eq!(inventory.streams[2].audio_stream_ordinal, Some(1));
+        assert_eq!(inventory.streams[2].sample_rate, Some(24_000));
+        assert_eq!(inventory.streams[2].language.as_deref(), Some("deu"));
+        assert_eq!(inventory.streams[2].default_disposition, Some(false));
+    }
+
+    #[test]
+    #[cfg(feature = "ffmpeg-tests")]
+    fn decodes_default_and_each_explicit_audio_stream() {
+        use video_analysis_ingest::AudioFrameSource;
+
+        if !(is_ffmpeg_available() && is_ffprobe_available()) {
+            eprintln!("skipping FFmpeg test because ffmpeg/ffprobe is unavailable");
+            return;
+        }
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("two-audio-streams.mkv");
+        write_two_audio_stream_test_media(&path).unwrap();
+
+        for (selection, expected_sample_rate) in
+            [(None, 48_000), (Some(0), 48_000), (Some(1), 24_000)]
+        {
+            let mut options = FfmpegAudioSourceOptions::recorded().samples_per_chunk(256);
+            if let Some(selection) = selection {
+                options = options.audio_stream_index(selection);
+            }
+            let mut source =
+                FfmpegAudioSource::open_path_with_options_checked(&path, options).unwrap();
+            assert_eq!(source.metadata().sample_rate, expected_sample_rate);
+            let frame = source.next_audio_frame().unwrap().unwrap();
+            assert_eq!(frame.sample_rate, expected_sample_rate);
+            assert!(frame.samples_per_channel() > 0);
+        }
+    }
+
+    #[test]
+    #[cfg(feature = "ffmpeg-tests")]
+    fn explicit_invalid_audio_ordinal_fails_with_inventory_before_decode() {
+        if !(is_ffmpeg_available() && is_ffprobe_available()) {
+            eprintln!("skipping FFmpeg test because ffmpeg/ffprobe is unavailable");
+            return;
+        }
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("two-audio-streams.mkv");
+        write_two_audio_stream_test_media(&path).unwrap();
+
+        let error = FfmpegAudioSource::open_path_with_options_checked(
+            &path,
+            FfmpegAudioSourceOptions::recorded().audio_stream_index(2),
+        )
+        .err()
+        .expect("selection should fail before a source is spawned");
+        let FfmpegError::InvalidAudioStreamSelection {
+            selection,
+            reason,
+            available_streams,
+        } = error
+        else {
+            panic!("expected typed selection error");
+        };
+        assert_eq!(selection, AudioStreamSelection::AudioOrdinal(2));
+        assert_eq!(reason, AudioStreamSelectionErrorReason::OutOfRange);
+        assert_eq!(available_streams.streams.len(), 3);
+    }
+
+    #[test]
+    #[cfg(feature = "ffmpeg-tests")]
+    fn explicit_audio_selection_reports_when_audio_is_absent() {
+        if !(is_ffmpeg_available() && is_ffprobe_available()) {
+            eprintln!("skipping FFmpeg test because ffmpeg/ffprobe is unavailable");
+            return;
+        }
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("video-only.mp4");
+        write_two_scene_test_video(&path).unwrap();
+
+        let error = FfmpegAudioSource::open_path_with_options_checked(
+            &path,
+            FfmpegAudioSourceOptions::recorded().audio_stream_index(0),
+        )
+        .err()
+        .expect("selection should fail before a source is spawned");
+        assert!(matches!(
+            error,
+            FfmpegError::InvalidAudioStreamSelection {
+                reason: AudioStreamSelectionErrorReason::NoAudioStreams,
+                ..
+            }
+        ));
     }
 
     #[test]
