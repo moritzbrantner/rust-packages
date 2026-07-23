@@ -724,6 +724,7 @@ flowchart LR
   crate_moenarch_audio_analysis_transcription -. optional .-> crate_moenarch_text_model_runtime
   crate_moenarch_audio_analysis_transcription --> crate_moenarch_text_transcripts
   crate_moenarch_audio_analysis_transcription --> crate_moenarch_video_analysis_core
+  crate_moenarch_audio_analysis_transcription -. dev .-> crate_moenarch_video_analysis_ffmpeg
   crate_moenarch_audio_analysis_transcription -. optional .-> crate_moenarch_model_runtime
   crate_moenarch_audio_analysis_transcription --> crate_moenarch_runtime_core
   crate_moenarch_audio_analysis_transcription -. optional .-> crate_moenarch_runtime_onnx

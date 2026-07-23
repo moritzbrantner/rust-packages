@@ -1966,7 +1966,7 @@ dependencies = [
 
 [[package]]
 name = "moenarch-audio-analysis-io"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "hound",
  "moenarch-audio-analysis-core",
@@ -2348,7 +2348,7 @@ dependencies = [
 
 [[package]]
 name = "moenarch-audio-analysis-transcription"
-version = "0.1.13"
+version = "0.1.14"
 dependencies = [
  "candle-core",
  "candle-nn",
@@ -2363,6 +2363,7 @@ dependencies = [
  "moenarch-text-model-runtime",
  "moenarch-text-transcripts",
  "moenarch-video-analysis-core",
+ "moenarch-video-analysis-ffmpeg",
  "rayon",
  "serde",
  "serde_json",
@@ -5067,7 +5068,7 @@ dependencies = [
 
 [[package]]
 name = "moenarch-video-analysis-ffmpeg"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "moenarch-runtime-core",
  "moenarch-video-analysis-core",

@@ -20,6 +20,29 @@ pub(crate) fn mono_16khz_from_source(source: &TranscriptionSource) -> Result<Loa
     Ok(mono_16khz_from_source_with_diagnostics(source)?.0)
 }
 
+#[cfg(feature = "audio-io")]
+pub(crate) fn mono_16khz_from_selected_media(
+    path: &Path,
+    audio_stream_index: Option<usize>,
+) -> audio_analysis_io::AudioIoResult<LoadedAudio> {
+    let mut source = audio_analysis_io::SelectedMediaSource::new(path);
+    if let Some(index) = audio_stream_index {
+        source = source.audio_stream_index(index);
+    }
+    let (metadata, mono) = audio_analysis_io::decode_selected_media_to_mono_f32(
+        source,
+        audio_analysis_io::AudioInputOptions::recorded(),
+        audio_analysis_io::ChannelMix::Average,
+    )?;
+    normalize_samples_source(
+        &mono,
+        metadata.sample_rate,
+        1,
+        Some(path.to_string_lossy().into_owned()),
+    )
+    .map_err(audio_analysis_io::AudioIoError::from)
+}
+
 #[allow(dead_code)]
 pub(crate) fn mono_16khz_from_source_with_diagnostics(
     source: &TranscriptionSource,

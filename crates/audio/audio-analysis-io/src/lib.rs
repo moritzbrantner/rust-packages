@@ -11,7 +11,7 @@ use video_analysis_core::{OwnedAudioFrame, Result, Timebase, Timestamp};
 /// Re-exports the video analysis FFmpeg API.
 pub use video_analysis_ffmpeg::{
     probe_audio as probe_audio_file, probe_audio_input, AudioMetadata, FfmpegAudioSource,
-    FfmpegAudioSourceOptions,
+    FfmpegAudioSourceOptions, FfmpegError,
 };
 /// Re-exports the video analysis ingest audio frame source API.
 pub use video_analysis_ingest::{AudioFrameSource, AudioStreamInfo, SourceMode};
@@ -26,6 +26,84 @@ pub enum AudioInput {
     /// The live variant.
     Live(String),
 }
+
+/// A finite media path with an optional zero-based audio-stream selection.
+///
+/// This additive source keeps [`AudioInput::File`] unchanged for existing
+/// callers while allowing container-aware callers to select one audio stream.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct SelectedMediaSource {
+    path: PathBuf,
+    audio_stream_index: Option<usize>,
+}
+
+impl SelectedMediaSource {
+    /// Creates a media source that preserves FFmpeg's existing default stream behavior.
+    pub fn new(path: impl Into<PathBuf>) -> Self {
+        Self {
+            path: path.into(),
+            audio_stream_index: None,
+        }
+    }
+
+    /// Selects a zero-based audio-stream ordinal.
+    pub fn audio_stream_index(mut self, index: usize) -> Self {
+        self.audio_stream_index = Some(index);
+        self
+    }
+
+    /// Returns the media path.
+    pub fn path(&self) -> &Path {
+        &self.path
+    }
+
+    /// Returns the selected zero-based audio-stream ordinal, when present.
+    pub fn selected_audio_stream_index(&self) -> Option<usize> {
+        self.audio_stream_index
+    }
+}
+
+/// Error returned by checked selected-media decode operations.
+#[derive(Debug)]
+pub enum AudioIoError {
+    /// FFprobe, FFmpeg startup, or typed stream-selection failure.
+    Ffmpeg(FfmpegError),
+    /// Failure while consuming decoded audio frames.
+    Decode(video_analysis_core::DetectError),
+}
+
+impl std::fmt::Display for AudioIoError {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Ffmpeg(error) => error.fmt(formatter),
+            Self::Decode(error) => error.fmt(formatter),
+        }
+    }
+}
+
+impl std::error::Error for AudioIoError {
+    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
+        match self {
+            Self::Ffmpeg(error) => Some(error),
+            Self::Decode(error) => Some(error),
+        }
+    }
+}
+
+impl From<FfmpegError> for AudioIoError {
+    fn from(error: FfmpegError) -> Self {
+        Self::Ffmpeg(error)
+    }
+}
+
+impl From<video_analysis_core::DetectError> for AudioIoError {
+    fn from(error: video_analysis_core::DetectError) -> Self {
+        Self::Decode(error)
+    }
+}
+
+/// Result returned by checked selected-media decode operations.
+pub type AudioIoResult<T> = std::result::Result<T, AudioIoError>;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 /// Data type for audio input options.
@@ -115,6 +193,46 @@ pub fn open_audio_input(
             FfmpegAudioSource::open_input_with_options(input, options)
         }
     }
+}
+
+/// Opens a finite selected-media source while preserving typed FFmpeg errors.
+pub fn open_selected_media_source(
+    source: SelectedMediaSource,
+    options: AudioInputOptions,
+) -> std::result::Result<FfmpegAudioSource, FfmpegError> {
+    let mut options = options.into_ffmpeg_options(SourceMode::Recorded);
+    if let Some(index) = source.audio_stream_index {
+        options = options.audio_stream_index(index);
+    }
+    FfmpegAudioSource::open_path_with_options_checked(source.path, options)
+}
+
+/// Decodes a finite selected-media source to interleaved f32 frames.
+pub fn decode_selected_media_to_f32(
+    source: SelectedMediaSource,
+    options: AudioInputOptions,
+) -> AudioIoResult<(AudioMetadata, Vec<OwnedAudioFrame>)> {
+    let mut source = open_selected_media_source(source, options)?;
+    let metadata = source.metadata().clone();
+    let mut frames = Vec::new();
+    while let Some(frame) = source.next_audio_frame()? {
+        frames.push(frame);
+    }
+    Ok((metadata, frames))
+}
+
+/// Decodes a finite selected-media source to mono f32 samples.
+pub fn decode_selected_media_to_mono_f32(
+    source: SelectedMediaSource,
+    options: AudioInputOptions,
+    mix: ChannelMix,
+) -> AudioIoResult<(AudioMetadata, Vec<f32>)> {
+    let (metadata, frames) = decode_selected_media_to_f32(source, options)?;
+    let mut mono = Vec::new();
+    for frame in frames {
+        mono.extend(interleaved_to_mono(&frame.data, frame.channels, mix)?);
+    }
+    Ok((metadata, mono))
 }
 
 /// Returns probe audio input metadata.
