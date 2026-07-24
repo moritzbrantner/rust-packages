@@ -4362,7 +4362,7 @@ mod tests {
         let single_error = single
             .transcribe_with_runtime_controls_and_decode_request_config_and_observer(
                 request(),
-                controls.clone(),
+                controls,
                 decode.clone(),
                 &mut observer,
             )
