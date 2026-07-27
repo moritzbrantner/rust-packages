@@ -46,7 +46,8 @@ pub use audio_analysis_speakers::{
 };
 #[cfg(feature = "candle")]
 pub use native_whisper_quantized::{
-    CandleQ8WhisperDecoder, CandleQ8WhisperDecoderDiagnostics, CandleQ8WhisperDecoderOutput,
+    CandleQ8WhisperBatchDiagnostics, CandleQ8WhisperBatchOutput, CandleQ8WhisperDecoder,
+    CandleQ8WhisperDecoderDiagnostics, CandleQ8WhisperDecoderOutput,
 };
 #[cfg(feature = "pyannote-vad")]
 pub use silero_vad::{PyannoteVadOptions, PyannoteVadTranscriptionProvider};

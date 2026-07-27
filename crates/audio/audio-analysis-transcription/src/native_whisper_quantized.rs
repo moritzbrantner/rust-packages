@@ -1,7 +1,7 @@
 use std::path::Path;
 
 use candle_core::quantized::GgmlDType;
-use candle_core::{Device, Module, Result, Tensor, D};
+use candle_core::{DType, Device, IndexOp, Module, Result, Tensor, D};
 use candle_nn::LayerNorm;
 use candle_transformers::models::whisper;
 use candle_transformers::quantized_nn::{layer_norm, linear, linear_no_bias, Embedding, Linear};
@@ -35,6 +35,31 @@ pub struct CandleQ8WhisperDecoderDiagnostics {
 pub struct CandleQ8WhisperDecoderOutput {
     pub activations: Tensor,
     pub diagnostics: CandleQ8WhisperDecoderDiagnostics,
+}
+
+/// Aggregate behavior observed while greedily decoding an active-row Q8 batch.
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
+pub struct CandleQ8WhisperBatchDiagnostics {
+    /// Active row count supplied to each decoder operation, in execution order.
+    pub effective_active_row_batch_sizes: Vec<usize>,
+    /// Number of decoder/encoder row compactions after partial batch completion.
+    pub active_row_compaction_count: usize,
+    /// Number of decoder operations that appended to self-attention state.
+    pub self_attention_cache_reuse_count: usize,
+    /// Number of decoder operations that reused encoder cross-attention state.
+    pub cross_attention_cache_reuse_count: usize,
+    /// Number of encoder key/value projections performed across decoder layers.
+    pub cross_attention_projection_count: usize,
+    /// Number of non-EOS transcript tokens generated across all rows.
+    pub generated_token_count: usize,
+}
+
+/// Ordered transcript token IDs and diagnostics from a greedy Q8 batch decode.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct CandleQ8WhisperBatchOutput {
+    /// Per-row generated token IDs in the same order as the encoder feature rows.
+    pub token_ids: Vec<Vec<u32>>,
+    pub diagnostics: CandleQ8WhisperBatchDiagnostics,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
@@ -158,6 +183,16 @@ impl Q8WhisperAttention {
     fn reset_cache(&mut self) {
         self.kv_cache = None;
     }
+
+    fn select_cache_rows(&mut self, row_indices: &Tensor) -> Result<()> {
+        if let Some((cached_k, cached_v)) = &self.kv_cache {
+            self.kv_cache = Some((
+                cached_k.index_select(row_indices, 0)?,
+                cached_v.index_select(row_indices, 0)?,
+            ));
+        }
+        Ok(())
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
@@ -231,6 +266,11 @@ impl Q8WhisperBlock {
     fn reset_cache(&mut self) {
         self.self_attention.reset_cache();
         self.cross_attention.reset_cache();
+    }
+
+    fn select_cache_rows(&mut self, row_indices: &Tensor) -> Result<()> {
+        self.self_attention.select_cache_rows(row_indices)?;
+        self.cross_attention.select_cache_rows(row_indices)
     }
 }
 
@@ -400,6 +440,151 @@ impl CandleQ8WhisperDecoder {
         activations.matmul(&weight.t()?)
     }
 
+    /// Greedily decodes one or more encoder rows through the incremental cache path.
+    ///
+    /// All rows share the same Whisper prompt and maximum generated-token count.
+    /// Rows that emit `eos_token_id` are removed immediately while surviving
+    /// encoder features and decoder caches retain their original relative order.
+    pub fn decode_greedy_batch(
+        &mut self,
+        prompt_tokens: &[u32],
+        encoder_features: &Tensor,
+        eos_token_id: u32,
+        max_generated_tokens: usize,
+    ) -> Result<CandleQ8WhisperBatchOutput> {
+        if prompt_tokens.is_empty() {
+            candle_core::bail!("Q8 Whisper batch decode requires at least one prompt token")
+        }
+        if max_generated_tokens == 0 {
+            candle_core::bail!("Q8 Whisper batch decode requires at least one generated token")
+        }
+        let row_count = encoder_features.dim(0)?;
+        if row_count == 0 {
+            candle_core::bail!("Q8 Whisper batch decode requires at least one encoder row")
+        }
+        if prompt_tokens.len() >= self.max_target_positions {
+            candle_core::bail!(
+                "Q8 Whisper prompt length {} leaves no generated-token position within max target positions {}",
+                prompt_tokens.len(),
+                self.max_target_positions
+            )
+        }
+        let generation_limit =
+            max_generated_tokens.min(self.max_target_positions - prompt_tokens.len());
+        let mut active_rows = (0..row_count)
+            .map(|original_index| (original_index, Vec::<u32>::new()))
+            .collect::<Vec<_>>();
+        let mut active_features = encoder_features.clone();
+        let mut completed = vec![None; row_count];
+        let mut diagnostics = CandleQ8WhisperBatchDiagnostics::default();
+
+        while !active_rows.is_empty() {
+            let active_count = active_rows.len();
+            diagnostics
+                .effective_active_row_batch_sizes
+                .push(active_count);
+            let (input_tokens, input_len, position_offset, reset_cache) =
+                if active_rows[0].1.is_empty() {
+                    (
+                        prompt_tokens.repeat(active_count),
+                        prompt_tokens.len(),
+                        0,
+                        true,
+                    )
+                } else {
+                    (
+                        active_rows
+                            .iter()
+                            .map(|(_, generated)| {
+                                *generated
+                                    .last()
+                                    .expect("active Q8 row has a generated token after prefill")
+                            })
+                            .collect(),
+                        1,
+                        prompt_tokens.len() + active_rows[0].1.len() - 1,
+                        false,
+                    )
+                };
+            debug_assert!(active_rows
+                .iter()
+                .all(|(_, generated)| generated.len() == active_rows[0].1.len()));
+            let tokens = Tensor::from_vec(
+                input_tokens,
+                (active_count, input_len),
+                encoder_features.device(),
+            )?;
+            let decoded =
+                self.forward_incremental(&tokens, &active_features, position_offset, reset_cache)?;
+            diagnostics.self_attention_cache_reuse_count +=
+                usize::from(decoded.diagnostics.self_attention_cache_reused);
+            diagnostics.cross_attention_cache_reuse_count +=
+                usize::from(decoded.diagnostics.cross_attention_cache_reused);
+            diagnostics.cross_attention_projection_count +=
+                decoded.diagnostics.cross_attention_projection_count;
+            let logits = self.project_logits(&decoded.activations)?;
+            let sequence_index = input_len - 1;
+            let mut survivors = Vec::with_capacity(active_count);
+            let mut survivor_indices = Vec::with_capacity(active_count);
+            for (active_index, (original_index, mut generated)) in
+                active_rows.into_iter().enumerate()
+            {
+                let row_logits = logits
+                    .i((active_index, sequence_index, ..))?
+                    .to_dtype(DType::F32)?
+                    .to_vec1::<f32>()?;
+                let next_token = row_logits
+                    .iter()
+                    .enumerate()
+                    .filter(|(_, value)| value.is_finite())
+                    .max_by(|(_, left), (_, right)| left.total_cmp(right))
+                    .map(|(token, _)| token as u32)
+                    .ok_or_else(|| {
+                        candle_core::Error::msg(
+                            "Q8 Whisper batch decode produced no finite token logits",
+                        )
+                    })?;
+                if next_token == eos_token_id {
+                    completed[original_index] = Some(generated);
+                    continue;
+                }
+                generated.push(next_token);
+                diagnostics.generated_token_count += 1;
+                if generated.len() >= generation_limit {
+                    completed[original_index] = Some(generated);
+                } else {
+                    survivor_indices.push(active_index as u32);
+                    survivors.push((original_index, generated));
+                }
+            }
+            if survivors.is_empty() {
+                break;
+            }
+            if survivors.len() < active_count {
+                diagnostics.active_row_compaction_count += 1;
+                let row_indices =
+                    Tensor::new(survivor_indices.as_slice(), encoder_features.device())?
+                        .to_dtype(DType::I64)?;
+                active_features = active_features.index_select(&row_indices, 0)?;
+                self.select_cache_rows(&row_indices)?;
+            }
+            active_rows = survivors;
+        }
+
+        let token_ids = completed
+            .into_iter()
+            .map(|tokens| {
+                tokens.ok_or_else(|| {
+                    candle_core::Error::msg("Q8 Whisper batch decode lost an output row")
+                })
+            })
+            .collect::<Result<Vec<_>>>()?;
+        Ok(CandleQ8WhisperBatchOutput {
+            token_ids,
+            diagnostics,
+        })
+    }
+
     /// Clears self- and cross-attention state for a new audio window.
     pub fn reset_cache(&mut self) {
         for block in &mut self.blocks {
@@ -407,6 +592,13 @@ impl CandleQ8WhisperDecoder {
         }
         self.cache_start_position = None;
         self.cached_token_count = 0;
+    }
+
+    fn select_cache_rows(&mut self, row_indices: &Tensor) -> Result<()> {
+        for block in &mut self.blocks {
+            block.select_cache_rows(row_indices)?;
+        }
+        Ok(())
     }
 }
 
