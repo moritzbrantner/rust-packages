@@ -163,7 +163,11 @@ fn tiny_q8_decoder_gguf() -> Vec<u8> {
 }
 
 fn encoder_features() -> Tensor {
-    Tensor::from_vec(values(3 * 32, 91, 0.01), (1, 3, 32), &Device::Cpu).unwrap()
+    encoder_features_with_seed(91)
+}
+
+fn encoder_features_with_seed(seed: usize) -> Tensor {
+    Tensor::from_vec(values(3 * 32, seed, 0.01), (1, 3, 32), &Device::Cpu).unwrap()
 }
 
 fn last_logits(
@@ -300,4 +304,107 @@ fn q8_cached_decode_rejects_a_discontinuous_absolute_position() {
             .contains("expected absolute position offset 2, got 4"),
         "{error}"
     );
+}
+
+#[test]
+fn q8_one_row_greedy_decode_uses_incremental_self_and_cross_attention_caches() {
+    let fixture = tiny_q8_decoder_gguf();
+    let mut decoder =
+        CandleQ8WhisperDecoder::from_gguf_buffer(&fixture, tiny_config(), &Device::Cpu).unwrap();
+
+    let output = decoder
+        .decode_greedy_batch(&[1, 2], &encoder_features(), u32::MAX, 2)
+        .unwrap();
+
+    assert_eq!(output.token_ids.len(), 1);
+    assert_eq!(output.token_ids[0].len(), 2);
+    assert_eq!(
+        output.diagnostics.effective_active_row_batch_sizes,
+        vec![1, 1]
+    );
+    assert_eq!(output.diagnostics.active_row_compaction_count, 0);
+    assert_eq!(output.diagnostics.self_attention_cache_reuse_count, 1);
+    assert_eq!(output.diagnostics.cross_attention_cache_reuse_count, 1);
+    assert_eq!(output.diagnostics.generated_token_count, 2);
+}
+
+#[test]
+fn q8_active_row_batch_matches_sequential_order_after_unequal_completion() {
+    let fixture = tiny_q8_decoder_gguf();
+    let prompt = [1_u32, 2];
+    let max_generated_tokens = 4;
+    let mut discovery =
+        CandleQ8WhisperDecoder::from_gguf_buffer(&fixture, tiny_config(), &Device::Cpu).unwrap();
+    let candidates = (0..32)
+        .map(|seed| {
+            let features = encoder_features_with_seed(seed);
+            let tokens = discovery
+                .decode_greedy_batch(&prompt, &features, u32::MAX, max_generated_tokens)
+                .unwrap()
+                .token_ids
+                .remove(0);
+            (features, tokens)
+        })
+        .collect::<Vec<_>>();
+    let (first_index, second_index, eos) = candidates
+        .iter()
+        .enumerate()
+        .find_map(|(first_index, (_, first_tokens))| {
+            first_tokens.iter().copied().find_map(|eos| {
+                let first_completion = first_tokens.iter().position(|token| *token == eos)?;
+                candidates
+                    .iter()
+                    .enumerate()
+                    .find_map(|(second_index, (_, second_tokens))| {
+                        let second_completion = second_tokens
+                            .iter()
+                            .position(|token| *token == eos)
+                            .unwrap_or(max_generated_tokens);
+                        (first_completion != second_completion).then_some((
+                            first_index,
+                            second_index,
+                            eos,
+                        ))
+                    })
+            })
+        })
+        .expect("deterministic Q8 fixture should expose unequal EOS completion");
+    let encoder_batch = Tensor::cat(
+        &[&candidates[first_index].0, &candidates[second_index].0],
+        0,
+    )
+    .unwrap();
+
+    let sequential = [first_index, second_index]
+        .into_iter()
+        .map(|index| {
+            CandleQ8WhisperDecoder::from_gguf_buffer(&fixture, tiny_config(), &Device::Cpu)
+                .unwrap()
+                .decode_greedy_batch(&prompt, &candidates[index].0, eos, max_generated_tokens)
+                .unwrap()
+                .token_ids
+                .remove(0)
+        })
+        .collect::<Vec<_>>();
+    assert_ne!(sequential[0].len(), sequential[1].len());
+
+    let mut batched =
+        CandleQ8WhisperDecoder::from_gguf_buffer(&fixture, tiny_config(), &Device::Cpu).unwrap();
+    let output = batched
+        .decode_greedy_batch(&prompt, &encoder_batch, eos, max_generated_tokens)
+        .unwrap();
+
+    assert_eq!(output.token_ids, sequential);
+    assert_eq!(output.diagnostics.effective_active_row_batch_sizes[0], 2);
+    assert!(output
+        .diagnostics
+        .effective_active_row_batch_sizes
+        .contains(&1));
+    assert_eq!(output.diagnostics.active_row_compaction_count, 1);
+    assert_eq!(
+        output.diagnostics.generated_token_count,
+        output.token_ids.iter().map(Vec::len).sum::<usize>()
+    );
+    assert!(output.diagnostics.self_attention_cache_reuse_count > 0);
+    assert!(output.diagnostics.cross_attention_cache_reuse_count > 0);
 }

@@ -17,6 +17,10 @@ and a cache-reset signal. It returns decoder activations with diagnostics for
 self-attention cache growth and cross-attention encoder projection reuse. Reset
 the cache for each new audio window, prefill the prompt once, and then supply
 only newly generated tokens at contiguous absolute offsets. This decoder
+also provides a greedy active-row batch operation: completed rows are removed
+from encoder features and decoder caches together while surviving rows keep
+their cached positions. Ordered token IDs and aggregate active-batch,
+compaction, cache-reuse, and generated-token diagnostics are returned. This
 building block does not select bundles or change the existing full-precision
 native transcription provider.
 
