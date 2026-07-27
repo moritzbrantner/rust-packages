@@ -15,6 +15,8 @@ mod native_wav2vec2_model;
 mod native_whisper;
 #[cfg(feature = "candle")]
 mod native_whisper_decode;
+#[cfg(feature = "candle")]
+mod native_whisper_quantized;
 #[cfg(any(feature = "silero-vad", feature = "pyannote-vad", test))]
 mod silero_vad;
 
@@ -41,6 +43,10 @@ pub use audio_analysis_io::{AudioIoError, SelectedMediaSource};
 pub use audio_analysis_speakers::{
     AudioRuntime, SpeakerDiarizationOptions, SpeakerDiarizationResponse, SpeakerSegmentPrediction,
     SpeakerTranscriptAssignmentPolicy,
+};
+#[cfg(feature = "candle")]
+pub use native_whisper_quantized::{
+    CandleQ8WhisperDecoder, CandleQ8WhisperDecoderDiagnostics, CandleQ8WhisperDecoderOutput,
 };
 #[cfg(feature = "pyannote-vad")]
 pub use silero_vad::{PyannoteVadOptions, PyannoteVadTranscriptionProvider};
