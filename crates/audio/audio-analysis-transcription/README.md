@@ -233,6 +233,12 @@ For native Candle Whisper execution, provide a local model bundle containing:
 - `preprocessor_config.json`
 - `model.safetensors`
 
+`computeType="int8"` is CPU-only and requires an explicit local Q8_0 bundle
+with the same four JSON companion files plus `model.q8_0.gguf` instead of
+`model.safetensors`. Int8 never downloads or falls back to safetensors. Bundle
+resolution validates GGUF architecture/file-type metadata, Q8_0 tensor types,
+and config/tokenizer dimensions before ASR execution.
+
 For native wav2vec2 CTC alignment, provide a local `Wav2Vec2ForCTC` bundle
 containing:
 
@@ -386,6 +392,17 @@ cargo test -p moenarch-audio-analysis-transcription \
   --features candle \
   real_tiny_whisper_bundle_runs_greedy_sampling_and_beam_paths_when_requested \
   -- --nocapture
+```
+
+The ignored Q8 provider smoke uses caller-owned local resources:
+
+```bash
+CANDLE_WHISPER_Q8_BUNDLE=/path/to/whisper-tiny-q8 \
+CANDLE_WHISPER_Q8_WAV=/path/to/short-16khz-fixture.wav \
+cargo test -p moenarch-audio-analysis-transcription \
+  --features candle \
+  real_q8_whisper_bundle_transcribes_short_fixture_with_valid_contract \
+  -- --ignored --nocapture
 ```
 
 Optional external WhisperX parity can be run manually when local tools and media
