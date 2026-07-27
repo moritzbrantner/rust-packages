@@ -10,6 +10,16 @@ paths use FFmpeg-backed `audio-analysis-io` decode and then normalize/resample
 through the same native 16 kHz mono boundary. This opt-in media decode is not
 WhisperX parity and is not part of default tests.
 
+The `candle` feature also exposes `CandleQ8WhisperDecoder`, a low-level CPU Q8_0
+decoder building block for caller-owned GGUF bundles. Its incremental operation
+accepts token and encoder-feature tensors, an absolute token-position offset,
+and a cache-reset signal. It returns decoder activations with diagnostics for
+self-attention cache growth and cross-attention encoder projection reuse. Reset
+the cache for each new audio window, prefill the prompt once, and then supply
+only newly generated tokens at contiguous absolute offsets. This decoder
+building block does not select bundles or change the existing full-precision
+native transcription provider.
+
 Reusable native VAD providers are opt-in and independent from diarization.
 The `silero-vad` feature exposes `SileroVadOptions` and
 `SileroVadTranscriptionProvider`; the `pyannote-vad` feature exposes
