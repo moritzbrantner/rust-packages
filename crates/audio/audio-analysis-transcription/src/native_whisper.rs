@@ -1,8 +1,10 @@
 #[cfg(test)]
 use std::collections::BTreeMap;
 use std::collections::BTreeSet;
+use std::fs::File;
 use std::path::{Path, PathBuf};
 
+use candle_core::quantized::{gguf_file, GgmlDType};
 use candle_core::{DType, Device, IndexOp, Tensor, D};
 use candle_nn::{
     embedding, linear, linear_no_bias, Conv1d, Conv1dConfig, Embedding, LayerNorm, Linear, Module,
@@ -19,6 +21,7 @@ use tokenizers::Tokenizer;
 use video_analysis_core::Result;
 
 use crate::native_device::{resolve_native_device, ResolvedNativeDevice};
+use crate::native_whisper_quantized::CandleQ8WhisperModel;
 use crate::{
     candle_batch_count, invalid_request, model_output_mismatch, setup_error, validate_asr_request,
     AsrRequest, AsrResponse, CandleWhisperComputeType, CandleWhisperDecodeRequestConfig,
@@ -33,6 +36,13 @@ const REQUIRED_WHISPER_FILES: &[&str] = &[
     "tokenizer.json",
     "preprocessor_config.json",
     "model.safetensors",
+];
+const REQUIRED_Q8_WHISPER_FILES: &[&str] = &[
+    "config.json",
+    "generation_config.json",
+    "tokenizer.json",
+    "preprocessor_config.json",
+    "model.q8_0.gguf",
 ];
 const WHISPER_TIMESTAMP_SECONDS_PER_TOKEN: f64 = 0.02;
 const WHISPER_START_OF_PREV_TOKEN: &str = "<|startofprev|>";
@@ -49,6 +59,22 @@ pub(crate) struct WhisperBundlePaths {
     pub tokenizer_json: PathBuf,
     pub preprocessor_config_json: PathBuf,
     pub model_safetensors: PathBuf,
+    pub model_q8_0_gguf: Option<PathBuf>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum WhisperModelFormat {
+    Safetensors,
+    GgufQ8_0,
+}
+
+impl WhisperModelFormat {
+    fn as_str(self) -> &'static str {
+        match self {
+            Self::Safetensors => "safetensors",
+            Self::GgufQ8_0 => "gguf-q8_0",
+        }
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -62,6 +88,7 @@ struct WhisperRunSetup {
     requested_compute_type: CandleWhisperComputeType,
     resolved_compute_type: CandleWhisperComputeType,
     model_weight_dtype: DType,
+    model_format: WhisperModelFormat,
 }
 
 #[derive(Debug, Clone)]
@@ -707,12 +734,29 @@ impl WhisperRunSetup {
         observe: &mut dyn FnMut(WhisperModelResolutionEvent) -> Result<()>,
     ) -> Result<Self> {
         validate_asr_request(request)?;
-        let model = resolve_whisper_model_with_observer(options, &request.model_id, observe)?;
+        if options.compute_type == CandleWhisperComputeType::Int8
+            && options.device == crate::NativeDevicePreference::Cuda
+        {
+            return Err(setup_error(
+                "native Candle Whisper compute type int8 is CPU-only; select device=cpu",
+            ));
+        }
         let resolved_device = resolve_native_device(options.device, controls.cuda_device_index)?;
         let resolved_compute_type = options
             .compute_type
             .resolve_for_device(resolved_device.cuda_active())?;
+        let model = resolve_whisper_model_with_observer(
+            options,
+            &request.model_id,
+            resolved_compute_type,
+            observe,
+        )?;
         let model_weight_dtype = candle_whisper_model_weight_dtype(resolved_compute_type);
+        let model_format = if resolved_compute_type == CandleWhisperComputeType::Int8 {
+            WhisperModelFormat::GgufQ8_0
+        } else {
+            WhisperModelFormat::Safetensors
+        };
         Ok(Self {
             model_id: model.model_id,
             task: request.task,
@@ -726,6 +770,7 @@ impl WhisperRunSetup {
             requested_compute_type: options.compute_type,
             resolved_compute_type,
             model_weight_dtype,
+            model_format,
         })
     }
 }
@@ -735,6 +780,7 @@ fn candle_whisper_model_weight_dtype(compute_type: CandleWhisperComputeType) -> 
         CandleWhisperComputeType::Automatic => unreachable!("compute type must be resolved first"),
         CandleWhisperComputeType::Fp16 => DType::F16,
         CandleWhisperComputeType::Fp32 => DType::F32,
+        CandleWhisperComputeType::Int8 => DType::F32,
     }
 }
 
@@ -751,18 +797,29 @@ fn resolve_whisper_model(
     options: &CandleWhisperOptions,
     requested_model_id: &str,
 ) -> Result<ResolvedWhisperModel> {
-    resolve_whisper_model_with_observer(options, requested_model_id, &mut |_| Ok(()))
+    let resolved_compute_type = options.compute_type.resolve_for_device(false)?;
+    resolve_whisper_model_with_observer(
+        options,
+        requested_model_id,
+        resolved_compute_type,
+        &mut |_| Ok(()),
+    )
 }
 
 fn resolve_whisper_model_with_observer(
     options: &CandleWhisperOptions,
     requested_model_id: &str,
+    resolved_compute_type: CandleWhisperComputeType,
     observe: &mut dyn FnMut(WhisperModelResolutionEvent) -> Result<()>,
 ) -> Result<ResolvedWhisperModel> {
     observe(WhisperModelResolutionEvent::ResolutionStart)?;
     let model_id = canonical_whisper_model_id(requested_model_id)?;
     if let Some(bundle) = &options.model_bundle {
-        let bundle = resolve_whisper_bundle_paths(bundle)?;
+        let bundle = if resolved_compute_type == CandleWhisperComputeType::Int8 {
+            resolve_q8_whisper_bundle_paths(bundle)?
+        } else {
+            resolve_whisper_bundle_paths(bundle)?
+        };
         observe(WhisperModelResolutionEvent::ResolutionEnd {
             source: "explicit-bundle",
         })?;
@@ -771,6 +828,12 @@ fn resolve_whisper_model_with_observer(
             bundle,
             source: "explicit-bundle",
         });
+    }
+    if resolved_compute_type == CandleWhisperComputeType::Int8 {
+        return Err(setup_error(format!(
+            "native Candle Whisper compute type int8 requires an explicit local Q8_0 bundle containing {}; automatic downloads and safetensors fallback are disabled",
+            REQUIRED_Q8_WHISPER_FILES.join(", ")
+        )));
     }
 
     #[cfg(feature = "model-bundles")]
@@ -957,6 +1020,8 @@ fn whisper_setup_diagnostics(setup: &WhisperRunSetup) -> Vec<String> {
             "modelWeightDtype={}",
             candle_dtype_name(setup.model_weight_dtype)
         ),
+        format!("computeType={}", setup.resolved_compute_type.as_str()),
+        format!("modelFormat={}", setup.model_format.as_str()),
     ]
 }
 
@@ -986,7 +1051,218 @@ pub(crate) fn resolve_whisper_bundle_paths(bundle: &Path) -> Result<WhisperBundl
             bundle,
             "model.safetensors",
         )?,
+        model_q8_0_gguf: None,
     })
+}
+
+fn resolve_q8_whisper_bundle_paths(bundle: &Path) -> Result<WhisperBundlePaths> {
+    if !bundle.exists() {
+        return Err(setup_error(format!(
+            "required Candle Whisper Q8_0 model bundle `{}` is missing",
+            bundle.display()
+        )));
+    }
+    let paths = WhisperBundlePaths {
+        root: bundle.to_path_buf(),
+        config_json: crate::native_bundles::resolve_required_bundle_file(bundle, "config.json")?,
+        generation_config_json: crate::native_bundles::resolve_required_bundle_file(
+            bundle,
+            "generation_config.json",
+        )?,
+        tokenizer_json: crate::native_bundles::resolve_required_bundle_file(
+            bundle,
+            "tokenizer.json",
+        )?,
+        preprocessor_config_json: crate::native_bundles::resolve_required_bundle_file(
+            bundle,
+            "preprocessor_config.json",
+        )?,
+        // Int8 deliberately leaves this path unresolved so model.safetensors can
+        // never satisfy or mask the Q8 bundle contract.
+        model_safetensors: bundle.join("model.safetensors"),
+        model_q8_0_gguf: Some(crate::native_bundles::resolve_required_bundle_file(
+            bundle,
+            "model.q8_0.gguf",
+        )?),
+    };
+    validate_q8_whisper_bundle(&paths)?;
+    Ok(paths)
+}
+
+fn validate_q8_whisper_bundle(paths: &WhisperBundlePaths) -> Result<()> {
+    let config: whisper::Config = read_json(&paths.config_json, "config.json")?;
+    let generation: GenerationConfig =
+        read_json(&paths.generation_config_json, "generation_config.json")?;
+    let _: serde_json::Value =
+        read_json(&paths.preprocessor_config_json, "preprocessor_config.json")?;
+    let tokenizer = Tokenizer::from_file(&paths.tokenizer_json).map_err(|error| {
+        setup_error(format!(
+            "failed to load Q8 Whisper tokenizer `{}`: {error}",
+            paths.tokenizer_json.display()
+        ))
+    })?;
+    validate_whisper_companion_metadata(&config, &generation, &tokenizer)?;
+
+    let gguf_path = paths
+        .model_q8_0_gguf
+        .as_deref()
+        .expect("Q8 bundle always has GGUF weights");
+    let mut file = File::open(gguf_path).map_err(|error| {
+        setup_error(format!(
+            "failed to open Q8 Whisper GGUF `{}`: {error}",
+            gguf_path.display()
+        ))
+    })?;
+    let content = gguf_file::Content::read(&mut file).map_err(|error| {
+        setup_error(format!(
+            "invalid Q8 Whisper GGUF `{}`: {error}",
+            gguf_path.display()
+        ))
+    })?;
+    let architecture = content
+        .metadata
+        .get("general.architecture")
+        .and_then(|value| match value {
+            gguf_file::Value::String(value) => Some(value.as_str()),
+            _ => None,
+        })
+        .ok_or_else(|| {
+            setup_error("Q8 Whisper GGUF is missing string metadata `general.architecture`")
+        })?;
+    if architecture != "whisper" {
+        return Err(setup_error(format!(
+            "Q8 Whisper GGUF metadata `general.architecture` must be `whisper`, got `{architecture}`"
+        )));
+    }
+    let file_type = content
+        .metadata
+        .get("general.file_type")
+        .and_then(|value| value.to_u64().ok())
+        .ok_or_else(|| {
+            setup_error("Q8 Whisper GGUF is missing integer metadata `general.file_type`")
+        })?;
+    if file_type != 7 {
+        return Err(setup_error(format!(
+            "Q8 Whisper GGUF metadata `general.file_type` must identify Q8_0 (7), got {file_type}"
+        )));
+    }
+    validate_q8_tensor(
+        &content,
+        "model.decoder.embed_tokens.weight",
+        &[config.vocab_size, config.d_model],
+    )?;
+    validate_tensor_shape(
+        &content,
+        "model.encoder.conv1.weight",
+        &[config.d_model, config.num_mel_bins, 3],
+    )?;
+    validate_tensor_shape(
+        &content,
+        "model.encoder.conv2.weight",
+        &[config.d_model, config.d_model, 3],
+    )?;
+    for (name, info) in &content.tensor_infos {
+        if q8_required_tensor_name(name) && info.ggml_dtype != GgmlDType::Q8_0 {
+            return Err(setup_error(format!(
+                "Q8 Whisper GGUF tensor `{name}` must use Q8_0, got {:?}",
+                info.ggml_dtype
+            )));
+        }
+    }
+    Ok(())
+}
+
+fn validate_whisper_companion_metadata(
+    config: &whisper::Config,
+    generation: &GenerationConfig,
+    tokenizer: &Tokenizer,
+) -> Result<()> {
+    if config.d_model == 0
+        || config.encoder_layers == 0
+        || config.decoder_layers == 0
+        || config.encoder_attention_heads == 0
+        || config.decoder_attention_heads == 0
+        || !config
+            .d_model
+            .is_multiple_of(config.encoder_attention_heads)
+        || !config
+            .d_model
+            .is_multiple_of(config.decoder_attention_heads)
+    {
+        return Err(setup_error(
+            "Q8 Whisper config contains incompatible model or attention dimensions",
+        ));
+    }
+    let tokenizer_vocab = tokenizer.get_vocab_size(true);
+    if tokenizer_vocab != config.vocab_size {
+        return Err(setup_error(format!(
+            "Q8 Whisper tokenizer vocabulary size {tokenizer_vocab} does not match config vocab_size {}",
+            config.vocab_size
+        )));
+    }
+    for (name, token) in [
+        ("decoder_start_token_id", generation.decoder_start_token_id),
+        ("eos_token_id", generation.eos_token_id),
+        ("no_timestamps_token_id", generation.no_timestamps_token_id),
+    ] {
+        if token.is_some_and(|token| token as usize >= config.vocab_size) {
+            return Err(setup_error(format!(
+                "Q8 Whisper generation metadata `{name}` is outside the tokenizer vocabulary"
+            )));
+        }
+    }
+    Ok(())
+}
+
+fn validate_q8_tensor(
+    content: &gguf_file::Content,
+    name: &str,
+    expected_dims: &[usize],
+) -> Result<()> {
+    let info = content.tensor_infos.get(name).ok_or_else(|| {
+        setup_error(format!(
+            "Q8 Whisper GGUF is missing required tensor `{name}`"
+        ))
+    })?;
+    if info.shape.dims() != expected_dims {
+        return Err(setup_error(format!(
+            "Q8 Whisper GGUF tensor `{name}` has shape {:?}, expected {expected_dims:?}",
+            info.shape.dims()
+        )));
+    }
+    if info.ggml_dtype != GgmlDType::Q8_0 {
+        return Err(setup_error(format!(
+            "Q8 Whisper GGUF tensor `{name}` must use Q8_0, got {:?}",
+            info.ggml_dtype
+        )));
+    }
+    Ok(())
+}
+
+fn validate_tensor_shape(
+    content: &gguf_file::Content,
+    name: &str,
+    expected_dims: &[usize],
+) -> Result<()> {
+    let info = content.tensor_infos.get(name).ok_or_else(|| {
+        setup_error(format!(
+            "Q8 Whisper GGUF is missing required tensor `{name}`"
+        ))
+    })?;
+    if info.shape.dims() != expected_dims {
+        return Err(setup_error(format!(
+            "Q8 Whisper GGUF tensor `{name}` has shape {:?}, expected {expected_dims:?}",
+            info.shape.dims()
+        )));
+    }
+    Ok(())
+}
+
+fn q8_required_tensor_name(name: &str) -> bool {
+    name.ends_with(".weight")
+        && !name.contains(".conv")
+        && !name.ends_with("embed_positions.weight")
+        && !name.contains("layer_norm.weight")
 }
 
 #[derive(Debug, Clone)]
@@ -1358,6 +1634,78 @@ impl CachedWhisper {
     }
 }
 
+#[derive(Debug, Clone)]
+enum WhisperModel {
+    Safetensors(CachedWhisper),
+    Q8(CandleQ8WhisperModel),
+}
+
+impl WhisperModel {
+    fn config(&self) -> &whisper::Config {
+        match self {
+            Self::Safetensors(model) => &model.config,
+            Self::Q8(model) => &model.config,
+        }
+    }
+
+    fn encode(&mut self, mel: &Tensor) -> candle_core::Result<Tensor> {
+        match self {
+            Self::Safetensors(model) => model.encoder.forward(mel, true),
+            Self::Q8(model) => model.encode(mel),
+        }
+    }
+
+    fn decode(
+        &mut self,
+        tokens: &Tensor,
+        encoder_features: &Tensor,
+        position_offset: usize,
+        reset_cache: bool,
+    ) -> candle_core::Result<(Tensor, CachedWhisperDecoderStats)> {
+        match self {
+            Self::Safetensors(model) => {
+                model
+                    .decoder
+                    .forward(tokens, encoder_features, position_offset, reset_cache)
+            }
+            Self::Q8(model) => {
+                let output =
+                    model.decode(tokens, encoder_features, position_offset, reset_cache)?;
+                Ok((
+                    output.activations,
+                    CachedWhisperDecoderStats {
+                        self_attention_cache_reused: output.diagnostics.self_attention_cache_reused,
+                        cross_attention_cache_reused: output
+                            .diagnostics
+                            .cross_attention_cache_reused,
+                    },
+                ))
+            }
+        }
+    }
+
+    fn project_logits(&self, activations: &Tensor) -> candle_core::Result<Tensor> {
+        match self {
+            Self::Safetensors(model) => model.decoder.final_linear(activations),
+            Self::Q8(model) => model.project_logits(activations),
+        }
+    }
+
+    fn reset_cache(&mut self) {
+        match self {
+            Self::Safetensors(model) => model.reset_kv_cache(),
+            Self::Q8(model) => model.reset_cache(),
+        }
+    }
+
+    fn select_cache_rows(&mut self, row_indices: &Tensor) -> candle_core::Result<()> {
+        match self {
+            Self::Safetensors(model) => model.decoder.select_kv_cache_rows(row_indices),
+            Self::Q8(model) => model.select_cache_rows(row_indices),
+        }
+    }
+}
+
 fn conv1d(
     in_channels: usize,
     out_channels: usize,
@@ -1415,10 +1763,12 @@ fn decoder_causal_mask(
 struct CandleWhisperSession {
     setup: WhisperRunSetup,
     device: Device,
-    model: CachedWhisper,
+    model: WhisperModel,
     tokenizer: Tokenizer,
     generation: GenerationConfig,
     mel_filters: Vec<f32>,
+    encoder_duration_seconds: f64,
+    decoder_duration_seconds: f64,
 }
 
 impl CandleWhisperSession {
@@ -1439,25 +1789,48 @@ impl CandleWhisperSession {
                 setup.bundle.tokenizer_json.display()
             ))
         })?;
-        let vb = unsafe {
-            VarBuilder::from_mmaped_safetensors(
-                &[setup.bundle.model_safetensors.as_path()],
-                setup.model_weight_dtype,
-                &device,
-            )
-        }
-        .map_err(|error| {
-            setup_error(format!(
-                "failed to load Candle Whisper weights `{}`: {error}",
-                setup.bundle.model_safetensors.display()
-            ))
-        })?;
-        let model = CachedWhisper::load(&vb, config.clone()).map_err(|error| {
-            setup_error(format!(
-                "failed to construct Candle Whisper model from `{}`: {error}",
-                setup.bundle.root.display()
-            ))
-        })?;
+        let model = match setup.model_format {
+            WhisperModelFormat::Safetensors => {
+                let vb = unsafe {
+                    VarBuilder::from_mmaped_safetensors(
+                        &[setup.bundle.model_safetensors.as_path()],
+                        setup.model_weight_dtype,
+                        &device,
+                    )
+                }
+                .map_err(|error| {
+                    setup_error(format!(
+                        "failed to load Candle Whisper weights `{}`: {error}",
+                        setup.bundle.model_safetensors.display()
+                    ))
+                })?;
+                WhisperModel::Safetensors(CachedWhisper::load(&vb, config.clone()).map_err(
+                    |error| {
+                        setup_error(format!(
+                            "failed to construct Candle Whisper model from `{}`: {error}",
+                            setup.bundle.root.display()
+                        ))
+                    },
+                )?)
+            }
+            WhisperModelFormat::GgufQ8_0 => {
+                let path = setup
+                    .bundle
+                    .model_q8_0_gguf
+                    .as_deref()
+                    .expect("validated Q8 setup includes GGUF weights");
+                WhisperModel::Q8(
+                    CandleQ8WhisperModel::from_gguf(path, config.clone(), &device).map_err(
+                        |error| {
+                            setup_error(format!(
+                                "failed to construct Q8_0 Candle Whisper model from `{}`: {error}",
+                                path.display()
+                            ))
+                        },
+                    )?,
+                )
+            }
+        };
         let mel_filters =
             mel_filter_bank(config.num_mel_bins, whisper::N_FFT, whisper::SAMPLE_RATE);
         Ok(Self {
@@ -1467,6 +1840,8 @@ impl CandleWhisperSession {
             tokenizer,
             generation,
             mel_filters,
+            encoder_duration_seconds: 0.0,
+            decoder_duration_seconds: 0.0,
         })
     }
 
@@ -1504,7 +1879,10 @@ impl CandleWhisperSession {
         let mut attempted_temperatures = Vec::new();
         let mut no_speech_rejected = false;
         let mut prompt_state = WhisperRequestPromptState::new(decode);
-        let max_prompt_tokens = (self.model.config.max_target_positions / 2).saturating_sub(1);
+        self.encoder_duration_seconds = 0.0;
+        self.decoder_duration_seconds = 0.0;
+        let request_started = std::time::Instant::now();
+        let max_prompt_tokens = (self.model.config().max_target_positions / 2).saturating_sub(1);
         let batch_size = candle_batch_size(options, request.chunks.len());
         for batch in request.chunks.chunks(batch_size) {
             let windows =
@@ -1748,6 +2126,18 @@ impl CandleWhisperSession {
             format!(
                 "decoderCrossAttentionCacheReused={}",
                 decoder_cross_attention_cache_reused
+            ),
+            format!(
+                "phaseTiming.encoderSeconds={}",
+                self.encoder_duration_seconds
+            ),
+            format!(
+                "phaseTiming.decoderSeconds={}",
+                self.decoder_duration_seconds
+            ),
+            format!(
+                "phaseTiming.asrSeconds={}",
+                request_started.elapsed().as_secs_f64()
             ),
         ]);
         diagnostics.extend(
@@ -1998,19 +2388,24 @@ impl CandleWhisperSession {
             return self.encode_windows_individually(windows);
         }
         let mel = self.mel_tensor_batch(windows)?;
-        self.model
-            .encoder
-            .forward(&mel, true)
-            .map_err(|error| model_output_mismatch(format!("Whisper encoder failed: {error}")))
+        let started = std::time::Instant::now();
+        let encoded = self
+            .model
+            .encode(&mel)
+            .map_err(|error| model_output_mismatch(format!("Whisper encoder failed: {error}")))?;
+        self.encoder_duration_seconds += started.elapsed().as_secs_f64();
+        Ok(encoded)
     }
 
     fn encode_windows_individually(&mut self, windows: &[ChunkWindow]) -> Result<Tensor> {
         let mut encoded = Vec::with_capacity(windows.len());
         for window in windows {
             let mel = self.mel_tensor_batch(std::slice::from_ref(window))?;
-            let features = self.model.encoder.forward(&mel, true).map_err(|error| {
+            let started = std::time::Instant::now();
+            let features = self.model.encode(&mel).map_err(|error| {
                 model_output_mismatch(format!("Whisper encoder failed: {error}"))
             })?;
+            self.encoder_duration_seconds += started.elapsed().as_secs_f64();
             encoded.push(features);
         }
         let encoded = encoded.iter().collect::<Vec<_>>();
@@ -2020,11 +2415,11 @@ impl CandleWhisperSession {
     }
 
     fn mel_tensor_batch(&self, windows: &[ChunkWindow]) -> Result<Tensor> {
-        let n_mel = self.model.config.num_mel_bins;
+        let n_mel = self.model.config().num_mel_bins;
         let mut features = Vec::with_capacity(windows.len() * n_mel * whisper::N_FRAMES);
         for window in windows {
             let mel =
-                whisper::audio::pcm_to_mel(&self.model.config, &window.samples, &self.mel_filters);
+                whisper::audio::pcm_to_mel(self.model.config(), &window.samples, &self.mel_filters);
             let mel_frames = mel.len() / n_mel;
             for mel_index in 0..n_mel {
                 let row_start = mel_index * mel_frames;
@@ -2142,8 +2537,8 @@ impl CandleWhisperSession {
         let max_length = self
             .generation
             .max_length
-            .unwrap_or(self.model.config.max_target_positions)
-            .min(self.model.config.max_target_positions);
+            .unwrap_or(self.model.config().max_target_positions)
+            .min(self.model.config().max_target_positions);
         let initial_tokens = self.initial_tokens(mode, &decode.initial_prompt_tokens)?;
         let max_generated_tokens = max_length.saturating_sub(initial_tokens.token_ids.len());
         let mut stats = WhisperGenerationStats::default();
@@ -2219,7 +2614,7 @@ impl CandleWhisperSession {
         no_speech_probability: &mut Option<f64>,
         stats: &mut WhisperGenerationStats,
     ) -> Result<Vec<f32>> {
-        self.model.reset_kv_cache();
+        self.model.reset_cache();
         let mut tokens = Vec::with_capacity(initial_tokens.len() + generated.len());
         tokens.extend_from_slice(initial_tokens);
         tokens.extend_from_slice(generated);
@@ -2238,15 +2633,16 @@ impl CandleWhisperSession {
                     "failed to build Whisper search token tensor: {error}"
                 ))
             })?;
+        let decoder_started = std::time::Instant::now();
         let (decoded, decoder_stats) = self
             .model
-            .decoder
-            .forward(&token_tensor, audio_features, 0, true)
+            .decode(&token_tensor, audio_features, 0, true)
             .map_err(|error| {
                 model_output_mismatch(format!("Whisper search decoder failed: {error}"))
             })?;
+        self.decoder_duration_seconds += decoder_started.elapsed().as_secs_f64();
         stats.record_decoder_stats(decoder_stats);
-        let logits = self.model.decoder.final_linear(&decoded).map_err(|error| {
+        let logits = self.model.project_logits(&decoded).map_err(|error| {
             model_output_mismatch(format!("Whisper search logits projection failed: {error}"))
         })?;
         if generated.is_empty() && no_speech_probability.is_none() {
@@ -2273,13 +2669,13 @@ impl CandleWhisperSession {
         mode: WhisperDecodeMode,
         decode: &CandleWhisperDecodeRequestConfig,
     ) -> Result<Vec<WhisperTokenDecodeResult>> {
-        self.model.reset_kv_cache();
+        self.model.reset_cache();
         let eos = self.eos_token_id()?;
         let max_length = self
             .generation
             .max_length
-            .unwrap_or(self.model.config.max_target_positions)
-            .min(self.model.config.max_target_positions);
+            .unwrap_or(self.model.config().max_target_positions)
+            .min(self.model.config().max_target_positions);
         let initial_tokens = self.initial_tokens(mode, &decode.initial_prompt_tokens)?;
         let mut active_rows = (0..row_count)
             .map(|original_index| ActiveWhisperDecodeRow {
@@ -2320,10 +2716,10 @@ impl CandleWhisperSession {
             .map_err(|error| {
                 model_output_mismatch(format!("failed to build batched token tensor: {error}"))
             })?;
+            let decoder_started = std::time::Instant::now();
             let (decoded, decoder_stats) = self
                 .model
-                .decoder
-                .forward(
+                .decode(
                     &token_tensor,
                     &active_features,
                     input.position_offset,
@@ -2332,11 +2728,12 @@ impl CandleWhisperSession {
                 .map_err(|error| {
                     model_output_mismatch(format!("Whisper batched decoder failed: {error}"))
                 })?;
+            self.decoder_duration_seconds += decoder_started.elapsed().as_secs_f64();
             for active in &mut active_rows {
                 active.stats.record_decoder_stats(decoder_stats);
                 active.row.mark_forwarded();
             }
-            let logits = self.model.decoder.final_linear(&decoded).map_err(|error| {
+            let logits = self.model.project_logits(&decoded).map_err(|error| {
                 model_output_mismatch(format!("Whisper batched logits projection failed: {error}"))
             })?;
             let seq_index = input.token_ids.len() - 1;
@@ -2406,8 +2803,7 @@ impl CandleWhisperSession {
                             ))
                         })?;
                 self.model
-                    .decoder
-                    .select_kv_cache_rows(&row_indices)
+                    .select_cache_rows(&row_indices)
                     .map_err(|error| {
                         model_output_mismatch(format!(
                             "failed to compact Whisper decoder KV cache: {error}"
@@ -2494,7 +2890,7 @@ impl CandleWhisperSession {
             self.setup.task,
             mode,
             request_prompt,
-            self.model.config.max_target_positions / 2,
+            self.model.config().max_target_positions / 2,
         )
     }
 
@@ -3311,6 +3707,8 @@ fn mel_to_hz(mel: f32) -> f32 {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use candle_core::quantized::QTensor;
+    use std::io::Cursor;
     use tokenizers::models::wordlevel::WordLevel;
 
     #[test]
@@ -3320,6 +3718,7 @@ mod tests {
         let error = resolve_whisper_model_with_observer(
             &CandleWhisperOptions::default(),
             "openai/whisper-tiny",
+            CandleWhisperComputeType::Fp32,
             &mut |_| {
                 observed += 1;
                 Err(video_analysis_core::DetectError::InvalidArgument(
@@ -3343,17 +3742,22 @@ mod tests {
         };
         let mut events = Vec::new();
 
-        resolve_whisper_model_with_observer(&options, "tiny.en", &mut |event| {
-            events.push(match event {
-                WhisperModelResolutionEvent::ResolutionStart => "resolution-start",
-                WhisperModelResolutionEvent::ResolutionEnd { source } => source,
-                WhisperModelResolutionEvent::DownloadStart => "download-start",
-                WhisperModelResolutionEvent::DownloadEnd { .. } => "download-end",
-                WhisperModelResolutionEvent::LoadStart => "load-start",
-                WhisperModelResolutionEvent::LoadEnd { .. } => "load-end",
-            });
-            Ok(())
-        })
+        resolve_whisper_model_with_observer(
+            &options,
+            "tiny.en",
+            CandleWhisperComputeType::Fp32,
+            &mut |event| {
+                events.push(match event {
+                    WhisperModelResolutionEvent::ResolutionStart => "resolution-start",
+                    WhisperModelResolutionEvent::ResolutionEnd { source } => source,
+                    WhisperModelResolutionEvent::DownloadStart => "download-start",
+                    WhisperModelResolutionEvent::DownloadEnd { .. } => "download-end",
+                    WhisperModelResolutionEvent::LoadStart => "load-start",
+                    WhisperModelResolutionEvent::LoadEnd { .. } => "load-end",
+                });
+                Ok(())
+            },
+        )
         .expect("explicit bundle should resolve");
 
         assert_eq!(events, ["resolution-start", "explicit-bundle"]);
@@ -3363,6 +3767,85 @@ mod tests {
         for file in REQUIRED_WHISPER_FILES {
             std::fs::write(root.join(file), "").unwrap();
         }
+    }
+
+    fn create_q8_companion_files(root: &Path, vocab_size: usize) {
+        std::fs::write(
+            root.join("config.json"),
+            serde_json::json!({
+                "num_mel_bins": 2,
+                "max_source_positions": 4,
+                "d_model": 32,
+                "encoder_attention_heads": 4,
+                "encoder_layers": 1,
+                "vocab_size": vocab_size,
+                "max_target_positions": 8,
+                "decoder_attention_heads": 4,
+                "decoder_layers": 1,
+                "suppress_tokens": []
+            })
+            .to_string(),
+        )
+        .unwrap();
+        std::fs::write(
+            root.join("generation_config.json"),
+            serde_json::json!({
+                "decoder_start_token_id": 1,
+                "eos_token_id": 2,
+                "no_timestamps_token_id": 7,
+                "max_length": 8
+            })
+            .to_string(),
+        )
+        .unwrap();
+        std::fs::write(root.join("preprocessor_config.json"), "{}").unwrap();
+        test_tokenizer()
+            .save(root.join("tokenizer.json"), false)
+            .unwrap();
+    }
+
+    fn q8_test_tensor(shape: impl Into<candle_core::Shape>, dtype: GgmlDType) -> QTensor {
+        let shape = shape.into();
+        let values = (0..shape.elem_count())
+            .map(|index| index as f32 * 0.001)
+            .collect::<Vec<_>>();
+        let tensor = Tensor::from_vec(values, shape.clone(), &Device::Cpu).unwrap();
+        QTensor::quantize(&tensor, dtype).unwrap()
+    }
+
+    fn write_q8_validation_gguf(path: &Path, dtype: GgmlDType) {
+        let tensors = [
+            (
+                "model.decoder.embed_tokens.weight",
+                q8_test_tensor((15, 32), dtype),
+            ),
+            (
+                "model.encoder.conv1.weight",
+                q8_test_tensor((32, 2, 3), GgmlDType::F32),
+            ),
+            (
+                "model.encoder.conv2.weight",
+                q8_test_tensor((32, 32, 3), GgmlDType::F32),
+            ),
+        ];
+        let metadata = [
+            (
+                "general.architecture",
+                gguf_file::Value::String("whisper".to_string()),
+            ),
+            ("general.file_type", gguf_file::Value::U32(7)),
+        ];
+        let metadata_refs = metadata
+            .iter()
+            .map(|(name, value)| (*name, value))
+            .collect::<Vec<_>>();
+        let tensor_refs = tensors
+            .iter()
+            .map(|(name, tensor)| (*name, tensor))
+            .collect::<Vec<_>>();
+        let mut cursor = Cursor::new(Vec::new());
+        gguf_file::write(&mut cursor, &metadata_refs, &tensor_refs).unwrap();
+        std::fs::write(path, cursor.into_inner()).unwrap();
     }
 
     fn minimal_asr_request(model_id: &str) -> AsrRequest {
@@ -4013,12 +4496,14 @@ mod tests {
                 tokenizer_json: PathBuf::from("tokenizer.json"),
                 preprocessor_config_json: PathBuf::from("preprocessor_config.json"),
                 model_safetensors: PathBuf::from("model.safetensors"),
+                model_q8_0_gguf: None,
             },
             model_source: "explicit-bundle",
             resolved_device: ResolvedNativeDevice::Cpu,
             requested_compute_type: CandleWhisperComputeType::Automatic,
             resolved_compute_type: CandleWhisperComputeType::Fp32,
             model_weight_dtype: DType::F32,
+            model_format: WhisperModelFormat::Safetensors,
         };
         let tokens = CandleWhisperSession::initial_prompt_tokens(
             &test_generation(),
@@ -4182,6 +4667,141 @@ mod tests {
         assert!(diagnostics
             .iter()
             .any(|item| item == "modelWeightDtype=f32"));
+    }
+
+    #[test]
+    fn int8_resolves_only_for_cpu_with_typed_cuda_guidance() {
+        assert_eq!(
+            CandleWhisperComputeType::Int8
+                .resolve_for_device(false)
+                .unwrap(),
+            CandleWhisperComputeType::Int8
+        );
+        let error = CandleWhisperComputeType::Int8
+            .resolve_for_device(true)
+            .unwrap_err()
+            .to_string();
+        assert!(error.contains("setup_error"));
+        assert!(error.contains("CPU-only"));
+        assert!(error.contains("device=cpu"));
+
+        let setup_error = WhisperRunSetup::from_options_and_request(
+            &CandleWhisperOptions {
+                compute_type: CandleWhisperComputeType::Int8,
+                device: crate::NativeDevicePreference::Cuda,
+                ..CandleWhisperOptions::default()
+            },
+            &minimal_asr_request("tiny.en"),
+        )
+        .unwrap_err()
+        .to_string();
+        assert!(setup_error.contains("setup_error"));
+        assert!(setup_error.contains("CPU-only"));
+        assert!(setup_error.contains("device=cpu"));
+    }
+
+    #[test]
+    fn int8_requires_q8_gguf_and_never_uses_safetensors_fallback() {
+        let bundle = tempfile::tempdir().unwrap();
+        create_q8_companion_files(bundle.path(), 15);
+        std::fs::write(bundle.path().join("model.safetensors"), b"not used").unwrap();
+        let options = CandleWhisperOptions {
+            compute_type: CandleWhisperComputeType::Int8,
+            model_bundle: Some(bundle.path().to_path_buf()),
+            device: crate::NativeDevicePreference::Cpu,
+            ..CandleWhisperOptions::default()
+        };
+
+        let error = resolve_whisper_model(&options, "tiny.en")
+            .unwrap_err()
+            .to_string();
+        assert!(error.contains("model.q8_0.gguf"));
+        assert!(!error.contains("failed to load Candle Whisper weights"));
+    }
+
+    #[test]
+    fn int8_rejects_invalid_gguf_before_asr() {
+        let bundle = tempfile::tempdir().unwrap();
+        create_q8_companion_files(bundle.path(), 15);
+        std::fs::write(bundle.path().join("model.q8_0.gguf"), b"not-a-gguf").unwrap();
+        let options = CandleWhisperOptions {
+            compute_type: CandleWhisperComputeType::Int8,
+            model_bundle: Some(bundle.path().to_path_buf()),
+            device: crate::NativeDevicePreference::Cpu,
+            ..CandleWhisperOptions::default()
+        };
+
+        let error = resolve_whisper_model(&options, "tiny.en")
+            .unwrap_err()
+            .to_string();
+        assert!(error.contains("invalid Q8 Whisper GGUF"));
+    }
+
+    #[test]
+    fn int8_rejects_non_q8_tensor_quantization_before_asr() {
+        let bundle = tempfile::tempdir().unwrap();
+        create_q8_companion_files(bundle.path(), 15);
+        write_q8_validation_gguf(&bundle.path().join("model.q8_0.gguf"), GgmlDType::F32);
+        let options = CandleWhisperOptions {
+            compute_type: CandleWhisperComputeType::Int8,
+            model_bundle: Some(bundle.path().to_path_buf()),
+            device: crate::NativeDevicePreference::Cpu,
+            ..CandleWhisperOptions::default()
+        };
+
+        let error = resolve_whisper_model(&options, "tiny.en")
+            .unwrap_err()
+            .to_string();
+        assert!(error.contains("must use Q8_0"));
+    }
+
+    #[test]
+    fn int8_rejects_incompatible_companion_dimensions_before_asr() {
+        let bundle = tempfile::tempdir().unwrap();
+        create_q8_companion_files(bundle.path(), 14);
+        write_q8_validation_gguf(&bundle.path().join("model.q8_0.gguf"), GgmlDType::Q8_0);
+        let options = CandleWhisperOptions {
+            compute_type: CandleWhisperComputeType::Int8,
+            model_bundle: Some(bundle.path().to_path_buf()),
+            device: crate::NativeDevicePreference::Cpu,
+            ..CandleWhisperOptions::default()
+        };
+
+        let error = resolve_whisper_model(&options, "tiny.en")
+            .unwrap_err()
+            .to_string();
+        assert!(error.contains("tokenizer vocabulary size"));
+        assert!(error.contains("config vocab_size"));
+    }
+
+    #[test]
+    fn q8_setup_diagnostics_report_compute_format_and_cache_contract() {
+        let setup = WhisperRunSetup {
+            model_id: "openai/whisper-tiny".to_string(),
+            task: TranscriptionTask::Transcribe,
+            language: Some("en".to_string()),
+            bundle: WhisperBundlePaths {
+                root: PathBuf::from("bundle"),
+                config_json: PathBuf::from("config.json"),
+                generation_config_json: PathBuf::from("generation_config.json"),
+                tokenizer_json: PathBuf::from("tokenizer.json"),
+                preprocessor_config_json: PathBuf::from("preprocessor_config.json"),
+                model_safetensors: PathBuf::from("model.safetensors"),
+                model_q8_0_gguf: Some(PathBuf::from("model.q8_0.gguf")),
+            },
+            model_source: "explicit-bundle",
+            resolved_device: ResolvedNativeDevice::Cpu,
+            requested_compute_type: CandleWhisperComputeType::Int8,
+            resolved_compute_type: CandleWhisperComputeType::Int8,
+            model_weight_dtype: DType::F32,
+            model_format: WhisperModelFormat::GgufQ8_0,
+        };
+        let diagnostics = whisper_setup_diagnostics(&setup);
+        assert!(diagnostics.iter().any(|item| item == "computeType=int8"));
+        assert!(diagnostics
+            .iter()
+            .any(|item| item == "modelFormat=gguf-q8_0"));
+        assert_eq!(format_cache_reuse(true, true), "self-and-cross-attention");
     }
 
     #[test]

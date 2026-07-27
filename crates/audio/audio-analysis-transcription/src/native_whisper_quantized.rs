@@ -2,7 +2,7 @@ use std::path::Path;
 
 use candle_core::quantized::GgmlDType;
 use candle_core::{DType, Device, IndexOp, Module, Result, Tensor, D};
-use candle_nn::LayerNorm;
+use candle_nn::{Conv1d, Conv1dConfig, LayerNorm};
 use candle_transformers::models::whisper;
 use candle_transformers::quantized_nn::{layer_norm, linear, linear_no_bias, Embedding, Linear};
 use candle_transformers::quantized_var_builder::VarBuilder;
@@ -211,6 +211,190 @@ struct Q8WhisperBlock {
     mlp_linear1: Linear,
     mlp_linear2: Linear,
     final_layer_norm: LayerNorm,
+}
+
+#[derive(Debug, Clone)]
+struct Q8WhisperEncoderBlock {
+    self_attention: Q8WhisperAttention,
+    self_attention_layer_norm: LayerNorm,
+    mlp_linear1: Linear,
+    mlp_linear2: Linear,
+    final_layer_norm: LayerNorm,
+}
+
+impl Q8WhisperEncoderBlock {
+    fn load(n_state: usize, n_head: usize, vb: VarBuilder) -> Result<Self> {
+        require_q8_weight(&vb, (n_state * 4, n_state), "fc1.weight")?;
+        require_q8_weight(&vb, (n_state, n_state * 4), "fc2.weight")?;
+        Ok(Self {
+            self_attention: Q8WhisperAttention::load(n_state, n_head, vb.pp("self_attn"))?,
+            self_attention_layer_norm: layer_norm(n_state, 1e-5, vb.pp("self_attn_layer_norm"))?,
+            mlp_linear1: linear(n_state, n_state * 4, vb.pp("fc1"))?,
+            mlp_linear2: linear(n_state * 4, n_state, vb.pp("fc2"))?,
+            final_layer_norm: layer_norm(n_state, 1e-5, vb.pp("final_layer_norm"))?,
+        })
+    }
+
+    fn forward(&mut self, x: &Tensor, mask: &Tensor) -> Result<Tensor> {
+        self.self_attention.reset_cache();
+        let (attention, _) = self
+            .self_attention
+            .forward_self(&self.self_attention_layer_norm.forward(x)?, mask)?;
+        let x = (x + attention)?;
+        let mlp = self.mlp_linear2.forward(
+            &self
+                .mlp_linear1
+                .forward(&self.final_layer_norm.forward(&x)?)?
+                .gelu()?,
+        )?;
+        x + mlp
+    }
+}
+
+#[derive(Debug, Clone)]
+struct CandleQ8WhisperEncoder {
+    conv1: Conv1d,
+    conv2: Conv1d,
+    positional_embedding: Tensor,
+    blocks: Vec<Q8WhisperEncoderBlock>,
+    layer_norm: LayerNorm,
+}
+
+impl CandleQ8WhisperEncoder {
+    fn load(builder: &VarBuilder, config: &whisper::Config) -> Result<Self> {
+        let vb = builder.pp("model.encoder");
+        let conv1 = q8_conv1d(
+            config.num_mel_bins,
+            config.d_model,
+            3,
+            Conv1dConfig {
+                padding: 1,
+                ..Default::default()
+            },
+            vb.pp("conv1"),
+        )?;
+        let conv2 = q8_conv1d(
+            config.d_model,
+            config.d_model,
+            3,
+            Conv1dConfig {
+                padding: 1,
+                stride: 2,
+                ..Default::default()
+            },
+            vb.pp("conv2"),
+        )?;
+        let positional_embedding = sinusoids(
+            config.max_source_positions,
+            config.d_model,
+            builder.device(),
+        )?;
+        let blocks = (0..config.encoder_layers)
+            .map(|index| {
+                Q8WhisperEncoderBlock::load(
+                    config.d_model,
+                    config.encoder_attention_heads,
+                    vb.pp(format!("layers.{index}")),
+                )
+            })
+            .collect::<Result<Vec<_>>>()?;
+        Ok(Self {
+            conv1,
+            conv2,
+            positional_embedding,
+            blocks,
+            layer_norm: layer_norm(config.d_model, 1e-5, vb.pp("layer_norm"))?,
+        })
+    }
+
+    fn forward(&mut self, mel: &Tensor) -> Result<Tensor> {
+        let x = self.conv1.forward(mel)?.gelu()?;
+        let x = self.conv2.forward(&x)?.gelu()?.transpose(1, 2)?;
+        let (_, sequence_len, _) = x.dims3()?;
+        let positions = self.positional_embedding.narrow(0, 0, sequence_len)?;
+        let mut x = x.broadcast_add(&positions)?;
+        let mask = Tensor::zeros((sequence_len, sequence_len), DType::F32, x.device())?;
+        for block in &mut self.blocks {
+            x = block.forward(&x, &mask)?;
+        }
+        self.layer_norm.forward(&x)
+    }
+}
+
+#[derive(Debug, Clone)]
+pub(crate) struct CandleQ8WhisperModel {
+    encoder: CandleQ8WhisperEncoder,
+    decoder: CandleQ8WhisperDecoder,
+    pub(crate) config: whisper::Config,
+}
+
+impl CandleQ8WhisperModel {
+    pub(crate) fn from_gguf(path: &Path, config: whisper::Config, device: &Device) -> Result<Self> {
+        let builder = VarBuilder::from_gguf(path, device)?;
+        let encoder = CandleQ8WhisperEncoder::load(&builder, &config)?;
+        let decoder = CandleQ8WhisperDecoder::from_var_builder(&builder, config.clone())?;
+        Ok(Self {
+            encoder,
+            decoder,
+            config,
+        })
+    }
+
+    pub(crate) fn encode(&mut self, mel: &Tensor) -> Result<Tensor> {
+        self.encoder.forward(mel)
+    }
+
+    pub(crate) fn decode(
+        &mut self,
+        tokens: &Tensor,
+        encoder_features: &Tensor,
+        position_offset: usize,
+        reset_cache: bool,
+    ) -> Result<CandleQ8WhisperDecoderOutput> {
+        self.decoder
+            .forward_incremental(tokens, encoder_features, position_offset, reset_cache)
+    }
+
+    pub(crate) fn project_logits(&self, activations: &Tensor) -> Result<Tensor> {
+        self.decoder.project_logits(activations)
+    }
+
+    pub(crate) fn reset_cache(&mut self) {
+        self.decoder.reset_cache();
+    }
+
+    pub(crate) fn select_cache_rows(&mut self, row_indices: &Tensor) -> Result<()> {
+        self.decoder.select_cache_rows(row_indices)
+    }
+}
+
+fn q8_conv1d(
+    in_channels: usize,
+    out_channels: usize,
+    kernel_size: usize,
+    config: Conv1dConfig,
+    vb: VarBuilder,
+) -> Result<Conv1d> {
+    let weight = vb
+        .get((out_channels, in_channels, kernel_size), "weight")?
+        .dequantize(vb.device())?;
+    let bias = vb.get(out_channels, "bias")?.dequantize(vb.device())?;
+    Ok(Conv1d::new(weight, Some(bias), config))
+}
+
+fn sinusoids(length: usize, channels: usize, device: &Device) -> Result<Tensor> {
+    let max_timescale = 10_000_f32;
+    let log_timescale_increment = max_timescale.ln() / (channels / 2 - 1) as f32;
+    let inverse_timescales = (0..channels / 2)
+        .map(|index| (index as f32 * -log_timescale_increment).exp())
+        .collect::<Vec<_>>();
+    let inverse_timescales = Tensor::new(inverse_timescales.as_slice(), device)?.unsqueeze(0)?;
+    let positions = Tensor::arange(0, length as u32, device)?
+        .to_dtype(DType::F32)?
+        .unsqueeze(1)?;
+    let shape = (length, channels / 2);
+    let scaled = (positions.broadcast_as(shape)? * inverse_timescales.broadcast_as(shape)?)?;
+    Tensor::cat(&[scaled.sin()?, scaled.cos()?], 1)
 }
 
 impl Q8WhisperBlock {

@@ -561,6 +561,7 @@ pub enum CandleWhisperComputeType {
     Fp16,
     #[serde(alias = "float32")]
     Fp32,
+    Int8,
 }
 
 impl CandleWhisperComputeType {
@@ -569,6 +570,7 @@ impl CandleWhisperComputeType {
             Self::Automatic => "automatic",
             Self::Fp16 => "fp16",
             Self::Fp32 => "fp32",
+            Self::Int8 => "int8",
         }
     }
 
@@ -581,6 +583,10 @@ impl CandleWhisperComputeType {
                 "native Candle Whisper compute type fp16 requires a CUDA device; use automatic or fp32 for CPU execution",
             )),
             (Self::Fp32, _) => Ok(Self::Fp32),
+            (Self::Int8, false) => Ok(Self::Int8),
+            (Self::Int8, true) => Err(setup_error(
+                "native Candle Whisper compute type int8 is CPU-only; select device=cpu or use automatic, fp16, or fp32 for CUDA execution",
+            )),
         }
     }
 
@@ -4226,6 +4232,62 @@ mod tests {
         }
     }
 
+    #[cfg(feature = "candle")]
+    #[test]
+    #[ignore = "requires caller-owned CANDLE_WHISPER_Q8_BUNDLE and CANDLE_WHISPER_Q8_WAV resources"]
+    fn real_q8_whisper_bundle_transcribes_short_fixture_with_valid_contract() {
+        let bundle = std::env::var_os("CANDLE_WHISPER_Q8_BUNDLE")
+            .map(PathBuf::from)
+            .expect("CANDLE_WHISPER_Q8_BUNDLE is required for the Q8 smoke");
+        let audio_path = std::env::var_os("CANDLE_WHISPER_Q8_WAV")
+            .map(PathBuf::from)
+            .expect("CANDLE_WHISPER_Q8_WAV is required for the Q8 smoke");
+        let audio =
+            LoadedAudio::mono_16khz_from_source(&TranscriptionSource::Path { path: audio_path })
+                .expect("Q8 smoke fixture must be readable mono-compatible WAV audio");
+        let duration = audio.duration_seconds().min(10.0);
+        let mut provider = ReusableCandleWhisperTranscriber::new(CandleWhisperOptions {
+            model_id: "openai/whisper-tiny.en".to_string(),
+            language: Some("en".to_string()),
+            device: NativeDevicePreference::Cpu,
+            compute_type: CandleWhisperComputeType::Int8,
+            model_bundle: Some(bundle),
+            model_cache_only: true,
+            batch_chunks: true,
+            max_batch_size: Some(2),
+            decode_runtime: CandleWhisperDecodeRuntime::ActiveRowTensorBatch,
+            ..CandleWhisperOptions::default()
+        });
+        let response = provider
+            .transcribe(AsrRequest {
+                audio,
+                chunks: vec![SpeechActivitySegment::new(0.0, duration, 1.0).unwrap()],
+                task: TranscriptionTask::Transcribe,
+                language: Some("en".to_string()),
+                model_id: "openai/whisper-tiny.en".to_string(),
+            })
+            .expect("Q8 Whisper smoke transcription should run");
+
+        response
+            .transcript
+            .validate_strict()
+            .expect("Q8 Whisper smoke must return a valid transcript contract");
+        for expected in ["computeType=int8", "modelFormat=gguf-q8_0"] {
+            assert!(response
+                .diagnostics
+                .iter()
+                .any(|diagnostic| diagnostic == expected));
+        }
+        assert!(response
+            .diagnostics
+            .iter()
+            .any(|diagnostic| diagnostic.starts_with("cacheReuse=")));
+        assert!(response
+            .diagnostics
+            .iter()
+            .any(|diagnostic| diagnostic.starts_with("phaseTiming.asrSeconds=")));
+    }
+
     #[test]
     fn candle_whisper_runtime_controls_serialize_as_public_request_fields() {
         let controls = CandleWhisperRuntimeControls {
@@ -4302,6 +4364,14 @@ mod tests {
         let decoded: CandleWhisperOptions =
             serde_json::from_value(serde_json::json!({"computeType": "auto"})).unwrap();
         assert_eq!(decoded.compute_type, CandleWhisperComputeType::Automatic);
+
+        let decoded: CandleWhisperOptions =
+            serde_json::from_value(serde_json::json!({"computeType": "int8"})).unwrap();
+        assert_eq!(decoded.compute_type, CandleWhisperComputeType::Int8);
+        assert_eq!(
+            serde_json::to_value(decoded).unwrap()["computeType"],
+            "int8"
+        );
     }
 
     #[test]
@@ -4336,6 +4406,15 @@ mod tests {
                 .unwrap(),
             CandleWhisperComputeType::Fp32
         );
+        assert_eq!(
+            CandleWhisperComputeType::Int8
+                .resolve_for_device(false)
+                .unwrap(),
+            CandleWhisperComputeType::Int8
+        );
+        assert!(CandleWhisperComputeType::Int8
+            .resolve_for_device(true)
+            .is_err());
     }
 
     #[test]
@@ -4354,6 +4433,7 @@ mod tests {
         assert!(CandleWhisperComputeType::Automatic.setup_fallback_eligible());
         assert!(!CandleWhisperComputeType::Fp16.setup_fallback_eligible());
         assert!(!CandleWhisperComputeType::Fp32.setup_fallback_eligible());
+        assert!(!CandleWhisperComputeType::Int8.setup_fallback_eligible());
     }
 
     fn diarization_response_for_tests(
