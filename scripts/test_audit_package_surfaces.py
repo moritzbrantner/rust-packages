@@ -7,6 +7,7 @@ import importlib.util
 import sys
 import unittest
 from pathlib import Path
+from unittest import mock
 
 ROOT = Path(__file__).resolve().parents[1]
 SCRIPT = ROOT / "scripts" / "audit_package_surfaces.py"
@@ -19,6 +20,111 @@ spec.loader.exec_module(audit)
 
 
 class PackageSurfaceAuditTests(unittest.TestCase):
+    def test_transcription_required_resource_example_is_not_executed_offline(
+        self,
+    ) -> None:
+        operation = {
+            "id": "audio.transcription.transcribe",
+            "exampleRequest": {"source": {"path": "speech.wav"}},
+            "inputSchema": {
+                "xExecutionPlan": {
+                    "requirements": [
+                        {"name": "model-bundle", "required": True},
+                    ]
+                }
+            },
+        }
+        failures: list[str] = []
+
+        with mock.patch.object(audit.subprocess, "run") as run:
+            audit.run_operation_example(
+                "moenarch-audio-analysis-transcription", operation, failures
+            )
+
+        run.assert_not_called()
+        self.assertEqual(failures, [])
+
+    def test_other_required_resource_examples_still_execute(self) -> None:
+        operation = {
+            "id": "image.captioning.caption",
+            "exampleRequest": {},
+            "inputSchema": {
+                "xExecutionPlan": {
+                    "requirements": [
+                        {"name": "model-bundle", "required": True},
+                    ]
+                }
+            },
+        }
+        failures: list[str] = []
+        completed = mock.Mock(
+            returncode=0,
+            stdout='{"operation":"image.captioning.caption","value":{"operation":"image.captioning.caption","title":"Caption","message":"Done","summary":{},"result":{}}}',
+            stderr="",
+        )
+
+        with mock.patch.object(
+            audit.subprocess, "run", return_value=completed
+        ) as run:
+            audit.run_operation_example(
+                "moenarch-image-analysis-captioning", operation, failures
+            )
+
+        run.assert_called_once()
+        self.assertEqual(failures, [])
+
+    def test_optional_runtime_requirements_do_not_bypass_example_execution(self) -> None:
+        operation = {
+            "id": "audio.transcription.transcribe",
+            "exampleRequest": {},
+            "inputSchema": {
+                "xExecutionPlan": {
+                    "requirements": [
+                        {"name": "optional-cache", "required": False},
+                    ]
+                }
+            },
+        }
+        failures: list[str] = []
+        completed = mock.Mock(
+            returncode=0,
+            stdout='{"operation":"audio.transcription.transcribe","value":{"operation":"audio.transcription.transcribe","title":"Demo","message":"Done","summary":{},"result":{}}}',
+            stderr="",
+        )
+
+        with mock.patch.object(
+            audit.subprocess, "run", return_value=completed
+        ) as run:
+            audit.run_operation_example(
+                "moenarch-audio-analysis-transcription", operation, failures
+            )
+
+        run.assert_called_once()
+        self.assertEqual(failures, [])
+
+    def test_malformed_execution_plan_does_not_bypass_example_execution(self) -> None:
+        operation = {
+            "id": "audio.transcription.transcribe",
+            "exampleRequest": {},
+            "inputSchema": {"xExecutionPlan": {"requirements": "model-bundle"}},
+        }
+        failures: list[str] = []
+        completed = mock.Mock(
+            returncode=0,
+            stdout='{"operation":"audio.transcription.transcribe","value":{"operation":"audio.transcription.transcribe","title":"Demo","message":"Done","summary":{},"result":{}}}',
+            stderr="",
+        )
+
+        with mock.patch.object(
+            audit.subprocess, "run", return_value=completed
+        ) as run:
+            audit.run_operation_example(
+                "moenarch-audio-analysis-transcription", operation, failures
+            )
+
+        run.assert_called_once()
+        self.assertEqual(failures, [])
+
     def test_tracer_gate_fails_loose_primary_schema(self) -> None:
         failures: list[str] = []
         audit.validate_tracer_primary_workflow(

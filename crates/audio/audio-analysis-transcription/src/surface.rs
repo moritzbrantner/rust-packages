@@ -2,7 +2,8 @@
 
 use runtime_core::{
     structured_surface_response, MobileCapability, OperationId, PackageSurface,
-    RuntimeCapabilities, SurfaceOperation, SurfaceRequest, SurfaceResponse,
+    RuntimeCapabilities, RuntimeRequirement, SurfaceExecutionMode, SurfaceExecutionPlan,
+    SurfaceOperation, SurfaceRequest, SurfaceResponse, SurfaceSideEffect,
 };
 use serde::Deserialize;
 
@@ -166,7 +167,51 @@ fn operation(
     if let Some(contract) = landscape_contract(id) {
         runtime_core::attach_landscape_contract(&mut operation, contract);
     }
+    if id == "audio.transcription.transcribe" {
+        let execution_plan =
+            runtime_core::surface_execution_plan_value(&transcription_execution_plan());
+        operation.input_schema["xExecutionPlan"] = execution_plan.clone();
+        operation.output_schema["xExecutionPlan"] = execution_plan;
+    }
     operation
+}
+
+fn transcription_execution_plan() -> SurfaceExecutionPlan {
+    SurfaceExecutionPlan {
+        operation: OperationId::new("audio.transcription.transcribe"),
+        mode: SurfaceExecutionMode::InMemory,
+        side_effects: vec![
+            SurfaceSideEffect::ReadsFiles,
+            SurfaceSideEffect::Network,
+            SurfaceSideEffect::WritesFiles,
+        ],
+        cancellable: false,
+        progress_unit: Some("audio-seconds".to_string()),
+        expected_artifacts: Vec::new(),
+        requirements: vec![
+            RuntimeRequirement {
+                name: "audio-source".to_string(),
+                description: Some("Readable caller-owned audio or video input.".to_string()),
+                required: true,
+            },
+            RuntimeRequirement {
+                name: "candle-whisper-cuda-runtime".to_string(),
+                description: Some(
+                    "Candle Whisper with CUDA support and an available CUDA device.".to_string(),
+                ),
+                required: true,
+            },
+            RuntimeRequirement {
+                name: "candle-whisper-model-artifacts".to_string(),
+                description: Some(
+                    "Locally cached or network-resolvable Candle Whisper model artifacts."
+                        .to_string(),
+                ),
+                required: true,
+            },
+        ],
+        max_recommended_input_bytes: None,
+    }
 }
 
 fn landscape_contract(id: &str) -> Option<runtime_core::landscape::LandscapeOperationContract> {
@@ -708,6 +753,36 @@ mod tests {
         assert!(ids.contains(&"audio.transcription.alignmentBundlePlan"));
         assert!(ids.contains(&"audio.transcription.decodePlan"));
         assert!(ids.contains(&"audio.transcription.diarizationPlan"));
+    }
+
+    #[test]
+    fn transcription_operation_declares_its_required_runtime_resources() {
+        let surface = package_surface();
+        let operation = surface
+            .operations
+            .iter()
+            .find(|operation| operation.id.as_str() == "audio.transcription.transcribe")
+            .unwrap();
+        let input_plan = &operation.input_schema["xExecutionPlan"];
+        let output_plan = &operation.output_schema["xExecutionPlan"];
+
+        assert_eq!(input_plan, output_plan);
+        assert_eq!(input_plan["mode"], "inMemory");
+        assert_eq!(
+            input_plan["sideEffects"],
+            serde_json::json!(["readsFiles", "network", "writesFiles"])
+        );
+        let requirements = input_plan["requirements"].as_array().unwrap();
+        assert_eq!(requirements.len(), 3);
+        for name in [
+            "audio-source",
+            "candle-whisper-cuda-runtime",
+            "candle-whisper-model-artifacts",
+        ] {
+            assert!(requirements.iter().any(|requirement| {
+                requirement["name"] == name && requirement["required"] == true
+            }));
+        }
     }
 
     #[test]

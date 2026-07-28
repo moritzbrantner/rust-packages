@@ -477,6 +477,8 @@ def validate_tracer_primary_workflow(
 
 
 def run_operation_example(crate: str, operation: dict, failures: list[str]) -> None:
+    if example_requires_runtime_resources(crate, operation):
+        return
     operation_id = operation["id"]
     example_request = operation.get("exampleRequest")
     companion_base = companion_package_base_name(crate)
@@ -532,6 +534,31 @@ def run_operation_example(crate: str, operation: dict, failures: list[str]) -> N
         failures.append(f"{crate}:{operation_id}: response summary must be an object")
     if value.get("result") is None:
         failures.append(f"{crate}:{operation_id}: response result must not be null")
+
+
+def example_requires_runtime_resources(crate: str, operation: dict) -> bool:
+    resource_bound_example = (
+        "moenarch-audio-analysis-transcription",
+        "audio.transcription.transcribe",
+    )
+    if (crate, operation.get("id")) != resource_bound_example:
+        return False
+    input_schema = operation.get("inputSchema")
+    if not isinstance(input_schema, dict):
+        return False
+    execution_plan = input_schema.get("xExecutionPlan")
+    if not isinstance(execution_plan, dict):
+        return False
+    requirements = execution_plan.get("requirements")
+    if not isinstance(requirements, list):
+        return False
+    return any(
+        isinstance(requirement, dict)
+        and requirement.get("required") is True
+        and isinstance(requirement.get("name"), str)
+        and bool(requirement["name"].strip())
+        for requirement in requirements
+    )
 
 
 def validate_cli_invalid_behavior(crate: str, failures: list[str]) -> None:
