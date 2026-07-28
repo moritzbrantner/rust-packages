@@ -3,8 +3,8 @@ import initWasm, {
   initSync,
   packageSurface as wasmPackageSurface,
   runOperation as wasmRunOperation,
-} from "./pkg/dense_data_wasm.js";
-import * as wasmModule from "./pkg/dense_data_wasm.js";
+} from "./pkg/moenarch_dense_data_wasm.js";
+import * as wasmModule from "./pkg/moenarch_dense_data_wasm.js";
 
 let initialized = false;
 
@@ -73,7 +73,10 @@ function initializeNodeSync() {
     return;
   }
 
-  const wasmPath = new URL("./pkg/dense_data_wasm_bg.wasm", import.meta.url);
+  const wasmPath = new URL(
+    "./pkg/moenarch_dense_data_wasm_bg.wasm",
+    import.meta.url,
+  );
   const bytes = readNodeFileSync(wasmPath);
 
   initSync({ module: bytes });
