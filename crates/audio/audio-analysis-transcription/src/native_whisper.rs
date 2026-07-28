@@ -29,21 +29,6 @@ use crate::{
     SpeechActivitySegment, TranscriptionTask,
 };
 
-#[cfg(any(feature = "model-bundles", test))]
-const REQUIRED_WHISPER_FILES: &[&str] = &[
-    "config.json",
-    "generation_config.json",
-    "tokenizer.json",
-    "preprocessor_config.json",
-    "model.safetensors",
-];
-const REQUIRED_Q8_WHISPER_FILES: &[&str] = &[
-    "config.json",
-    "generation_config.json",
-    "tokenizer.json",
-    "preprocessor_config.json",
-    "model.q8_0.gguf",
-];
 const WHISPER_TIMESTAMP_SECONDS_PER_TOKEN: f64 = 0.02;
 const WHISPER_START_OF_PREV_TOKEN: &str = "<|startofprev|>";
 const WHISPER_TIMESTAMP_TOKEN_COUNT: u32 =
@@ -832,7 +817,7 @@ fn resolve_whisper_model_with_observer(
     if resolved_compute_type == CandleWhisperComputeType::Int8 {
         return Err(setup_error(format!(
             "native Candle Whisper compute type int8 requires an explicit local Q8_0 bundle containing {}; automatic downloads and safetensors fallback are disabled",
-            REQUIRED_Q8_WHISPER_FILES.join(", ")
+            resolved_compute_type.required_bundle_files().join(", ")
         )));
     }
 
@@ -960,7 +945,8 @@ fn whisper_model_spec(model_id: &str) -> model_runtime::HuggingFaceModelSpec {
         model_id.to_string(),
         model_runtime::ModelTask::SpeechRecognition,
     );
-    spec.files = REQUIRED_WHISPER_FILES
+    spec.files = CandleWhisperComputeType::Automatic
+        .required_bundle_files()
         .iter()
         .copied()
         .map(model_runtime::ModelFileRequest::required)
@@ -975,7 +961,9 @@ fn missing_whisper_model_error(
 ) -> video_analysis_core::DetectError {
     setup_error(format!(
         "failed to resolve native Candle Whisper model `{model_id}`; required files: {}; --model-dir={}; cache-only={}",
-        REQUIRED_WHISPER_FILES.join(", "),
+        CandleWhisperComputeType::Automatic
+            .required_bundle_files()
+            .join(", "),
         options
             .model_dir
             .as_ref()
@@ -993,7 +981,9 @@ fn missing_whisper_model_error_with_source(
 ) -> video_analysis_core::DetectError {
     setup_error(format!(
         "failed to resolve native Candle Whisper model `{model_id}`; required files: {}; --model-dir={}; cache-only={}: {source}",
-        REQUIRED_WHISPER_FILES.join(", "),
+        CandleWhisperComputeType::Automatic
+            .required_bundle_files()
+            .join(", "),
         options
             .model_dir
             .as_ref()
@@ -1058,10 +1048,17 @@ pub(crate) fn resolve_whisper_bundle_paths(bundle: &Path) -> Result<WhisperBundl
 fn resolve_q8_whisper_bundle_paths(bundle: &Path) -> Result<WhisperBundlePaths> {
     if !bundle.exists() {
         return Err(setup_error(format!(
-            "required Candle Whisper Q8_0 model bundle `{}` is missing",
-            bundle.display()
+            "required Candle Whisper Q8_0 model bundle `{}` is missing; required files: {}",
+            bundle.display(),
+            CandleWhisperComputeType::Int8
+                .required_bundle_files()
+                .join(", ")
         )));
     }
+    crate::native_bundles::validate_required_bundle_files(
+        bundle,
+        CandleWhisperComputeType::Int8.required_bundle_files(),
+    )?;
     let paths = WhisperBundlePaths {
         root: bundle.to_path_buf(),
         config_json: crate::native_bundles::resolve_required_bundle_file(bundle, "config.json")?,
@@ -3764,7 +3761,7 @@ mod tests {
     }
 
     fn create_fake_whisper_bundle(root: &Path) {
-        for file in REQUIRED_WHISPER_FILES {
+        for file in CandleWhisperComputeType::Automatic.required_bundle_files() {
             std::fs::write(root.join(file), "").unwrap();
         }
     }
@@ -4632,7 +4629,7 @@ mod tests {
         let spec = whisper_model_spec("openai/whisper-tiny.en");
         assert_eq!(spec.repo_id_value(), Some("openai/whisper-tiny.en"));
         let rendered = format!("{:?}", spec.files);
-        for file in REQUIRED_WHISPER_FILES {
+        for file in CandleWhisperComputeType::Automatic.required_bundle_files() {
             assert!(rendered.contains(file));
         }
     }
@@ -4717,6 +4714,34 @@ mod tests {
             .to_string();
         assert!(error.contains("model.q8_0.gguf"));
         assert!(!error.contains("failed to load Candle Whisper weights"));
+    }
+
+    #[test]
+    fn int8_without_an_explicit_bundle_reports_the_public_required_file_list() {
+        let options = CandleWhisperOptions {
+            compute_type: CandleWhisperComputeType::Int8,
+            device: crate::NativeDevicePreference::Cpu,
+            ..CandleWhisperOptions::default()
+        };
+
+        let error = resolve_whisper_model(&options, "tiny.en")
+            .unwrap_err()
+            .to_string();
+        for file in CandleWhisperComputeType::Int8.required_bundle_files() {
+            assert!(error.contains(file), "missing `{file}` in `{error}`");
+        }
+    }
+
+    #[test]
+    fn int8_missing_explicit_bundle_reports_the_public_required_file_list() {
+        let bundle = tempfile::tempdir().unwrap().path().join("missing");
+        let error = resolve_q8_whisper_bundle_paths(&bundle)
+            .unwrap_err()
+            .to_string();
+
+        for file in CandleWhisperComputeType::Int8.required_bundle_files() {
+            assert!(error.contains(file), "missing `{file}` in `{error}`");
+        }
     }
 
     #[test]
