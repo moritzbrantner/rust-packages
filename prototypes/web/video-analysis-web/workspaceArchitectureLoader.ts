@@ -5,6 +5,7 @@ import { dirname, relative } from "node:path";
 import {
   packageDomainFor,
   packageDomainOrder,
+  unprefixedPackageName,
   type WorkspaceArchitectureDependency,
   type WorkspaceArchitecturePackage,
   type WorkspaceArchitectureResponse,
@@ -328,7 +329,7 @@ function libraryEntrypoint(
     return name === "@moritzbrantner/video-analysis-ui" ? "import from @moritzbrantner/video-analysis-ui" : path ?? name;
   }
   if (hasLibraryTarget) {
-    const importName = name.replace(/^moritzbrantner-/, "");
+    const importName = unprefixedPackageName(name);
     return `use ${importName.replaceAll("-", "_")}`;
   }
   return "add src/lib.rs before publishing new library APIs";
@@ -384,7 +385,7 @@ function frontendExposes(name: string): string[] {
 }
 
 function frontendLibraryName(name: string): string {
-  return name.replace(/^@moritzbrantner\//, "").replace(/^moritzbrantner-/, "").replace(/-(app|wasm)$/, "");
+  return unprefixedPackageName(name).replace(/-(app|wasm)$/, "");
 }
 
 function cargoMetadata(workspaceRoot: string): Promise<CargoMetadataResponse> {

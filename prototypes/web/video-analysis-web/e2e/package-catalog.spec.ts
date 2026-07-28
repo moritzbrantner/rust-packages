@@ -3,6 +3,8 @@ import { fileURLToPath } from "node:url";
 
 import { expect, test, type Page } from "@playwright/test";
 
+import { unprefixedPackageName } from "../src/workspaceArchitecture";
+
 interface WorkspaceArchitecturePackage {
   name: string;
   kind: "rust" | "frontend";
@@ -256,7 +258,7 @@ async function fetchWrappers(page: Page): Promise<string[]> {
   const architecture = (await response.json()) as WorkspaceArchitectureResponse;
   return architecture.packages
     .filter((pkg) => pkg.kind === "rust" && pkg.name.endsWith("-server"))
-    .map((pkg) => pkg.name.replace(/^moritzbrantner-/, "").replace(/-server$/, ""))
+    .map((pkg) => unprefixedPackageName(pkg.name).replace(/-server$/, ""))
     .sort((left, right) => left.localeCompare(right));
 }
 

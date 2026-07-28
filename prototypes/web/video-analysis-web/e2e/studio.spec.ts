@@ -39,6 +39,6 @@ test("loads the sfm backend app on its wrapper URL", async ({ page }) => {
   await expect(page.getByRole("button", { name: "Standalone Server" })).toBeVisible();
   await expect(page.getByRole("tab", { name: "Workflow" })).toBeVisible();
   await expect(page.getByRole("tab", { name: "Debug" })).toBeVisible();
-  await expect(page.locator("select").first()).toHaveValue("video.sfm.matchPlan");
+  await expect(page.locator("select").first()).toHaveValue("video.sfm.reconstruct");
   await expect(page.getByRole("button", { name: "Run", exact: true })).toBeVisible();
 });

@@ -1,7 +1,19 @@
 import { describe, expect, it } from "vitest";
 
 import { buildInteropPairs, extractContractTags, parseWorkspaceContractMap } from "./workspaceArchitectureServer";
-import type { WorkspaceArchitectureDependency, WorkspaceArchitecturePackage } from "./workspaceArchitecture";
+import {
+  packageDomainFor,
+  packageShortName,
+  type WorkspaceArchitectureDependency,
+  type WorkspaceArchitecturePackage,
+} from "./workspaceArchitecture";
+
+describe("workspace package names", () => {
+  it("normalizes current moenarch Rust package names", () => {
+    expect(packageDomainFor("moenarch-text-core-server", "crates/text/text-core-server")).toBe("text");
+    expect(packageShortName("moenarch-text-core")).toBe("text:core");
+  });
+});
 
 describe("workspace architecture server helpers", () => {
   it("parses the contract table rows from markdown", () => {

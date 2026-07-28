@@ -209,15 +209,21 @@ export const packageDomainLabels: Record<PackageDomain, string> = {
   support: "Support",
 };
 
+export function unprefixedPackageName(name: string): string {
+  return name
+    .replace(/^@moritzbrantner\//, "")
+    .replace(/^(?:moenarch|moritzbrantner)-/, "");
+}
+
 export function packageDomainFor(name: string, path?: string | null): PackageDomain {
-  const packageName = name.replace(/^@moritzbrantner\//, "").replace(/^moritzbrantner-/, "");
+  const packageName = unprefixedPackageName(name);
   if (packageName === "video-analysis") {
     return "facade";
   }
-  if (name === "@moritzbrantner/video-analysis-ui") {
+  if (packageName === "video-analysis-ui") {
     return "ui";
   }
-  if (name === "@moritzbrantner/video-analysis-web") {
+  if (packageName === "video-analysis-web") {
     return "apps";
   }
   if (path?.includes("/bindings/")) {
@@ -277,9 +283,7 @@ export function packageDomainFor(name: string, path?: string | null): PackageDom
 }
 
 export function packageShortName(name: string): string {
-  return name
-    .replace(/^@moritzbrantner\//, "")
-    .replace(/^moritzbrantner-/, "")
+  return unprefixedPackageName(name)
     .replace(/^video-analysis-/, "")
     .replace(/^audio-analysis-/, "audio:")
     .replace(/^image-analysis-/, "image:")
