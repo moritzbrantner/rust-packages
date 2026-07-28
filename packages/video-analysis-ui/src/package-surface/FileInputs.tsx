@@ -103,11 +103,28 @@ function FileInputControl({
 
 async function readBlob(blob: Blob, encoding: "data-url" | "text"): Promise<string> {
   if (encoding === "text") {
-    return blob.text();
+    return typeof blob.text === "function" ? blob.text() : readBlobWithFileReader(blob, "text");
+  }
+
+  if (typeof blob.arrayBuffer !== "function") {
+    return readBlobWithFileReader(blob, "data-url");
   }
 
   const bytes = new Uint8Array(await blob.arrayBuffer());
   return `data:${blob.type || "application/octet-stream"};base64,${base64Encode(bytes)}`;
+}
+
+function readBlobWithFileReader(blob: Blob, encoding: "data-url" | "text"): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.addEventListener("error", () => reject(reader.error ?? new Error("Unable to read file")));
+    reader.addEventListener("load", () => resolve(String(reader.result ?? "")));
+    if (encoding === "text") {
+      reader.readAsText(blob);
+    } else {
+      reader.readAsDataURL(blob);
+    }
+  });
 }
 
 function base64Encode(bytes: Uint8Array): string {

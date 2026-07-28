@@ -837,6 +837,42 @@ describe("PackageSurfaceWorkbench", () => {
     expect(editor.value).toContain("data:video/webm");
   });
 
+  test("preserves a loaded sample when the second runtime surface resolves", async () => {
+    const baselineFetch = fetch;
+    let resolveServerSurface: (response: Response) => void = () => undefined;
+    const serverSurface = new Promise<Response>((resolve) => {
+      resolveServerSurface = resolve;
+    });
+    vi.stubGlobal(
+      "fetch",
+      vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
+        if (String(input).endsWith("/api/package")) {
+          return serverSurface;
+        }
+        return baselineFetch(input, init);
+      }),
+    );
+
+    render(<PackageSurfaceWorkbench config={scenarioConfig({ domain: "video" })} />);
+
+    await screen.findByDisplayValue("curated input");
+    fireEvent.click(screen.getByRole("button", { name: "Test Pattern" }));
+    await screen.findByDisplayValue(/data:video\/webm/);
+
+    resolveServerSurface(
+      jsonResponse({
+        library: "demo-package",
+        version: "0.1.0",
+        operations: scenarioOperations,
+      }),
+    );
+    await waitFor(() => {
+      expect(screen.getByText("demo-package-server")).toBeTruthy();
+    });
+
+    expect((screen.getByDisplayValue(/data:video\/webm/) as HTMLTextAreaElement).value).toContain("data:video/webm");
+  });
+
   test("loads COLMAP sample patches and preview data into the request form", async () => {
     render(<PackageSurfaceWorkbench config={config({ domain: "video" })} />);
 
@@ -855,7 +891,7 @@ describe("PackageSurfaceWorkbench", () => {
     expect((screen.getByDisplayValue(/\.external-test-tools\/colmap-runs\/test-video/) as HTMLTextAreaElement).value).toContain(
       ".external-test-tools/colmap-runs/test-video",
     );
-    expect((screen.getByDisplayValue(/data:video\/mp4/) as HTMLTextAreaElement).value).toContain("data:video/mp4");
+    expect(((await screen.findByDisplayValue(/data:video\/mp4/)) as HTMLTextAreaElement).value).toContain("data:video/mp4");
   });
 
   test("shows setup guidance when the optional COLMAP sample is missing", async () => {

@@ -85,12 +85,18 @@ export function PackageSurfaceWorkbench({ config }: { config: PackageAppConfig }
 
   useEffect(() => {
     let cancelled = false;
+    let selectionInitialized = false;
+    const initializeSurfaceSelection = (nextSurface: PackageSurface) => {
+      if (selectionInitialized) return;
+      selectionInitialized = true;
+      initializeSelection(nextSurface, selectedOperation, selectedPresetId, setSelectedOperation, setSelectedPresetId, setInput, config);
+    };
     if (config.wasm) {
       initializeWasmSurface(config)
         .then((nextSurface) => {
           if (cancelled) return;
           setSurface((current) => current ?? nextSurface);
-          initializeSelection(nextSurface, selectedOperation, selectedPresetId, setSelectedOperation, setSelectedPresetId, setInput, config);
+          initializeSurfaceSelection(nextSurface);
           setWasmState("ready");
         })
         .catch(() => {
@@ -107,7 +113,7 @@ export function PackageSurfaceWorkbench({ config }: { config: PackageAppConfig }
         if (cancelled) return;
         setHealth(nextHealth);
         setSurface((current) => current ?? nextSurface);
-        initializeSelection(nextSurface, selectedOperation, selectedPresetId, setSelectedOperation, setSelectedPresetId, setInput, config);
+        initializeSurfaceSelection(nextSurface);
         setModels(nextModels);
         setSelectedModel(nextModels[0]?.id ?? "");
         setServerState(nextHealth.ok === false ? "error" : "ready");
