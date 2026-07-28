@@ -4,6 +4,7 @@ import {
   packageDomainLabels,
   packageDomainOrder,
   slugifyPackageName,
+  unprefixedPackageName,
   type PackageDomain,
   type WorkspaceArchitecturePackage,
   type WorkspaceArchitectureResponse,
@@ -931,19 +932,14 @@ function wrapperAppModulePath(library: string): keyof typeof wrapperAppModules {
 }
 
 function serviceLibraryName(wrapper: WorkspaceArchitecturePackage): string {
-  return wrapper.name.replace(/^moritzbrantner-/, "").replace(/-server$/, "");
+  return unprefixedPackageName(wrapper.name).replace(/-server$/, "");
 }
 
 function relatedSurfaces(library: string, packages: WorkspaceArchitecturePackage[]) {
-  const wasmNames = new Set([
-    `${library}-wasm`,
-    `moritzbrantner-${library}-wasm`,
-    `@moritzbrantner/${library}-wasm`,
-  ]);
   return {
-    app: packages.find((pkg) => pkg.name === `@moritzbrantner/${library}-app`),
-    server: packages.find((pkg) => pkg.name === `moritzbrantner-${library}-server`),
-    wasm: packages.find((pkg) => wasmNames.has(pkg.name)),
+    app: packages.find((pkg) => unprefixedPackageName(pkg.name) === `${library}-app`),
+    server: packages.find((pkg) => unprefixedPackageName(pkg.name) === `${library}-server`),
+    wasm: packages.find((pkg) => unprefixedPackageName(pkg.name) === `${library}-wasm`),
   };
 }
 

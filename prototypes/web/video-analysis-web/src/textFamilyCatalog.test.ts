@@ -14,7 +14,7 @@ describe("text family catalog", () => {
       const appPath = `${workspaceRoot}/packages/${entry.library}-app/src/App.tsx`;
       const serverPath = `${workspaceRoot}/crates/text/${entry.library}-server/Cargo.toml`;
 
-      expect(packageDomainFor(`moritzbrantner-${entry.library}-server`, `crates/text/${entry.library}-server`)).toBe("text");
+      expect(packageDomainFor(`moenarch-${entry.library}-server`, `crates/text/${entry.library}-server`)).toBe("text");
       expect(existsSync(serverPath), `${entry.library} server wrapper should exist`).toBe(true);
       expect(existsSync(appPath), `${entry.library} app should exist`).toBe(true);
 
