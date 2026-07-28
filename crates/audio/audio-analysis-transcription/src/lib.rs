@@ -565,12 +565,35 @@ pub enum CandleWhisperComputeType {
 }
 
 impl CandleWhisperComputeType {
+    const SAFETENSORS_BUNDLE_FILES: &'static [&'static str] = &[
+        "config.json",
+        "generation_config.json",
+        "tokenizer.json",
+        "preprocessor_config.json",
+        "model.safetensors",
+    ];
+    const Q8_BUNDLE_FILES: &'static [&'static str] = &[
+        "config.json",
+        "generation_config.json",
+        "tokenizer.json",
+        "preprocessor_config.json",
+        "model.q8_0.gguf",
+    ];
+
     pub fn as_str(self) -> &'static str {
         match self {
             Self::Automatic => "automatic",
             Self::Fp16 => "fp16",
             Self::Fp32 => "fp32",
             Self::Int8 => "int8",
+        }
+    }
+
+    /// Returns the exact files required by this compute type's model bundle.
+    pub fn required_bundle_files(self) -> &'static [&'static str] {
+        match self {
+            Self::Automatic | Self::Fp16 | Self::Fp32 => Self::SAFETENSORS_BUNDLE_FILES,
+            Self::Int8 => Self::Q8_BUNDLE_FILES,
         }
     }
 
@@ -3339,16 +3362,7 @@ fn validate_candle_setup(
         )));
     }
     if let Some(bundle) = &options.model_bundle {
-        validate_model_bundle_files(
-            bundle,
-            &[
-                "config.json",
-                "generation_config.json",
-                "tokenizer.json",
-                "preprocessor_config.json",
-                "model.safetensors",
-            ],
-        )
+        validate_model_bundle_files(bundle, options.compute_type.required_bundle_files())
     } else {
         Ok(())
     }
@@ -4415,6 +4429,53 @@ mod tests {
         assert!(CandleWhisperComputeType::Int8
             .resolve_for_device(true)
             .is_err());
+    }
+
+    #[test]
+    fn int8_exposes_the_exact_required_q8_bundle_files() {
+        assert_eq!(
+            CandleWhisperComputeType::Int8.required_bundle_files(),
+            &[
+                "config.json",
+                "generation_config.json",
+                "tokenizer.json",
+                "preprocessor_config.json",
+                "model.q8_0.gguf",
+            ]
+        );
+    }
+
+    #[test]
+    fn full_precision_compute_types_still_require_safetensors_weights() {
+        for compute_type in [
+            CandleWhisperComputeType::Automatic,
+            CandleWhisperComputeType::Fp16,
+            CandleWhisperComputeType::Fp32,
+        ] {
+            assert!(compute_type
+                .required_bundle_files()
+                .contains(&"model.safetensors"));
+            assert!(!compute_type
+                .required_bundle_files()
+                .contains(&"model.q8_0.gguf"));
+        }
+    }
+
+    #[cfg(feature = "candle")]
+    #[test]
+    fn candle_setup_validates_int8_against_the_q8_bundle_contract() {
+        let bundle = tempfile::tempdir().unwrap();
+        for file in CandleWhisperComputeType::Int8.required_bundle_files() {
+            std::fs::write(bundle.path().join(file), []).unwrap();
+        }
+        let options = CandleWhisperOptions {
+            device: NativeDevicePreference::Cpu,
+            compute_type: CandleWhisperComputeType::Int8,
+            model_bundle: Some(bundle.path().to_path_buf()),
+            ..CandleWhisperOptions::default()
+        };
+
+        validate_candle_setup(&options, &CandleWhisperRuntimeControls::default()).unwrap();
     }
 
     #[test]
