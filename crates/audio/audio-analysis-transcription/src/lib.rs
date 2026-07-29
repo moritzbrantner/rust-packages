@@ -317,6 +317,71 @@ pub struct CandleWhisperRuntimeControls {
     pub decoder_threads: Option<usize>,
 }
 
+/// Request-scoped native Whisper segment-timing behavior.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum CandleWhisperTimingMode {
+    /// Prefer Whisper timestamp tokens and retain the existing bounded
+    /// chunk-window fallback when timestamp output is unavailable or unstable.
+    #[default]
+    Auto,
+    /// Decode without timestamp tokens and use expanded VAD-window timing.
+    NoTimestamps,
+    /// Require stable Whisper timestamp-token segments instead of falling back.
+    TimestampTokensRequired,
+}
+
+impl CandleWhisperTimingMode {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::Auto => "auto",
+            Self::NoTimestamps => "noTimestamps",
+            Self::TimestampTokensRequired => "timestampTokensRequired",
+        }
+    }
+}
+
+/// Request-scoped context and timing controls for native Whisper windows.
+///
+/// Defaults preserve the existing 250 ms leading and 40 ms trailing ASR
+/// context around each VAD chunk.
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CandleWhisperWindowControls {
+    #[serde(default)]
+    pub timing_mode: CandleWhisperTimingMode,
+    #[serde(default = "default_candle_whisper_leading_context_seconds")]
+    pub leading_context_seconds: f64,
+    #[serde(default = "default_candle_whisper_trailing_context_seconds")]
+    pub trailing_context_seconds: f64,
+}
+
+impl Default for CandleWhisperWindowControls {
+    fn default() -> Self {
+        Self {
+            timing_mode: CandleWhisperTimingMode::Auto,
+            leading_context_seconds: default_candle_whisper_leading_context_seconds(),
+            trailing_context_seconds: default_candle_whisper_trailing_context_seconds(),
+        }
+    }
+}
+
+impl CandleWhisperWindowControls {
+    fn validate(&self) -> Result<()> {
+        for (field, value) in [
+            ("leading_context_seconds", self.leading_context_seconds),
+            ("trailing_context_seconds", self.trailing_context_seconds),
+        ] {
+            if !value.is_finite() || value < 0.0 {
+                return Err(invalid_request(format!(
+                    "Candle Whisper {field} must be finite and greater than or equal to zero"
+                )));
+            }
+        }
+        Ok(())
+    }
+}
+
 /// Request-scoped token selection controls for native Candle Whisper decoding.
 ///
 /// The default configuration preserves the existing deterministic greedy path.
@@ -534,8 +599,40 @@ impl CandleWhisperDecodeRequestConfig {
     }
 }
 
+/// Complete request-scoped configuration for native Candle Whisper execution.
+///
+/// The aggregate keeps runtime, decode, and window concerns behind one
+/// canonical transcription interface while the narrower legacy methods remain
+/// source compatible by delegating with defaults.
+#[derive(Debug, Clone, PartialEq, Default, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CandleWhisperTranscriptionRequestConfig {
+    #[serde(default)]
+    pub runtime: CandleWhisperRuntimeControls,
+    #[serde(default)]
+    pub decode: CandleWhisperDecodeRequestConfig,
+    #[serde(default)]
+    pub window: CandleWhisperWindowControls,
+}
+
+impl CandleWhisperTranscriptionRequestConfig {
+    fn validate(&self, options: &CandleWhisperOptions) -> Result<()> {
+        self.decode.validate()?;
+        self.decode.validate_runtime(options)?;
+        self.window.validate()
+    }
+}
+
 fn default_candle_whisper_temperature_schedule() -> Vec<f64> {
     vec![0.0]
+}
+
+const fn default_candle_whisper_leading_context_seconds() -> f64 {
+    0.25
+}
+
+const fn default_candle_whisper_trailing_context_seconds() -> f64 {
+    0.04
 }
 
 const fn default_candle_whisper_search_width() -> usize {
@@ -1430,98 +1527,27 @@ impl CandleWhisperTranscriber {
         Self { options }
     }
 
-    /// Transcribes one request with request-scoped native runtime controls.
-    pub fn transcribe_with_runtime_controls(
+    /// Transcribes one request with complete request-scoped native controls.
+    pub fn transcribe_with_request_config(
         &mut self,
         request: AsrRequest,
-        controls: CandleWhisperRuntimeControls,
-    ) -> Result<AsrResponse> {
-        self.transcribe_with_runtime_controls_and_decode_request_config(
-            request,
-            controls,
-            CandleWhisperDecodeRequestConfig::default(),
-        )
-    }
-
-    /// Transcribes one request with request-scoped token selection controls.
-    pub fn transcribe_with_decode_config(
-        &mut self,
-        request: AsrRequest,
-        decode: CandleWhisperDecodeConfig,
-    ) -> Result<AsrResponse> {
-        self.transcribe_with_runtime_controls_and_decode_request_config(
-            request,
-            CandleWhisperRuntimeControls::default(),
-            decode.into(),
-        )
-    }
-
-    /// Transcribes one request with request-scoped runtime and token selection controls.
-    pub fn transcribe_with_runtime_controls_and_decode_config(
-        &mut self,
-        request: AsrRequest,
-        controls: CandleWhisperRuntimeControls,
-        decode: CandleWhisperDecodeConfig,
-    ) -> Result<AsrResponse> {
-        self.transcribe_with_runtime_controls_and_decode_request_config(
-            request,
-            controls,
-            decode.into(),
-        )
-    }
-
-    /// Transcribes one request with complete request-scoped decode controls.
-    pub fn transcribe_with_decode_request_config(
-        &mut self,
-        request: AsrRequest,
-        decode: CandleWhisperDecodeRequestConfig,
-    ) -> Result<AsrResponse> {
-        self.transcribe_with_runtime_controls_and_decode_request_config(
-            request,
-            CandleWhisperRuntimeControls::default(),
-            decode,
-        )
-    }
-
-    /// Transcribes one request with runtime and complete decode controls.
-    pub fn transcribe_with_runtime_controls_and_decode_request_config(
-        &mut self,
-        request: AsrRequest,
-        controls: CandleWhisperRuntimeControls,
-        decode: CandleWhisperDecodeRequestConfig,
+        config: CandleWhisperTranscriptionRequestConfig,
     ) -> Result<AsrResponse> {
         let mut observer = NoopTranscriptionPipelineObserver;
-        self.transcribe_with_runtime_controls_and_decode_request_config_and_observer(
-            request,
-            controls,
-            decode,
-            &mut observer,
-        )
+        self.transcribe_with_request_config_and_observer(request, config, &mut observer)
     }
 
-    /// Transcribes one request with complete request-scoped controls while
-    /// preserving pipeline progress and cancellation observations.
-    pub fn transcribe_with_runtime_controls_and_decode_request_config_and_observer(
+    /// Transcribes one request with complete request-scoped native controls
+    /// while preserving pipeline progress and cancellation observations.
+    pub fn transcribe_with_request_config_and_observer(
         &mut self,
         request: AsrRequest,
-        controls: CandleWhisperRuntimeControls,
-        decode: CandleWhisperDecodeRequestConfig,
-        observer: &mut dyn TranscriptionPipelineObserver,
-    ) -> Result<AsrResponse> {
-        self.transcribe_with_controls_and_observer(request, controls, decode, observer)
-    }
-
-    fn transcribe_with_controls_and_observer(
-        &mut self,
-        request: AsrRequest,
-        controls: CandleWhisperRuntimeControls,
-        decode: CandleWhisperDecodeRequestConfig,
+        config: CandleWhisperTranscriptionRequestConfig,
         observer: &mut dyn TranscriptionPipelineObserver,
     ) -> Result<AsrResponse> {
         validate_asr_request(&request)?;
-        decode.validate()?;
-        decode.validate_runtime(&self.options)?;
-        validate_candle_setup(&self.options, &controls)?;
+        config.validate(&self.options)?;
+        validate_candle_setup(&self.options, &config.runtime)?;
         let _ = &observer;
         #[cfg(feature = "candle")]
         {
@@ -1529,8 +1555,7 @@ impl CandleWhisperTranscriber {
             let model_id = request.model_id.clone();
             let mut response = native_whisper::transcribe_with_load_observer(
                 &self.options,
-                &controls,
-                &decode,
+                &config,
                 request,
                 |event| {
                     match event {
@@ -1591,6 +1616,105 @@ impl CandleWhisperTranscriber {
             )))
         }
     }
+
+    /// Transcribes one request with request-scoped native runtime controls.
+    pub fn transcribe_with_runtime_controls(
+        &mut self,
+        request: AsrRequest,
+        controls: CandleWhisperRuntimeControls,
+    ) -> Result<AsrResponse> {
+        self.transcribe_with_request_config(
+            request,
+            CandleWhisperTranscriptionRequestConfig {
+                runtime: controls,
+                ..CandleWhisperTranscriptionRequestConfig::default()
+            },
+        )
+    }
+
+    /// Transcribes one request with request-scoped token selection controls.
+    pub fn transcribe_with_decode_config(
+        &mut self,
+        request: AsrRequest,
+        decode: CandleWhisperDecodeConfig,
+    ) -> Result<AsrResponse> {
+        self.transcribe_with_request_config(
+            request,
+            CandleWhisperTranscriptionRequestConfig {
+                decode: decode.into(),
+                ..CandleWhisperTranscriptionRequestConfig::default()
+            },
+        )
+    }
+
+    /// Transcribes one request with request-scoped runtime and token selection controls.
+    pub fn transcribe_with_runtime_controls_and_decode_config(
+        &mut self,
+        request: AsrRequest,
+        controls: CandleWhisperRuntimeControls,
+        decode: CandleWhisperDecodeConfig,
+    ) -> Result<AsrResponse> {
+        self.transcribe_with_request_config(
+            request,
+            CandleWhisperTranscriptionRequestConfig {
+                runtime: controls,
+                decode: decode.into(),
+                ..CandleWhisperTranscriptionRequestConfig::default()
+            },
+        )
+    }
+
+    /// Transcribes one request with complete request-scoped decode controls.
+    pub fn transcribe_with_decode_request_config(
+        &mut self,
+        request: AsrRequest,
+        decode: CandleWhisperDecodeRequestConfig,
+    ) -> Result<AsrResponse> {
+        self.transcribe_with_request_config(
+            request,
+            CandleWhisperTranscriptionRequestConfig {
+                decode,
+                ..CandleWhisperTranscriptionRequestConfig::default()
+            },
+        )
+    }
+
+    /// Transcribes one request with runtime and complete decode controls.
+    pub fn transcribe_with_runtime_controls_and_decode_request_config(
+        &mut self,
+        request: AsrRequest,
+        controls: CandleWhisperRuntimeControls,
+        decode: CandleWhisperDecodeRequestConfig,
+    ) -> Result<AsrResponse> {
+        self.transcribe_with_request_config(
+            request,
+            CandleWhisperTranscriptionRequestConfig {
+                runtime: controls,
+                decode,
+                ..CandleWhisperTranscriptionRequestConfig::default()
+            },
+        )
+    }
+
+    /// Transcribes one request with complete request-scoped controls while
+    /// preserving pipeline progress and cancellation observations.
+    pub fn transcribe_with_runtime_controls_and_decode_request_config_and_observer(
+        &mut self,
+        request: AsrRequest,
+        controls: CandleWhisperRuntimeControls,
+        decode: CandleWhisperDecodeRequestConfig,
+        observer: &mut dyn TranscriptionPipelineObserver,
+    ) -> Result<AsrResponse> {
+        self.transcribe_with_request_config_and_observer(
+            request,
+            CandleWhisperTranscriptionRequestConfig {
+                runtime: controls,
+                decode,
+                ..CandleWhisperTranscriptionRequestConfig::default()
+            },
+            observer,
+        )
+    }
 }
 
 impl AudioTranscriptionProvider for CandleWhisperTranscriber {
@@ -1608,10 +1732,9 @@ impl AudioTranscriptionProvider for CandleWhisperTranscriber {
         request: AsrRequest,
         observer: &mut dyn TranscriptionPipelineObserver,
     ) -> Result<AsrResponse> {
-        self.transcribe_with_controls_and_observer(
+        self.transcribe_with_request_config_and_observer(
             request,
-            CandleWhisperRuntimeControls::default(),
-            CandleWhisperDecodeRequestConfig::default(),
+            CandleWhisperTranscriptionRequestConfig::default(),
             observer,
         )
     }
@@ -1640,98 +1763,27 @@ impl ReusableCandleWhisperTranscriber {
         }
     }
 
-    /// Transcribes one request with request-scoped native runtime controls.
-    pub fn transcribe_with_runtime_controls(
+    /// Transcribes one request with complete request-scoped native controls.
+    pub fn transcribe_with_request_config(
         &mut self,
         request: AsrRequest,
-        controls: CandleWhisperRuntimeControls,
-    ) -> Result<AsrResponse> {
-        self.transcribe_with_runtime_controls_and_decode_request_config(
-            request,
-            controls,
-            CandleWhisperDecodeRequestConfig::default(),
-        )
-    }
-
-    /// Transcribes one request with request-scoped token selection controls.
-    pub fn transcribe_with_decode_config(
-        &mut self,
-        request: AsrRequest,
-        decode: CandleWhisperDecodeConfig,
-    ) -> Result<AsrResponse> {
-        self.transcribe_with_runtime_controls_and_decode_request_config(
-            request,
-            CandleWhisperRuntimeControls::default(),
-            decode.into(),
-        )
-    }
-
-    /// Transcribes one request with request-scoped runtime and token selection controls.
-    pub fn transcribe_with_runtime_controls_and_decode_config(
-        &mut self,
-        request: AsrRequest,
-        controls: CandleWhisperRuntimeControls,
-        decode: CandleWhisperDecodeConfig,
-    ) -> Result<AsrResponse> {
-        self.transcribe_with_runtime_controls_and_decode_request_config(
-            request,
-            controls,
-            decode.into(),
-        )
-    }
-
-    /// Transcribes one request with complete request-scoped decode controls.
-    pub fn transcribe_with_decode_request_config(
-        &mut self,
-        request: AsrRequest,
-        decode: CandleWhisperDecodeRequestConfig,
-    ) -> Result<AsrResponse> {
-        self.transcribe_with_runtime_controls_and_decode_request_config(
-            request,
-            CandleWhisperRuntimeControls::default(),
-            decode,
-        )
-    }
-
-    /// Transcribes one request with runtime and complete decode controls.
-    pub fn transcribe_with_runtime_controls_and_decode_request_config(
-        &mut self,
-        request: AsrRequest,
-        controls: CandleWhisperRuntimeControls,
-        decode: CandleWhisperDecodeRequestConfig,
+        config: CandleWhisperTranscriptionRequestConfig,
     ) -> Result<AsrResponse> {
         let mut observer = NoopTranscriptionPipelineObserver;
-        self.transcribe_with_runtime_controls_and_decode_request_config_and_observer(
-            request,
-            controls,
-            decode,
-            &mut observer,
-        )
+        self.transcribe_with_request_config_and_observer(request, config, &mut observer)
     }
 
-    /// Transcribes one request with complete request-scoped controls while
-    /// preserving pipeline progress, reuse, and cancellation observations.
-    pub fn transcribe_with_runtime_controls_and_decode_request_config_and_observer(
+    /// Transcribes one request with complete request-scoped native controls
+    /// while preserving pipeline progress, reuse, and cancellation observations.
+    pub fn transcribe_with_request_config_and_observer(
         &mut self,
         request: AsrRequest,
-        controls: CandleWhisperRuntimeControls,
-        decode: CandleWhisperDecodeRequestConfig,
-        observer: &mut dyn TranscriptionPipelineObserver,
-    ) -> Result<AsrResponse> {
-        self.transcribe_with_controls_and_observer(request, controls, decode, observer)
-    }
-
-    fn transcribe_with_controls_and_observer(
-        &mut self,
-        request: AsrRequest,
-        controls: CandleWhisperRuntimeControls,
-        decode: CandleWhisperDecodeRequestConfig,
+        config: CandleWhisperTranscriptionRequestConfig,
         observer: &mut dyn TranscriptionPipelineObserver,
     ) -> Result<AsrResponse> {
         validate_asr_request(&request)?;
-        decode.validate()?;
-        decode.validate_runtime(&self.options)?;
-        validate_candle_setup(&self.options, &controls)?;
+        config.validate(&self.options)?;
+        validate_candle_setup(&self.options, &config.runtime)?;
         let _ = &observer;
         #[cfg(feature = "candle")]
         {
@@ -1740,8 +1792,7 @@ impl ReusableCandleWhisperTranscriber {
             let mut response = native_whisper::ReusableCandleWhisperSession::transcribe(
                 &mut self.session,
                 &self.options,
-                &controls,
-                &decode,
+                &config,
                 request,
                 |event| {
                     match event {
@@ -1815,6 +1866,105 @@ impl ReusableCandleWhisperTranscriber {
             )))
         }
     }
+
+    /// Transcribes one request with request-scoped native runtime controls.
+    pub fn transcribe_with_runtime_controls(
+        &mut self,
+        request: AsrRequest,
+        controls: CandleWhisperRuntimeControls,
+    ) -> Result<AsrResponse> {
+        self.transcribe_with_request_config(
+            request,
+            CandleWhisperTranscriptionRequestConfig {
+                runtime: controls,
+                ..CandleWhisperTranscriptionRequestConfig::default()
+            },
+        )
+    }
+
+    /// Transcribes one request with request-scoped token selection controls.
+    pub fn transcribe_with_decode_config(
+        &mut self,
+        request: AsrRequest,
+        decode: CandleWhisperDecodeConfig,
+    ) -> Result<AsrResponse> {
+        self.transcribe_with_request_config(
+            request,
+            CandleWhisperTranscriptionRequestConfig {
+                decode: decode.into(),
+                ..CandleWhisperTranscriptionRequestConfig::default()
+            },
+        )
+    }
+
+    /// Transcribes one request with request-scoped runtime and token selection controls.
+    pub fn transcribe_with_runtime_controls_and_decode_config(
+        &mut self,
+        request: AsrRequest,
+        controls: CandleWhisperRuntimeControls,
+        decode: CandleWhisperDecodeConfig,
+    ) -> Result<AsrResponse> {
+        self.transcribe_with_request_config(
+            request,
+            CandleWhisperTranscriptionRequestConfig {
+                runtime: controls,
+                decode: decode.into(),
+                ..CandleWhisperTranscriptionRequestConfig::default()
+            },
+        )
+    }
+
+    /// Transcribes one request with complete request-scoped decode controls.
+    pub fn transcribe_with_decode_request_config(
+        &mut self,
+        request: AsrRequest,
+        decode: CandleWhisperDecodeRequestConfig,
+    ) -> Result<AsrResponse> {
+        self.transcribe_with_request_config(
+            request,
+            CandleWhisperTranscriptionRequestConfig {
+                decode,
+                ..CandleWhisperTranscriptionRequestConfig::default()
+            },
+        )
+    }
+
+    /// Transcribes one request with runtime and complete decode controls.
+    pub fn transcribe_with_runtime_controls_and_decode_request_config(
+        &mut self,
+        request: AsrRequest,
+        controls: CandleWhisperRuntimeControls,
+        decode: CandleWhisperDecodeRequestConfig,
+    ) -> Result<AsrResponse> {
+        self.transcribe_with_request_config(
+            request,
+            CandleWhisperTranscriptionRequestConfig {
+                runtime: controls,
+                decode,
+                ..CandleWhisperTranscriptionRequestConfig::default()
+            },
+        )
+    }
+
+    /// Transcribes one request with complete request-scoped controls while
+    /// preserving pipeline progress, reuse, and cancellation observations.
+    pub fn transcribe_with_runtime_controls_and_decode_request_config_and_observer(
+        &mut self,
+        request: AsrRequest,
+        controls: CandleWhisperRuntimeControls,
+        decode: CandleWhisperDecodeRequestConfig,
+        observer: &mut dyn TranscriptionPipelineObserver,
+    ) -> Result<AsrResponse> {
+        self.transcribe_with_request_config_and_observer(
+            request,
+            CandleWhisperTranscriptionRequestConfig {
+                runtime: controls,
+                decode,
+                ..CandleWhisperTranscriptionRequestConfig::default()
+            },
+            observer,
+        )
+    }
 }
 
 impl std::fmt::Debug for ReusableCandleWhisperTranscriber {
@@ -1841,10 +1991,9 @@ impl AudioTranscriptionProvider for ReusableCandleWhisperTranscriber {
         request: AsrRequest,
         observer: &mut dyn TranscriptionPipelineObserver,
     ) -> Result<AsrResponse> {
-        self.transcribe_with_controls_and_observer(
+        self.transcribe_with_request_config_and_observer(
             request,
-            CandleWhisperRuntimeControls::default(),
-            CandleWhisperDecodeRequestConfig::default(),
+            CandleWhisperTranscriptionRequestConfig::default(),
             observer,
         )
     }

@@ -26,6 +26,7 @@ use crate::{
     candle_batch_count, invalid_request, model_output_mismatch, setup_error, validate_asr_request,
     AsrRequest, AsrResponse, CandleWhisperComputeType, CandleWhisperDecodeRequestConfig,
     CandleWhisperDecodeRuntime, CandleWhisperOptions, CandleWhisperRuntimeControls,
+    CandleWhisperTimingMode, CandleWhisperTranscriptionRequestConfig, CandleWhisperWindowControls,
     SpeechActivitySegment, TranscriptionTask,
 };
 
@@ -33,8 +34,6 @@ const WHISPER_TIMESTAMP_SECONDS_PER_TOKEN: f64 = 0.02;
 const WHISPER_START_OF_PREV_TOKEN: &str = "<|startofprev|>";
 const WHISPER_TIMESTAMP_TOKEN_COUNT: u32 =
     (whisper::CHUNK_LENGTH as f64 / WHISPER_TIMESTAMP_SECONDS_PER_TOKEN) as u32 + 1;
-const ASR_WINDOW_LEADING_CONTEXT_SECONDS: f64 = 0.25;
-const ASR_WINDOW_TRAILING_CONTEXT_SECONDS: f64 = 0.04;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct WhisperBundlePaths {
@@ -109,14 +108,6 @@ struct GenerationConfig {
 enum WhisperDecodeMode {
     WithoutTimestamps,
     TimestampTokens,
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-enum WhisperDecodeTimingMode {
-    Auto,
-    NoTimestamps,
-    #[allow(dead_code)]
-    TimestampTokensRequired,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -536,8 +527,7 @@ pub(crate) fn transcribe(
 ) -> Result<AsrResponse> {
     transcribe_with_load_observer(
         options,
-        &CandleWhisperRuntimeControls::default(),
-        &CandleWhisperDecodeRequestConfig::default(),
+        &CandleWhisperTranscriptionRequestConfig::default(),
         request,
         |_| Ok(()),
     )
@@ -562,14 +552,13 @@ pub(crate) enum WhisperModelResolutionEvent {
 
 pub(crate) fn transcribe_with_load_observer(
     options: &CandleWhisperOptions,
-    controls: &CandleWhisperRuntimeControls,
-    decode: &CandleWhisperDecodeRequestConfig,
+    config: &CandleWhisperTranscriptionRequestConfig,
     request: AsrRequest,
     mut on_resolution: impl FnMut(WhisperModelResolutionEvent) -> Result<()>,
 ) -> Result<AsrResponse> {
     let setup = WhisperRunSetup::from_options_and_request_with_observer(
         options,
-        controls,
+        &config.runtime,
         &request,
         &mut on_resolution,
     )?;
@@ -580,8 +569,8 @@ pub(crate) fn transcribe_with_load_observer(
         duration_seconds: load_started.elapsed().as_secs_f64(),
     })?;
     let resolved_device = session.setup.resolved_device.clone();
-    with_decoder_threads(controls.decoder_threads, &resolved_device, || {
-        session.transcribe_chunks(options, controls, decode, request)
+    with_decoder_threads(config.runtime.decoder_threads, &resolved_device, || {
+        session.transcribe_chunks(options, config, request)
     })
 }
 
@@ -630,14 +619,13 @@ impl ReusableCandleWhisperSession {
     pub(crate) fn transcribe(
         current: &mut Option<Self>,
         options: &CandleWhisperOptions,
-        controls: &CandleWhisperRuntimeControls,
-        decode: &CandleWhisperDecodeRequestConfig,
+        config: &CandleWhisperTranscriptionRequestConfig,
         request: AsrRequest,
         mut observe: impl FnMut(ReusableCandleWhisperSessionEvent) -> Result<()>,
     ) -> Result<AsrResponse> {
         let setup = WhisperRunSetup::from_options_and_request_with_observer(
             options,
-            controls,
+            &config.runtime,
             &request,
             &mut |event| {
                 observe(match event {
@@ -684,10 +672,8 @@ impl ReusableCandleWhisperSession {
             .expect("reusable Candle Whisper session is loaded");
         let resolved_device = session.session.setup.resolved_device.clone();
         let mut response =
-            with_decoder_threads(controls.decoder_threads, &resolved_device, || {
-                session
-                    .session
-                    .transcribe_chunks(options, controls, decode, request)
+            with_decoder_threads(config.runtime.decoder_threads, &resolved_device, || {
+                session.session.transcribe_chunks(options, config, request)
             })?;
         response.diagnostics.push(if session_reused {
             "asrModelSession=reused".to_string()
@@ -1845,10 +1831,12 @@ impl CandleWhisperSession {
     fn transcribe_chunks(
         &mut self,
         options: &CandleWhisperOptions,
-        controls: &CandleWhisperRuntimeControls,
-        decode: &CandleWhisperDecodeRequestConfig,
+        config: &CandleWhisperTranscriptionRequestConfig,
         request: AsrRequest,
     ) -> Result<AsrResponse> {
+        let controls = &config.runtime;
+        let decode = &config.decode;
+        let window_controls = &config.window;
         debug_assert!(
             decode.preserves_legacy_greedy_path() || !decode.search.temperature_schedule.is_empty()
         );
@@ -1882,8 +1870,12 @@ impl CandleWhisperSession {
         let max_prompt_tokens = (self.model.config().max_target_positions / 2).saturating_sub(1);
         let batch_size = candle_batch_size(options, request.chunks.len());
         for batch in request.chunks.chunks(batch_size) {
-            let windows =
-                collect_chunk_windows(&request.audio.samples, request.audio.sample_rate, batch)?;
+            let windows = collect_chunk_windows(
+                &request.audio.samples,
+                request.audio.sample_rate,
+                batch,
+                window_controls,
+            )?;
             let timed_windows = match options.decode_runtime {
                 CandleWhisperDecodeRuntime::AutoregressiveKvCache => {
                     let mut decoded = Vec::with_capacity(windows.len());
@@ -1893,7 +1885,7 @@ impl CandleWhisperSession {
                             prompt_state.current_prompt_tokens(max_prompt_tokens);
                         let timed = self.decode_window_with_timing_mode(
                             &window.samples,
-                            WhisperDecodeTimingMode::Auto,
+                            window_controls.timing_mode,
                             &window_decode,
                         )?;
                         prompt_state.record_generated_tokens(
@@ -1907,7 +1899,7 @@ impl CandleWhisperSession {
                 CandleWhisperDecodeRuntime::ActiveRowTensorBatch => self
                     .decode_windows_with_timing_mode(
                         &windows,
-                        WhisperDecodeTimingMode::Auto,
+                        window_controls.timing_mode,
                         decode,
                     )?,
             };
@@ -1996,6 +1988,15 @@ impl CandleWhisperSession {
             format!(
                 "decoderThreads={}",
                 decoder_threads_diagnostic(controls, &self.setup.resolved_device)
+            ),
+            format!("timingMode={}", window_controls.timing_mode.as_str()),
+            format!(
+                "leadingContextSeconds={}",
+                window_controls.leading_context_seconds
+            ),
+            format!(
+                "trailingContextSeconds={}",
+                window_controls.trailing_context_seconds
             ),
             format!("modelId={}", self.setup.model_id),
             format!("bundle={}", self.setup.bundle.root.display()),
@@ -2158,11 +2159,11 @@ impl CandleWhisperSession {
     fn decode_window_with_timing_mode(
         &mut self,
         samples: &[f32],
-        mode: WhisperDecodeTimingMode,
+        mode: CandleWhisperTimingMode,
         decode: &CandleWhisperDecodeRequestConfig,
     ) -> Result<WhisperTimedWindow> {
         match mode {
-            WhisperDecodeTimingMode::NoTimestamps => {
+            CandleWhisperTimingMode::NoTimestamps => {
                 let decoded =
                     self.decode_window(samples, WhisperDecodeMode::WithoutTimestamps, decode)?;
                 Ok(WhisperTimedWindow {
@@ -2173,7 +2174,7 @@ impl CandleWhisperSession {
                     diagnostics: decoded.diagnostics,
                 })
             }
-            WhisperDecodeTimingMode::Auto => {
+            CandleWhisperTimingMode::Auto => {
                 if timestamp_spec_for_timing_mode(&self.tokenizer, mode)?.is_some() {
                     let decoded =
                         self.decode_window(samples, WhisperDecodeMode::TimestampTokens, decode)?;
@@ -2189,7 +2190,7 @@ impl CandleWhisperSession {
                     }
                     let mut fallback = self.decode_window_with_timing_mode(
                         samples,
-                        WhisperDecodeTimingMode::NoTimestamps,
+                        CandleWhisperTimingMode::NoTimestamps,
                         decode,
                     )?;
                     fallback.fallback_reason = Some("unstableTimestampSegments");
@@ -2205,13 +2206,13 @@ impl CandleWhisperSession {
                 }
                 let mut fallback = self.decode_window_with_timing_mode(
                     samples,
-                    WhisperDecodeTimingMode::NoTimestamps,
+                    CandleWhisperTimingMode::NoTimestamps,
                     decode,
                 )?;
                 fallback.fallback_reason = Some("missingTimestampMetadata");
                 Ok(fallback)
             }
-            WhisperDecodeTimingMode::TimestampTokensRequired => {
+            CandleWhisperTimingMode::TimestampTokensRequired => {
                 timestamp_spec_for_timing_mode(&self.tokenizer, mode)?;
                 let decoded =
                     self.decode_window(samples, WhisperDecodeMode::TimestampTokens, decode)?;
@@ -2235,14 +2236,14 @@ impl CandleWhisperSession {
     fn decode_windows_with_timing_mode(
         &mut self,
         windows: &[ChunkWindow],
-        mode: WhisperDecodeTimingMode,
+        mode: CandleWhisperTimingMode,
         decode: &CandleWhisperDecodeRequestConfig,
     ) -> Result<Vec<WhisperTimedWindow>> {
         if windows.is_empty() {
             return Ok(Vec::new());
         }
         match mode {
-            WhisperDecodeTimingMode::NoTimestamps => self
+            CandleWhisperTimingMode::NoTimestamps => self
                 .decode_window_batch(windows, WhisperDecodeMode::WithoutTimestamps, decode)?
                 .into_iter()
                 .map(|decoded| {
@@ -2255,11 +2256,11 @@ impl CandleWhisperSession {
                     })
                 })
                 .collect(),
-            WhisperDecodeTimingMode::Auto => {
+            CandleWhisperTimingMode::Auto => {
                 if timestamp_spec_for_timing_mode(&self.tokenizer, mode)?.is_none() {
                     let mut fallback = self.decode_windows_with_timing_mode(
                         windows,
-                        WhisperDecodeTimingMode::NoTimestamps,
+                        CandleWhisperTimingMode::NoTimestamps,
                         decode,
                     )?;
                     for timed in &mut fallback {
@@ -2293,7 +2294,7 @@ impl CandleWhisperSession {
                         .collect::<Vec<_>>();
                     let fallbacks = self.decode_windows_with_timing_mode(
                         &fallback_windows,
-                        WhisperDecodeTimingMode::NoTimestamps,
+                        CandleWhisperTimingMode::NoTimestamps,
                         decode,
                     )?;
                     for ((index, timestamp_diagnostics), mut fallback) in
@@ -2317,7 +2318,7 @@ impl CandleWhisperSession {
                     .map(|result| result.expect("every batched Whisper window is decoded"))
                     .collect())
             }
-            WhisperDecodeTimingMode::TimestampTokensRequired => {
+            CandleWhisperTimingMode::TimestampTokensRequired => {
                 timestamp_spec_for_timing_mode(&self.tokenizer, mode)?;
                 let decoded =
                     self.decode_window_batch(windows, WhisperDecodeMode::TimestampTokens, decode)?;
@@ -2453,7 +2454,7 @@ impl CandleWhisperSession {
             timestamp_tokens_requested: mode == WhisperDecodeMode::TimestampTokens,
             timestamp_tokens_present: timestamp_spec_for_timing_mode(
                 &self.tokenizer,
-                WhisperDecodeTimingMode::Auto,
+                CandleWhisperTimingMode::Auto,
             )?
             .is_some_and(|spec| {
                 token_ids
@@ -2860,7 +2861,7 @@ impl CandleWhisperSession {
             suppress_token(logits, no_timestamps);
         }
         let Some(spec) =
-            timestamp_spec_for_timing_mode(&self.tokenizer, WhisperDecodeTimingMode::Auto)?
+            timestamp_spec_for_timing_mode(&self.tokenizer, CandleWhisperTimingMode::Auto)?
         else {
             return Ok(());
         };
@@ -3146,10 +3147,11 @@ fn collect_chunk_windows(
     samples: &[f32],
     sample_rate: u32,
     chunks: &[SpeechActivitySegment],
+    controls: &CandleWhisperWindowControls,
 ) -> Result<Vec<ChunkWindow>> {
     let mut windows = Vec::new();
     for chunk in chunks {
-        windows.extend(chunk_windows(samples, sample_rate, chunk)?);
+        windows.extend(chunk_windows(samples, sample_rate, chunk, controls)?);
     }
     Ok(windows)
 }
@@ -3291,12 +3293,12 @@ fn optional_whisper_timestamp_spec(tokenizer: &Tokenizer) -> Result<Option<Whisp
 
 fn timestamp_spec_for_timing_mode(
     tokenizer: &Tokenizer,
-    mode: WhisperDecodeTimingMode,
+    mode: CandleWhisperTimingMode,
 ) -> Result<Option<WhisperTimestampSpec>> {
     match mode {
-        WhisperDecodeTimingMode::Auto => optional_whisper_timestamp_spec(tokenizer),
-        WhisperDecodeTimingMode::NoTimestamps => Ok(None),
-        WhisperDecodeTimingMode::TimestampTokensRequired => {
+        CandleWhisperTimingMode::Auto => optional_whisper_timestamp_spec(tokenizer),
+        CandleWhisperTimingMode::NoTimestamps => Ok(None),
+        CandleWhisperTimingMode::TimestampTokensRequired => {
             whisper_timestamp_spec(tokenizer).map(Some)
         }
     }
@@ -3625,11 +3627,12 @@ fn chunk_windows(
     samples: &[f32],
     sample_rate: u32,
     chunk: &SpeechActivitySegment,
+    controls: &CandleWhisperWindowControls,
 ) -> Result<Vec<ChunkWindow>> {
     let duration = samples.len() as f64 / sample_rate as f64;
     let padded_start_seconds =
-        (chunk.start_seconds - ASR_WINDOW_LEADING_CONTEXT_SECONDS).clamp(0.0, duration);
-    let padded_end_seconds = (chunk.end_seconds + ASR_WINDOW_TRAILING_CONTEXT_SECONDS)
+        (chunk.start_seconds - controls.leading_context_seconds).clamp(0.0, duration);
+    let padded_end_seconds = (chunk.end_seconds + controls.trailing_context_seconds)
         .clamp(padded_start_seconds, duration);
     let start = seconds_to_index(padded_start_seconds, sample_rate, samples.len());
     let end = seconds_to_index(padded_end_seconds, sample_rate, samples.len()).max(start + 1);
@@ -4914,7 +4917,7 @@ mod tests {
 
     #[test]
     fn auto_timing_allows_missing_timestamp_metadata() {
-        let spec = timestamp_spec_for_timing_mode(&test_tokenizer(), WhisperDecodeTimingMode::Auto)
+        let spec = timestamp_spec_for_timing_mode(&test_tokenizer(), CandleWhisperTimingMode::Auto)
             .unwrap();
         assert!(spec.is_none());
     }
@@ -4923,7 +4926,7 @@ mod tests {
     fn required_timing_rejects_missing_timestamp_metadata() {
         let error = timestamp_spec_for_timing_mode(
             &test_tokenizer(),
-            WhisperDecodeTimingMode::TimestampTokensRequired,
+            CandleWhisperTimingMode::TimestampTokensRequired,
         )
         .unwrap_err()
         .to_string();
@@ -4935,7 +4938,7 @@ mod tests {
     fn no_timestamps_timing_does_not_require_timestamp_metadata() {
         let spec = timestamp_spec_for_timing_mode(
             &test_tokenizer(),
-            WhisperDecodeTimingMode::NoTimestamps,
+            CandleWhisperTimingMode::NoTimestamps,
         )
         .unwrap();
         assert!(spec.is_none());
@@ -5239,13 +5242,36 @@ mod tests {
     #[test]
     fn chunk_windows_carry_local_and_global_timing() {
         let chunk = SpeechActivitySegment::new(1.0, 2.0, 0.8).unwrap();
-        let windows = chunk_windows(&vec![0.0; 48_000], 16_000, &chunk).unwrap();
+        let windows = chunk_windows(
+            &vec![0.0; 48_000],
+            16_000,
+            &chunk,
+            &CandleWhisperWindowControls::default(),
+        )
+        .unwrap();
         assert_eq!(windows.len(), 1);
         assert_eq!(windows[0].chunk_start_seconds, 0.75);
         assert_eq!(windows[0].local_start_seconds, 0.0);
         assert_eq!(windows[0].local_end_seconds, 1.29);
         assert_eq!(windows[0].global_start_seconds, 0.75);
         assert_eq!(windows[0].global_end_seconds, 2.04);
+    }
+
+    #[test]
+    fn chunk_windows_use_request_scoped_context() {
+        let chunk = SpeechActivitySegment::new(1.0, 2.0, 0.8).unwrap();
+        let controls = CandleWhisperWindowControls {
+            leading_context_seconds: 0.1,
+            trailing_context_seconds: 0.2,
+            ..CandleWhisperWindowControls::default()
+        };
+        let windows = chunk_windows(&vec![0.0; 48_000], 16_000, &chunk, &controls).unwrap();
+
+        assert_eq!(windows.len(), 1);
+        assert_eq!(windows[0].chunk_start_seconds, 0.9);
+        assert_eq!(windows[0].local_end_seconds, 1.3);
+        assert_eq!(windows[0].global_start_seconds, 0.9);
+        assert_eq!(windows[0].global_end_seconds, 2.2);
     }
 
     #[test]
