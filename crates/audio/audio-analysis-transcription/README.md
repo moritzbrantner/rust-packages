@@ -70,6 +70,20 @@ automatic device selection, CUDA index `0`, and the existing greedy decoder
 behavior. Keeping these controls separate also preserves exhaustive downstream
 `CandleWhisperOptions` struct literals.
 
+The canonical native request surface is
+`CandleWhisperTranscriptionRequestConfig`, accepted by
+`transcribe_with_request_config` and
+`transcribe_with_request_config_and_observer` on both the single-use and
+reusable Candle transcribers. It aggregates runtime, decode, and window controls
+without adding fields to the existing public option types. Legacy entrypoints
+delegate through this interface with defaults.
+
+`CandleWhisperWindowControls` selects automatic timestamp-token timing,
+no-timestamp expanded-window timing, or required timestamp-token timing and
+configures leading/trailing VAD context. Defaults preserve the previous
+automatic timing, 250 ms leading context, and 40 ms trailing context. Context
+values must be finite and non-negative.
+
 Token selection is independently request-scoped through the additive
 `CandleWhisperDecodeConfig` API and the `transcribe_with_decode_config` or
 `transcribe_with_runtime_controls_and_decode_config` provider methods. The
