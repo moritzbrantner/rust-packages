@@ -29,8 +29,8 @@ class ReleasePlanCheckTests(unittest.TestCase):
         *,
         root: Path = WORKSPACE,
         ownership: dict | None = None,
-        expected_sha: str | None = None,
-        expected_base_sha: str | None = None,
+        expected_sha: str | None = "2222222222222222222222222222222222222222",
+        expected_base_sha: str | None = "1111111111111111111111111111111111111111",
     ) -> str:
         return "\n".join(
             validate_plan(
@@ -164,10 +164,69 @@ remote = {{ {git_spec} }}
         plan["required_consumer_checks"] = []
         self.assertIn("foundation publication requires consumer gates", self.errors(plan))
 
+    def test_required_checks_must_be_nonempty_commands(self) -> None:
+        plan = copy.deepcopy(self.plan)
+        plan["required_checks"] = ["  "]
+        self.assertIn(
+            "required_checks entries must be nonempty strings",
+            self.errors(plan),
+        )
+
+    def test_publishable_tag_must_match_exact_package_and_version(self) -> None:
+        plan = copy.deepcopy(self.plan)
+        old_tag = plan["packages"][0]["expected_tag"]
+        wrong_tag = "release-v0.2.0"
+        plan["packages"][0]["expected_tag"] = wrong_tag
+        plan["expected_tags"] = [
+            wrong_tag if tag == old_tag else tag for tag in plan["expected_tags"]
+        ]
+        self.assertIn(
+            "foundation-a: expected_tag must be foundation-a-v0.2.0",
+            self.errors(plan),
+        )
+
+    def test_nonpublish_entry_cannot_authorize_version_or_tag(self) -> None:
+        plan = copy.deepcopy(self.plan)
+        plan["packages"][0]["publish"] = False
+        errors = self.errors(plan)
+        self.assertIn(
+            "foundation-a: nonpublish entry must keep new_version equal to old_version",
+            errors,
+        )
+        self.assertIn(
+            "foundation-a: nonpublish entry must not declare expected_tag",
+            errors,
+        )
+
+    def test_expected_tags_must_not_contain_duplicates(self) -> None:
+        plan = copy.deepcopy(self.plan)
+        plan["expected_tags"].append(plan["expected_tags"][0])
+        self.assertIn("expected_tags contains duplicates", self.errors(plan))
+
     def test_missing_release_issue_is_rejected(self) -> None:
         plan = copy.deepcopy(self.plan)
         del plan["release_issue"]
         self.assertIn("missing exact release issue", self.errors(plan))
+
+    def test_release_issue_must_be_canonical_for_release_repository(self) -> None:
+        for issue in (
+            "https://github.com/moritzbrantner/rust-packages/issues/111",
+            "https://github.com/moritzbrantner/moenarch-foundation/issues/not-a-number",
+            "https://github.com/moritzbrantner/moenarch-foundation/issues/111?draft=1",
+        ):
+            with self.subTest(issue=issue):
+                plan = copy.deepcopy(self.plan)
+                plan["release_issue"] = issue
+                self.assertIn(
+                    "release issue must be a canonical numeric issue URL for "
+                    "moritzbrantner/moenarch-foundation",
+                    self.errors(plan),
+                )
+
+    def test_publish_flag_must_be_boolean(self) -> None:
+        plan = copy.deepcopy(self.plan)
+        plan["packages"][0]["publish"] = "yes"
+        self.assertIn("foundation-a: publish must be a boolean", self.errors(plan))
 
     def test_missing_new_required_fields_are_rejected(self) -> None:
         for field in ("required_features", "compatibility_or_deprecation_packages"):
@@ -184,6 +243,20 @@ remote = {{ {git_spec} }}
         )
         self.assertIn("source_sha", errors)
         self.assertIn("default_branch_base_sha", errors)
+
+    def test_publishable_plan_requires_external_sha_bindings(self) -> None:
+        errors = "\n".join(
+            validate_plan(
+                self.plan,
+                self.ownership,
+                repository_root=WORKSPACE,
+            )
+        )
+        self.assertIn("--expected-sha is required for a publishable plan", errors)
+        self.assertIn(
+            "--expected-base-sha is required for a publishable plan",
+            errors,
+        )
 
     def test_manifest_must_match_reviewed_path_and_package_name(self) -> None:
         plan = copy.deepcopy(self.plan)

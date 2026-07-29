@@ -46,10 +46,12 @@ Run the non-publishing preflight:
 ```bash
 python3 scripts/check_release_plan.py \
   --check path/to/release-plan.json \
-  --expected-sha "$(git rev-parse HEAD)"
+  --expected-sha "$(git rev-parse HEAD)" \
+  --expected-base-sha "$(git merge-base origin/main HEAD)"
 python3 scripts/release_preflight.py \
   --check path/to/release-plan.json \
   --expected-sha "$(git rev-parse HEAD)" \
+  --expected-base-sha "$(git merge-base origin/main HEAD)" \
   --print-order
 ```
 

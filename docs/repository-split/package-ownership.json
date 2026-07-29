@@ -3925,6 +3925,12 @@
           "target_phase": "foundation"
         },
         {
+          "dependency_kind": "dev",
+          "dependency_package": "moenarch-video-analysis-ffmpeg",
+          "migration_issue": "https://github.com/moritzbrantner/rust-packages/issues/74",
+          "target_phase": "foundation"
+        },
+        {
           "dependency_kind": "normal",
           "dependency_package": "moenarch-video-analysis-ffmpeg",
           "migration_issue": "https://github.com/moritzbrantner/rust-packages/issues/74",
@@ -11259,5 +11265,30 @@
   "repository": "moritzbrantner/rust-packages",
   "review_issue": "https://github.com/moritzbrantner/rust-packages/issues/107",
   "schema_version": 1,
-  "source_commit": "d032ad2890c1df3c6a5b9eff024562f00d017fce"
+  "source_commit": "d032ad2890c1df3c6a5b9eff024562f00d017fce",
+  "target_repository_dependencies": {
+    "audio-analysis": [
+      "moenarch-foundation",
+      "nlp-stack"
+    ],
+    "moenarch-foundation": [],
+    "nlp-stack": [
+      "moenarch-foundation"
+    ],
+    "rust-packages": [
+      "audio-analysis",
+      "moenarch-foundation",
+      "nlp-stack",
+      "spatial-analysis",
+      "visual-analysis"
+    ],
+    "spatial-analysis": [
+      "moenarch-foundation",
+      "visual-analysis"
+    ],
+    "visual-analysis": [
+      "moenarch-foundation",
+      "nlp-stack"
+    ]
+  }
 }

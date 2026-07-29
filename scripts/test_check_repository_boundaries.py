@@ -10,10 +10,30 @@ import unittest
 from pathlib import Path
 
 from check_repository_boundaries import validate
-from repository_split import ALLOWED_DEPENDENCIES, TARGET_REPOSITORIES, find_cycle
+from repository_split import TARGET_REPOSITORIES, find_cycle
 
 ROOT = Path(__file__).resolve().parents[1]
 SCRIPT = ROOT / "scripts/check_repository_boundaries.py"
+NEGATIVE_FIXTURE = (
+    ROOT / "scripts/fixtures/repository_boundaries/negative-new-edge"
+)
+
+
+def target_graph() -> dict[str, list[str]]:
+    return {
+        "audio-analysis": ["moenarch-foundation", "nlp-stack"],
+        "moenarch-foundation": [],
+        "nlp-stack": ["moenarch-foundation"],
+        "rust-packages": [
+            "audio-analysis",
+            "moenarch-foundation",
+            "nlp-stack",
+            "spatial-analysis",
+            "visual-analysis",
+        ],
+        "spatial-analysis": ["moenarch-foundation", "visual-analysis"],
+        "visual-analysis": ["moenarch-foundation", "nlp-stack"],
+    }
 
 
 def package(name: str, dependencies: list[dict] | None = None) -> dict:
@@ -68,12 +88,15 @@ class RepositoryBoundaryCheckTests(unittest.TestCase):
     ) -> tuple[str, list[dict], list[list[str]]]:
         errors, actual, cycles = validate(
             {"packages": packages},
-            {"packages": records},
+            {
+                "packages": records,
+                "target_repository_dependencies": target_graph(),
+            },
             {"violations": violations},
         )
         return "\n".join(errors), actual, cycles
 
-    def test_live_workspace_matches_exact_baseline_and_reports_cycles(self) -> None:
+    def test_live_workspace_matches_exact_baseline_and_target_law(self) -> None:
         completed = subprocess.run(
             [sys.executable, str(SCRIPT), "--check"],
             cwd=ROOT,
@@ -81,10 +104,10 @@ class RepositoryBoundaryCheckTests(unittest.TestCase):
             text=True,
         )
         self.assertEqual(completed.returncode, 0, completed.stderr)
-        self.assertIn("49 reviewed violations", completed.stdout)
+        self.assertIn("50 reviewed violations", completed.stdout)
         self.assertIn("46 normal", completed.stdout)
-        self.assertIn("3 dev", completed.stdout)
-        self.assertIn("BASELINED CYCLE", completed.stdout)
+        self.assertIn("4 dev", completed.stdout)
+        self.assertNotIn("BASELINED CYCLE", completed.stdout)
 
     def test_complete_and_unique_ownership_is_required(self) -> None:
         packages = [package("foundation"), package("audio")]
@@ -139,6 +162,37 @@ class RepositoryBoundaryCheckTests(unittest.TestCase):
         self.assertEqual(errors, "")
         self.assertEqual(
             {violation["dependency_kind"] for violation in violations}, set(kinds)
+        )
+
+    def test_mixed_kinds_for_one_package_pair_remain_distinct(self) -> None:
+        errors, violations, _ = self.validate(
+            [
+                package(
+                    "foundation",
+                    [
+                        dependency("audio"),
+                        dependency("audio", optional=True),
+                        dependency("audio", kind="build"),
+                        dependency("audio", kind="dev"),
+                    ],
+                ),
+                package("audio"),
+            ],
+            [
+                record("foundation", "moenarch-foundation"),
+                record("audio", "audio-analysis"),
+            ],
+            [
+                baseline_entry("foundation", "audio"),
+                baseline_entry("foundation", "audio", kind="optional"),
+                baseline_entry("foundation", "audio", kind="build"),
+                baseline_entry("foundation", "audio", kind="dev"),
+            ],
+        )
+        self.assertEqual(errors, "")
+        self.assertEqual(
+            {violation["dependency_kind"] for violation in violations},
+            {"normal", "optional", "build", "dev"},
         )
 
     def test_adapter_must_name_a_wrapped_library_with_same_owner(self) -> None:
@@ -215,6 +269,30 @@ class RepositoryBoundaryCheckTests(unittest.TestCase):
         )
         self.assertIn("new forbidden edge", errors)
 
+    def test_checked_in_negative_edge_fixture_fails_through_cli(self) -> None:
+        completed = subprocess.run(
+            [
+                sys.executable,
+                str(SCRIPT),
+                "--check",
+                "--metadata",
+                str(NEGATIVE_FIXTURE / "metadata.json"),
+                "--ownership",
+                str(NEGATIVE_FIXTURE / "ownership.json"),
+                "--baseline",
+                str(NEGATIVE_FIXTURE / "baseline.json"),
+            ],
+            cwd=ROOT,
+            capture_output=True,
+            text=True,
+        )
+        self.assertNotEqual(completed.returncode, 0)
+        self.assertIn(
+            "new forbidden edge: moenarch-foundation-core -> "
+            "moenarch-audio-core (normal; moenarch-foundation -> audio-analysis)",
+            completed.stderr,
+        )
+
     def test_unknown_repository_fails(self) -> None:
         errors, _, _ = self.validate(
             [package("unknown")],
@@ -223,7 +301,7 @@ class RepositoryBoundaryCheckTests(unittest.TestCase):
         )
         self.assertIn("unknown target repository", errors)
 
-    def test_cycle_fully_explained_by_exact_baseline_is_reported_not_hidden(self) -> None:
+    def test_baselined_current_reverse_edge_does_not_change_target_graph(self) -> None:
         packages = [
             package("foundation", [dependency("visual")]),
             package("visual", [dependency("foundation")]),
@@ -238,9 +316,9 @@ class RepositoryBoundaryCheckTests(unittest.TestCase):
             [baseline_entry("foundation", "visual")],
         )
         self.assertEqual(errors, "")
-        self.assertTrue(cycles)
+        self.assertFalse(cycles)
 
-    def test_cycle_not_fully_explained_by_baseline_fails(self) -> None:
+    def test_current_reverse_edge_without_baseline_fails(self) -> None:
         errors, _, cycles = self.validate(
             [
                 package("foundation", [dependency("visual")]),
@@ -253,18 +331,68 @@ class RepositoryBoundaryCheckTests(unittest.TestCase):
             [],
         )
         self.assertFalse(cycles)
-        self.assertIn("not fully explained by exact baseline", errors)
+        self.assertIn("new forbidden edge", errors)
 
     def test_allowed_architecture_law_is_acyclic(self) -> None:
+        graph = target_graph()
         cycle = find_cycle(
             TARGET_REPOSITORIES,
             (
                 (source, dependency)
-                for source, dependencies in ALLOWED_DEPENDENCIES.items()
+                for source, dependencies in graph.items()
                 for dependency in dependencies
             ),
         )
         self.assertIsNone(cycle)
+
+    def test_reviewed_target_graph_cycle_is_rejected(self) -> None:
+        errors, _, cycles = validate(
+            {"packages": []},
+            {
+                "packages": [],
+                "target_repository_dependencies": {
+                    "audio-analysis": ["moenarch-foundation"],
+                    "moenarch-foundation": ["audio-analysis"],
+                    "nlp-stack": ["moenarch-foundation"],
+                    "rust-packages": [],
+                    "spatial-analysis": ["visual-analysis"],
+                    "visual-analysis": ["moenarch-foundation", "nlp-stack"],
+                },
+            },
+            {"violations": []},
+        )
+        self.assertTrue(cycles)
+        self.assertIn("reviewed target repository graph is cyclic", "\n".join(errors))
+
+    def test_acyclic_target_graph_cannot_broaden_directional_law(self) -> None:
+        graph = target_graph()
+        graph["audio-analysis"] = []
+        graph["moenarch-foundation"] = ["audio-analysis"]
+        errors, _, cycles = validate(
+            {"packages": []},
+            {
+                "packages": [],
+                "target_repository_dependencies": graph,
+            },
+            {"violations": []},
+        )
+        self.assertFalse(cycles)
+        self.assertIn(
+            "reviewed target repository graph does not match required "
+            "directional law",
+            "\n".join(errors),
+        )
+
+    def test_reviewed_target_graph_is_required(self) -> None:
+        errors, _, _ = validate(
+            {"packages": []},
+            {"packages": []},
+            {"violations": []},
+        )
+        self.assertIn(
+            "missing target_repository_dependencies",
+            "\n".join(errors),
+        )
 
 
 if __name__ == "__main__":

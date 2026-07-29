@@ -27,7 +27,7 @@
       "release_dependencies": ["foundation-a"]
     }
   ],
-  "release_issue": "https://github.com/moritzbrantner/rust-packages/issues/111",
+  "release_issue": "https://github.com/moritzbrantner/moenarch-foundation/issues/111",
   "repository": "moritzbrantner/moenarch-foundation",
   "required_checks": ["cargo package --locked"],
   "required_consumer_checks": ["native-whisperx candidate patch"],

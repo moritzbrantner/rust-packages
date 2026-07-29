@@ -6,7 +6,6 @@ from __future__ import annotations
 import json
 import re
 import subprocess
-from collections import defaultdict
 from pathlib import Path
 from typing import Iterable
 
@@ -152,37 +151,27 @@ def dependency_kind(dependency: dict) -> str:
 
 
 def internal_dependency_edges(metadata: dict) -> list[dict]:
-    """Return unique workspace dependency edges, preferring production declarations.
-
-    Cargo metadata reports a dependency once per declaration. If the same package
-    pair appears in both normal and dev sections, the normal declaration determines
-    the repository edge and the dev-only duplicate is not a second edge.
-    """
+    """Return every distinct workspace dependency edge and declaration kind."""
 
     packages = {package["name"]: package for package in metadata["packages"]}
-    grouped: dict[tuple[str, str], list[dict]] = defaultdict(list)
+    edges_by_key: dict[tuple[str, str, str], dict] = {}
     for package in metadata["packages"]:
         for dependency in package["dependencies"]:
             if dependency["name"] in packages:
-                grouped[(package["name"], dependency["name"])].append(dependency)
-
-    edges = []
-    priority = {"normal": 0, "build": 1, "dev": 2}
-    for (source, dependency), declarations in sorted(grouped.items()):
-        selected = min(declarations, key=lambda item: priority[dependency_kind(item)])
-        edges.append(
-            {
-                "source_package": source,
-                "dependency_package": dependency,
-                "dependency_kind": dependency_kind(selected),
-                "optional": bool(selected.get("optional")),
-                "declaration_kinds": sorted(
-                    {dependency_kind(item) for item in declarations},
-                    key=lambda kind: priority[kind],
-                ),
-            }
-        )
-    return edges
+                kind = (
+                    "optional"
+                    if dependency.get("optional")
+                    else dependency_kind(dependency)
+                )
+                key = (package["name"], dependency["name"], kind)
+                edges_by_key[key] = {
+                    "source_package": package["name"],
+                    "dependency_package": dependency["name"],
+                    "dependency_kind": kind,
+                    "optional": kind == "optional",
+                    "declaration_kinds": [kind],
+                }
+    return [edges_by_key[key] for key in sorted(edges_by_key)]
 
 
 def find_cycle(nodes: Iterable[str], edges: Iterable[tuple[str, str]]) -> list[str] | None:

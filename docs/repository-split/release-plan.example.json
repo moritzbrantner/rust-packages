@@ -13,7 +13,7 @@
       "expected_tag": null,
       "manifest_path": "crates/test-support/video-analysis-test-support/Cargo.toml",
       "name": "moenarch-video-analysis-test-support",
-      "new_version": "0.1.1",
+      "new_version": "0.1.0",
       "old_version": "0.1.0",
       "owner": "moritzbrantner/rust-packages",
       "publish": false,

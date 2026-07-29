@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
 import sys
 import tomllib
 from collections import Counter
@@ -311,8 +312,17 @@ def validate_plan(
 ) -> list[str]:
     errors: list[str] = []
     repository = plan.get("repository")
+    raw_packages = plan.get("packages")
+    publishes_packages = isinstance(raw_packages, list) and any(
+        isinstance(package, dict) and package.get("publish") is True
+        for package in raw_packages
+    )
     if not isinstance(repository, str) or not repository.startswith("moritzbrantner/"):
         errors.append("repository must be an exact moritzbrantner repository")
+    if publishes_packages and expected_sha is None:
+        errors.append("--expected-sha is required for a publishable plan")
+    if publishes_packages and expected_base_sha is None:
+        errors.append("--expected-base-sha is required for a publishable plan")
     for field, expected in (
         ("source_sha", expected_sha),
         ("default_branch_base_sha", expected_base_sha),
@@ -323,12 +333,16 @@ def validate_plan(
         elif expected and value != expected:
             errors.append(f"{field} {value!r} does not match expected SHA {expected}")
     issue = plan.get("release_issue")
-    if (
-        not isinstance(issue, str)
-        or not issue.startswith("https://github.com/moritzbrantner/")
-        or "/issues/" not in issue
-    ):
+    if not isinstance(issue, str):
         errors.append("missing exact release issue reference")
+    elif not isinstance(repository, str) or not re.fullmatch(
+        rf"https://github\.com/{re.escape(repository)}/issues/[1-9]\d*",
+        issue,
+    ):
+        errors.append(
+            "release issue must be a canonical numeric issue URL for "
+            f"{repository}"
+        )
     if plan.get("destination_registry") != "crates.io":
         errors.append("destination_registry must be crates.io")
     for field in REQUIRED_LIST_FIELDS:
@@ -336,13 +350,19 @@ def validate_plan(
             errors.append(f"missing required field {field}")
         elif not isinstance(plan[field], list):
             errors.append(f"{field} must be a list")
+    required_checks = plan.get("required_checks")
+    if isinstance(required_checks, list) and any(
+        not isinstance(check, str) or not check.strip()
+        for check in required_checks
+    ):
+        errors.append("required_checks entries must be nonempty strings")
 
     ownership_by_name = {
         record["current_package_name"]: record
         for record in ownership.get("packages", [])
         if record.get("ecosystem") == "cargo"
     }
-    packages = plan.get("packages")
+    packages = raw_packages
     if not isinstance(packages, list) or not packages:
         return errors + ["packages must be a non-empty list"]
     names = [package.get("name") for package in packages]
@@ -359,6 +379,9 @@ def validate_plan(
 
     for package in packages:
         name = package.get("name")
+        publish = package.get("publish")
+        if not isinstance(publish, bool):
+            errors.append(f"{name}: publish must be a boolean")
         record = ownership_by_name.get(name)
         if not record:
             errors.append(f"package {name!r} is absent from the ownership map")
@@ -383,8 +406,15 @@ def validate_plan(
             )
         if not isinstance(new, str) or not SEMVER_RE.fullmatch(new):
             errors.append(f"{name}: malformed new_version")
-        elif isinstance(old, str) and SEMVER_RE.fullmatch(old) and not is_strictly_greater(new, old):
-            errors.append(f"{name}: new_version must be strictly greater than old_version")
+        elif isinstance(old, str) and SEMVER_RE.fullmatch(old):
+            if publish is True and not is_strictly_greater(new, old):
+                errors.append(
+                    f"{name}: new_version must be strictly greater than old_version"
+                )
+            elif publish is False and new != old:
+                errors.append(
+                    f"{name}: nonpublish entry must keep new_version equal to old_version"
+                )
         manifest_errors, manifest_edges = validate_package_manifest(
             package=package,
             record=record,
@@ -396,8 +426,14 @@ def validate_plan(
         )
         errors.extend(manifest_errors)
         dependency_edges.extend(manifest_edges)
-        if package.get("publish") and not package.get("expected_tag"):
-            errors.append(f"{name}: publishable package is missing expected_tag")
+        if publish is True:
+            expected_tag = f"{name}-v{new}"
+            if package.get("expected_tag") != expected_tag:
+                errors.append(f"{name}: expected_tag must be {expected_tag}")
+        elif publish is False and package.get("expected_tag") is not None:
+            errors.append(
+                f"{name}: nonpublish entry must not declare expected_tag"
+            )
         declared_dependencies = package.get("release_dependencies", [])
         if isinstance(declared_dependencies, list):
             for dependency in declared_dependencies:
@@ -427,7 +463,16 @@ def validate_plan(
         errors.append(
             "foundation publication requires consumer gates and downstream consumers"
         )
-    expected_tags = set(plan.get("expected_tags", []))
+    expected_tag_values = plan.get("expected_tags", [])
+    if isinstance(expected_tag_values, list) and len(expected_tag_values) != len(
+        set(expected_tag_values)
+    ):
+        errors.append("expected_tags contains duplicates")
+    expected_tags = (
+        set(expected_tag_values)
+        if isinstance(expected_tag_values, list)
+        else set()
+    )
     package_tags = {
         package.get("expected_tag") for package in packages if package.get("publish")
     }

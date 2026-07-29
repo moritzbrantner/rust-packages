@@ -28,6 +28,14 @@
       "target_phase": "foundation"
     },
     {
+      "dependency_kind": "dev",
+      "dependency_package": "moenarch-video-analysis-ffmpeg",
+      "migration_issue": "https://github.com/moritzbrantner/rust-packages/issues/74",
+      "reason": "audio decoding still imports visual media IO",
+      "source_package": "moenarch-audio-analysis-io",
+      "target_phase": "foundation"
+    },
+    {
       "dependency_kind": "normal",
       "dependency_package": "moenarch-video-analysis-ffmpeg",
       "migration_issue": "https://github.com/moritzbrantner/rust-packages/issues/74",

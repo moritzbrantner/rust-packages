@@ -124,7 +124,10 @@ run_step "test repository boundaries" python3 scripts/test_check_repository_boun
 run_step "check repository boundaries" python3 scripts/check_repository_boundaries.py --check
 run_step "test release plans" python3 scripts/test_check_release_plan.py
 run_step "check example release plan" \
-  python3 scripts/check_release_plan.py --check docs/repository-split/release-plan.example.json
+  python3 scripts/check_release_plan.py \
+    --check docs/repository-split/release-plan.example.json \
+    --expected-sha d032ad2890c1df3c6a5b9eff024562f00d017fce \
+    --expected-base-sha d032ad2890c1df3c6a5b9eff024562f00d017fce
 run_step "check generated/local artifacts" scripts/check_generated_artifacts.sh
 if (( ${#snapshot_paths[@]} > 0 )); then
   snapshot_args=()

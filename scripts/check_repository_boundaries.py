@@ -13,11 +13,9 @@ from repository_split import (
     ALLOWED_DEPENDENCIES,
     BASELINE_PATH,
     OWNERSHIP_PATH,
-    ROOT,
     TARGET_REPOSITORIES,
     cargo_metadata,
     find_cycle,
-    find_cycles,
     internal_dependency_edges,
     load_json,
     write_json,
@@ -31,6 +29,61 @@ def validate(
     cargo_packages = {
         package["name"]: package for package in metadata.get("packages", [])
     }
+    target_dependency_document = ownership.get("target_repository_dependencies")
+    if target_dependency_document is None:
+        errors.append("missing target_repository_dependencies")
+        target_dependency_document = {}
+    target_dependencies: dict[str, set[str]] = {}
+    if not isinstance(target_dependency_document, dict):
+        errors.append("target_repository_dependencies must be an object")
+        target_dependency_document = {}
+    missing_repositories = sorted(
+        TARGET_REPOSITORIES - set(target_dependency_document)
+    )
+    extra_repositories = sorted(
+        set(target_dependency_document) - TARGET_REPOSITORIES
+    )
+    if missing_repositories:
+        errors.append(
+            "target repository graph is missing: " + ", ".join(missing_repositories)
+        )
+    if extra_repositories:
+        errors.append(
+            "target repository graph has unknown repositories: "
+            + ", ".join(extra_repositories)
+        )
+    for source, dependencies in target_dependency_document.items():
+        if source not in TARGET_REPOSITORIES:
+            continue
+        if not isinstance(dependencies, list) and not isinstance(dependencies, set):
+            errors.append(f"{source}: target dependencies must be a list")
+            continue
+        unknown_dependencies = sorted(set(dependencies) - TARGET_REPOSITORIES)
+        if unknown_dependencies:
+            errors.append(
+                f"{source}: unknown target dependencies: "
+                + ", ".join(unknown_dependencies)
+            )
+        target_dependencies[source] = set(dependencies) & TARGET_REPOSITORIES
+    if target_dependencies != ALLOWED_DEPENDENCIES:
+        errors.append(
+            "reviewed target repository graph does not match required "
+            "directional law"
+        )
+    target_cycle = find_cycle(
+        TARGET_REPOSITORIES,
+        (
+            (source, dependency)
+            for source, dependencies in target_dependencies.items()
+            for dependency in dependencies
+        ),
+    )
+    target_cycles = [target_cycle] if target_cycle else []
+    if target_cycle:
+        errors.append(
+            "reviewed target repository graph is cyclic: "
+            + " -> ".join(target_cycle)
+        )
     ownership_records = [
         record
         for record in ownership.get("packages", [])
@@ -109,10 +162,6 @@ def validate(
         errors.append(f"duplicate baseline entries: {duplicate_baseline}")
 
     violations = []
-    repo_edges: set[tuple[str, str]] = set()
-    package_edges_by_repository: dict[
-        tuple[str, str], list[tuple[str, str, str]]
-    ] = {}
     for edge in internal_dependency_edges(metadata):
         source = edge["source_package"]
         dependency = edge["dependency_package"]
@@ -122,12 +171,8 @@ def validate(
         dependency_owner = owners[dependency]
         if source_owner == dependency_owner:
             continue
-        repo_edges.add((source_owner, dependency_owner))
-        kind = "optional" if edge["optional"] else edge["dependency_kind"]
+        kind = edge["dependency_kind"]
         key = (source, dependency, kind)
-        package_edges_by_repository.setdefault(
-            (source_owner, dependency_owner), []
-        ).append(key)
         if dependency_owner not in ALLOWED_DEPENDENCIES.get(source_owner, set()):
             violation = {
                 **edge,
@@ -156,40 +201,7 @@ def validate(
             "stale baseline violations must be removed after the edge is fixed: "
             + ", ".join(f"{source}->{dependency}({kind})" for source, dependency, kind in stale)
         )
-    baseline_key_set = set(baseline_keys)
-    baselined_cycles = []
-    for cycle in find_cycles(TARGET_REPOSITORIES, repo_edges):
-        cycle_edges = list(zip(cycle, cycle[1:]))
-        forbidden_edges = [
-            edge
-            for edge in cycle_edges
-            if edge[1] not in ALLOWED_DEPENDENCIES.get(edge[0], set())
-        ]
-        explained = bool(forbidden_edges) and all(
-            all(
-                package_key in baseline_key_set
-                for package_key in package_edges_by_repository.get(edge, [])
-            )
-            for edge in forbidden_edges
-        )
-        if explained:
-            baselined_cycles.append(cycle)
-        else:
-            errors.append(
-                "repository dependency cycle is not fully explained by exact baseline: "
-                + " -> ".join(cycle)
-            )
-    allowed_cycle = find_cycle(
-        TARGET_REPOSITORIES,
-        (
-            (source, dependency)
-            for source, dependencies in ALLOWED_DEPENDENCIES.items()
-            for dependency in dependencies
-        ),
-    )
-    if allowed_cycle:
-        errors.append("configured allowed graph is cyclic: " + " -> ".join(allowed_cycle))
-    return errors, violations, baselined_cycles
+    return errors, violations, target_cycles
 
 
 def baseline_entry(edge: dict) -> dict:
@@ -241,15 +253,15 @@ def main() -> int:
         print(f"wrote {len(violations)} exact baseline violations")
         return 0
     baseline = load_json(args.baseline)
-    errors, violations, baselined_cycles = validate(metadata, ownership, baseline)
+    errors, violations, target_cycles = validate(metadata, ownership, baseline)
     for edge in violations:
         print(
             f"BASELINED {edge['source_package']} -> {edge['dependency_package']} "
             f"({edge['dependency_kind']}; {edge['source_repository']} -> "
             f"{edge['dependency_repository']})"
         )
-    for cycle in baselined_cycles:
-        print("BASELINED CYCLE " + " -> ".join(cycle))
+    for cycle in target_cycles:
+        print("INVALID TARGET CYCLE " + " -> ".join(cycle))
     if errors:
         for error in errors:
             print(f"error: {error}", file=sys.stderr)
