@@ -33,7 +33,7 @@ text-model-runtime = { workspace = true, optional = true }
 tokenizers = { workspace = true, optional = true }
 video-analysis-core.workspace = true
 audio-analysis-io = { workspace = true, optional = true }
-audio-analysis-speakers = { package = "moenarch-audio-analysis-speakers", version = "0.1.3", path = "../audio-analysis-speakers" }
+audio-analysis-speakers = { package = "moenarch-audio-analysis-speakers", version = "0.1.4", path = "../audio-analysis-speakers" }
 
 [features]
 default = []
