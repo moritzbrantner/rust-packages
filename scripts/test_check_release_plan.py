@@ -31,7 +31,12 @@ class ReleasePlanCheckTests(unittest.TestCase):
         ownership: dict | None = None,
         expected_sha: str | None = "2222222222222222222222222222222222222222",
         expected_base_sha: str | None = "1111111111111111111111111111111111111111",
+        authorized_repository: str | None = "moritzbrantner/moenarch-foundation",
+        authorized_release_issue: int | None = 111,
+        expected_checks: list[str] | None = None,
     ) -> str:
+        if expected_checks is None:
+            expected_checks = ["cargo package --locked"]
         return "\n".join(
             validate_plan(
                 plan,
@@ -39,6 +44,9 @@ class ReleasePlanCheckTests(unittest.TestCase):
                 expected_sha,
                 expected_base_sha,
                 root,
+                authorized_repository,
+                authorized_release_issue,
+                expected_checks,
             )
         )
 
@@ -172,6 +180,14 @@ remote = {{ {git_spec} }}
             self.errors(plan),
         )
 
+    def test_trivial_required_check_cannot_replace_reviewed_executable_check(self) -> None:
+        plan = copy.deepcopy(self.plan)
+        plan["required_checks"] = ["true"]
+        self.assertIn(
+            "required_checks do not match independently reviewed checks",
+            self.errors(plan),
+        )
+
     def test_publishable_tag_must_match_exact_package_and_version(self) -> None:
         plan = copy.deepcopy(self.plan)
         old_tag = plan["packages"][0]["expected_tag"]
@@ -223,6 +239,16 @@ remote = {{ {git_spec} }}
                     self.errors(plan),
                 )
 
+    def test_canonical_but_unauthorized_release_issue_is_rejected(self) -> None:
+        plan = copy.deepcopy(self.plan)
+        plan["release_issue"] = (
+            "https://github.com/moritzbrantner/moenarch-foundation/issues/999"
+        )
+        self.assertIn(
+            "does not match independently authorized issue",
+            self.errors(plan),
+        )
+
     def test_publish_flag_must_be_boolean(self) -> None:
         plan = copy.deepcopy(self.plan)
         plan["packages"][0]["publish"] = "yes"
@@ -257,6 +283,20 @@ remote = {{ {git_spec} }}
             "--expected-base-sha is required for a publishable plan",
             errors,
         )
+
+    def test_publishable_plan_requires_external_release_authorization(self) -> None:
+        errors = "\n".join(
+            validate_plan(
+                self.plan,
+                self.ownership,
+                expected_sha="2222222222222222222222222222222222222222",
+                expected_base_sha="1111111111111111111111111111111111111111",
+                repository_root=WORKSPACE,
+            )
+        )
+        self.assertIn("--authorized-repository is required", errors)
+        self.assertIn("--authorized-release-issue is required", errors)
+        self.assertIn("--expected-check is required", errors)
 
     def test_manifest_must_match_reviewed_path_and_package_name(self) -> None:
         plan = copy.deepcopy(self.plan)

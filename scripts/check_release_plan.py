@@ -309,6 +309,9 @@ def validate_plan(
     expected_sha: str | None = None,
     expected_base_sha: str | None = None,
     repository_root: Path = ROOT,
+    authorized_repository: str | None = None,
+    authorized_release_issue: int | None = None,
+    expected_checks: list[str] | None = None,
 ) -> list[str]:
     errors: list[str] = []
     repository = plan.get("repository")
@@ -323,6 +326,21 @@ def validate_plan(
         errors.append("--expected-sha is required for a publishable plan")
     if publishes_packages and expected_base_sha is None:
         errors.append("--expected-base-sha is required for a publishable plan")
+    if publishes_packages and authorized_repository is None:
+        errors.append("--authorized-repository is required for a publishable plan")
+    if publishes_packages and authorized_release_issue is None:
+        errors.append("--authorized-release-issue is required for a publishable plan")
+    if publishes_packages and not expected_checks:
+        errors.append("--expected-check is required for a publishable plan")
+    if (
+        publishes_packages
+        and authorized_repository is not None
+        and repository != authorized_repository
+    ):
+        errors.append(
+            f"repository {repository!r} does not match independently authorized "
+            f"repository {authorized_repository!r}"
+        )
     for field, expected in (
         ("source_sha", expected_sha),
         ("default_branch_base_sha", expected_base_sha),
@@ -343,6 +361,20 @@ def validate_plan(
             "release issue must be a canonical numeric issue URL for "
             f"{repository}"
         )
+    if (
+        publishes_packages
+        and authorized_repository is not None
+        and authorized_release_issue is not None
+    ):
+        authorized_issue = (
+            f"https://github.com/{authorized_repository}/issues/"
+            f"{authorized_release_issue}"
+        )
+        if issue != authorized_issue:
+            errors.append(
+                f"release issue {issue!r} does not match independently authorized "
+                f"issue {authorized_issue!r}"
+            )
     if plan.get("destination_registry") != "crates.io":
         errors.append("destination_registry must be crates.io")
     for field in REQUIRED_LIST_FIELDS:
@@ -356,6 +388,12 @@ def validate_plan(
         for check in required_checks
     ):
         errors.append("required_checks entries must be nonempty strings")
+    if (
+        publishes_packages
+        and expected_checks
+        and required_checks != expected_checks
+    ):
+        errors.append("required_checks do not match independently reviewed checks")
 
     ownership_by_name = {
         record["current_package_name"]: record
@@ -490,6 +528,13 @@ def main() -> int:
     parser.add_argument("--repository-root", type=Path, default=ROOT)
     parser.add_argument("--expected-sha")
     parser.add_argument("--expected-base-sha")
+    parser.add_argument("--authorized-repository")
+    parser.add_argument("--authorized-release-issue", type=int)
+    parser.add_argument(
+        "--expected-check",
+        action="append",
+        help="independently reviewed executable check; repeat in manifest order",
+    )
     parser.add_argument("--print-order", action="store_true")
     args = parser.parse_args()
     try:
@@ -503,6 +548,9 @@ def main() -> int:
         args.expected_sha,
         args.expected_base_sha,
         args.repository_root,
+        args.authorized_repository,
+        args.authorized_release_issue,
+        args.expected_check,
     )
     if errors:
         for error in errors:

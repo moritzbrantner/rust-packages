@@ -158,19 +158,19 @@ def internal_dependency_edges(metadata: dict) -> list[dict]:
     for package in metadata["packages"]:
         for dependency in package["dependencies"]:
             if dependency["name"] in packages:
-                kind = (
-                    "optional"
-                    if dependency.get("optional")
-                    else dependency_kind(dependency)
-                )
+                kind = dependency_kind(dependency)
                 key = (package["name"], dependency["name"], kind)
-                edges_by_key[key] = {
-                    "source_package": package["name"],
-                    "dependency_package": dependency["name"],
-                    "dependency_kind": kind,
-                    "optional": kind == "optional",
-                    "declaration_kinds": [kind],
-                }
+                edge = edges_by_key.setdefault(
+                    key,
+                    {
+                        "source_package": package["name"],
+                        "dependency_package": dependency["name"],
+                        "dependency_kind": kind,
+                        "optional": False,
+                        "declaration_kinds": [kind],
+                    },
+                )
+                edge["optional"] |= bool(dependency.get("optional"))
     return [edges_by_key[key] for key in sorted(edges_by_key)]
 
 

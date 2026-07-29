@@ -47,17 +47,26 @@ Run the non-publishing preflight:
 python3 scripts/check_release_plan.py \
   --check path/to/release-plan.json \
   --expected-sha "$(git rev-parse HEAD)" \
-  --expected-base-sha "$(git merge-base origin/main HEAD)"
+  --expected-base-sha "$(git merge-base origin/main HEAD)" \
+  --authorized-repository moritzbrantner/TARGET_REPOSITORY \
+  --authorized-release-issue RELEASE_ISSUE_NUMBER \
+  --expected-check "cargo package --locked"
 python3 scripts/release_preflight.py \
   --check path/to/release-plan.json \
   --expected-sha "$(git rev-parse HEAD)" \
   --expected-base-sha "$(git merge-base origin/main HEAD)" \
+  --authorized-repository moritzbrantner/TARGET_REPOSITORY \
+  --authorized-release-issue RELEASE_ISSUE_NUMBER \
+  --expected-check "cargo package --locked" \
   --print-order
 ```
 
 The preflight never authenticates or publishes. A target repository should copy
 the validator with its reviewed ownership data or adopt an equivalent
-standard-library implementation.
+standard-library implementation. Repeat `--expected-check` in manifest order
+for every executable check authorized by the reviewed workflow. Publishable
+plans fail closed unless their repository, issue number, and exact check list
+match these independently supplied values.
 
 ## Release pull request and gates
 

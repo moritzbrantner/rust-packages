@@ -148,7 +148,7 @@ def validate(
                 errors.append(f"baseline entry {index}: missing {field}")
             elif "*" in value:
                 errors.append(f"baseline entry {index}: wildcard in {field}")
-        if entry.get("dependency_kind") not in {"normal", "optional", "build", "dev"}:
+        if entry.get("dependency_kind") not in {"normal", "build", "dev"}:
             errors.append(f"baseline entry {index}: invalid dependency kind")
         issue = entry.get("migration_issue", "")
         if not issue.startswith(

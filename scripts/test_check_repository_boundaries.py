@@ -128,8 +128,8 @@ class RepositoryBoundaryCheckTests(unittest.TestCase):
         )
         self.assertIn("classified more than once", duplicate)
 
-    def test_dependency_kinds_remain_distinct(self) -> None:
-        kinds = ("normal", "optional", "build", "dev")
+    def test_dependency_kinds_remain_distinct_from_optionality(self) -> None:
+        kinds = ("normal", "build", "dev")
         packages = []
         records = []
         baseline = []
@@ -141,11 +141,7 @@ class RepositoryBoundaryCheckTests(unittest.TestCase):
                     package(
                         source,
                         [
-                            dependency(
-                                target,
-                                "normal" if kind == "optional" else kind,
-                                optional=kind == "optional",
-                            )
+                            dependency(target, kind)
                         ],
                     ),
                     package(target),
@@ -164,16 +160,13 @@ class RepositoryBoundaryCheckTests(unittest.TestCase):
             {violation["dependency_kind"] for violation in violations}, set(kinds)
         )
 
-    def test_mixed_kinds_for_one_package_pair_remain_distinct(self) -> None:
+    def test_optional_build_dependency_cannot_masquerade_as_optional_kind(self) -> None:
         errors, violations, _ = self.validate(
             [
                 package(
                     "foundation",
                     [
-                        dependency("audio"),
-                        dependency("audio", optional=True),
-                        dependency("audio", kind="build"),
-                        dependency("audio", kind="dev"),
+                        dependency("audio", kind="build", optional=True),
                     ],
                 ),
                 package("audio"),
@@ -183,17 +176,25 @@ class RepositoryBoundaryCheckTests(unittest.TestCase):
                 record("audio", "audio-analysis"),
             ],
             [
-                baseline_entry("foundation", "audio"),
                 baseline_entry("foundation", "audio", kind="optional"),
-                baseline_entry("foundation", "audio", kind="build"),
-                baseline_entry("foundation", "audio", kind="dev"),
             ],
         )
-        self.assertEqual(errors, "")
-        self.assertEqual(
-            {violation["dependency_kind"] for violation in violations},
-            {"normal", "optional", "build", "dev"},
+        self.assertIn(
+            "new forbidden edge: foundation -> audio "
+            "(build; moenarch-foundation -> audio-analysis)",
+            errors,
         )
+        self.assertIn(
+            "stale baseline violations must be removed after the edge is fixed: "
+            "foundation->audio(optional)",
+            errors,
+        )
+        self.assertEqual(len(violations), 1)
+        self.assertEqual(
+            violations[0]["dependency_kind"],
+            "build",
+        )
+        self.assertTrue(violations[0]["optional"])
 
     def test_adapter_must_name_a_wrapped_library_with_same_owner(self) -> None:
         errors, _, _ = self.validate(
