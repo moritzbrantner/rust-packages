@@ -31,7 +31,17 @@ jobs:
         --expected-base-sha d032ad2890c1df3c6a5b9eff024562f00d017fce &&
         cargo fmt --all --check
       lint_command: cargo clippy --workspace --lib --tests --examples -- -D warnings
-      unit_test_command: git fetch --no-tags origin "${GITHUB_BASE_REF:-main}" && BASE_REF="origin/${GITHUB_BASE_REF:-main}" bun run progress:touched && bun run progress:test && cargo test --jobs "${CARGO_BUILD_JOBS:-2}" --workspace --lib --tests
+      unit_test_command: >-
+        base_branch="${GITHUB_BASE_REF:-main}";
+        base_ref="origin/${base_branch}";
+        if ! git show-ref --verify --quiet "refs/remotes/${base_ref}"; then
+          git fetch --no-tags origin
+          "${base_branch}:refs/remotes/${base_ref}" || exit 1;
+        fi;
+        git show-ref --verify --quiet "refs/remotes/${base_ref}" &&
+        BASE_REF="${base_ref}" bun run progress:touched &&
+        bun run progress:test &&
+        cargo test --jobs "${CARGO_BUILD_JOBS:-2}" --workspace --lib --tests
       build_command: cargo doc --workspace --no-deps
       cache_cargo: true
       timeout_minutes: 60
