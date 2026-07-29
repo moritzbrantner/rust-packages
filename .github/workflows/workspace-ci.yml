@@ -32,13 +32,28 @@ jobs:
         cargo fmt --all --check
       lint_command: cargo clippy --workspace --lib --tests --examples -- -D warnings
       unit_test_command: >-
-        base_branch="${GITHUB_BASE_REF:-main}";
-        base_ref="origin/${base_branch}";
-        if ! git show-ref --verify --quiet "refs/remotes/${base_ref}"; then
+        event_name="${{ github.event_name }}";
+        if [ "${event_name}" = "pull_request" ]; then
+          base_ref="${{ github.event.pull_request.base.sha }}";
+          if [[ ! "${base_ref}" =~ ^[0-9a-f]{40}$ ]]; then
+            echo "invalid pull-request base SHA: ${base_ref}" >&2;
+            exit 1;
+          fi;
+          if ! git cat-file -e "${base_ref}^{commit}" 2>/dev/null; then
+            git fetch --no-tags origin "${base_ref}" || exit 1;
+          fi;
+          git cat-file -e "${base_ref}^{commit}" 2>/dev/null || exit 1;
+        elif [ "${event_name}" = "workflow_dispatch" ]; then
+          base_branch="${GITHUB_BASE_REF:-main}";
+          base_ref="origin/${base_branch}";
           git fetch --no-tags origin
           "${base_branch}:refs/remotes/${base_ref}" || exit 1;
+          git show-ref --verify --quiet "refs/remotes/${base_ref}" || exit 1;
+          git cat-file -e "${base_ref}^{commit}" 2>/dev/null || exit 1;
+        else
+          echo "unsupported workspace-ci event: ${event_name}" >&2;
+          exit 1;
         fi;
-        git show-ref --verify --quiet "refs/remotes/${base_ref}" &&
         BASE_REF="${base_ref}" bun run progress:touched &&
         bun run progress:test &&
         cargo test --jobs "${CARGO_BUILD_JOBS:-2}" --workspace --lib --tests

@@ -16,12 +16,27 @@ try {
   const page = await browser.newPage();
   page.setDefaultTimeout(20_000);
   for (const storyId of storyIds) {
+    let pageError: Error | undefined;
+    const recordPageError = (error: Error) => {
+      pageError ??= error;
+    };
+    page.on("pageerror", recordPageError);
     const storyUrl = `${url.replace(/\/$/, "")}/iframe.html?id=${encodeURIComponent(storyId)}&viewMode=story`;
-    await page.goto(storyUrl);
-    await page.waitForFunction(() => {
-      const root = document.querySelector("#storybook-root");
-      return Boolean(root?.childElementCount);
-    });
+    try {
+      await page.goto(storyUrl);
+      await page.waitForFunction(() => {
+        const root = document.querySelector("#storybook-root");
+        return Boolean(root?.childElementCount);
+      });
+      await page.waitForTimeout(50);
+      if (pageError) {
+        throw new Error(
+          `Storybook story ${storyId} raised a page error: ${pageError.message}`,
+        );
+      }
+    } finally {
+      page.off("pageerror", recordPageError);
+    }
   }
   console.log(`Validated ${storyIds.length} Storybook stories with Playwright.`);
 } finally {
