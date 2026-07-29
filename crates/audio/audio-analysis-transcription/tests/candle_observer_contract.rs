@@ -61,14 +61,8 @@ fn request() -> AsrRequest {
 }
 
 #[test]
+#[ignore = "requires the pinned local Whisper bundle; run explicitly with --ignored"]
 fn controlled_reusable_candle_operation_reports_reuse_and_honors_cancellation() {
-    if std::env::var("RUN_CANDLE_WHISPER_DECODE_TESTS").as_deref() != Ok("1") {
-        eprintln!(
-            "skipping public Candle observer contract; set RUN_CANDLE_WHISPER_DECODE_TESTS=1"
-        );
-        return;
-    }
-
     let bundle = std::env::var_os("CANDLE_WHISPER_TINY_BUNDLE")
         .map(PathBuf::from)
         .expect("CANDLE_WHISPER_TINY_BUNDLE is required for the public observer contract");
