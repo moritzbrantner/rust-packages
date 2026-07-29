@@ -2244,7 +2244,7 @@ dependencies = [
 
 [[package]]
 name = "moenarch-audio-analysis-speakers"
-version = "0.1.3"
+version = "0.1.4"
 dependencies = [
  "hound",
  "moenarch-audio-analysis-core",
