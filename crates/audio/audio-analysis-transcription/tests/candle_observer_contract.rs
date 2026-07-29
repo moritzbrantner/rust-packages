@@ -5,8 +5,10 @@ use std::path::PathBuf;
 use audio_analysis_transcription::{
     AsrRequest, CandleWhisperComputeType, CandleWhisperDecodeConfig,
     CandleWhisperDecodeRequestConfig, CandleWhisperOptions, CandleWhisperRuntimeControls,
-    LoadedAudio, NativeDevicePreference, ReusableCandleWhisperTranscriber, SpeechActivitySegment,
-    TranscriptionPipelineEvent, TranscriptionPipelineObserver, TranscriptionTask,
+    CandleWhisperTimingMode, CandleWhisperTranscriptionRequestConfig,
+    CandleWhisperWindowControls, LoadedAudio, NativeDevicePreference,
+    ReusableCandleWhisperTranscriber, SpeechActivitySegment, TranscriptionPipelineEvent,
+    TranscriptionPipelineObserver, TranscriptionTask,
 };
 
 #[derive(Default)]
@@ -88,21 +90,37 @@ fn controlled_reusable_candle_operation_reports_reuse_and_honors_cancellation() 
         },
         ..CandleWhisperDecodeRequestConfig::default()
     };
+    let config = CandleWhisperTranscriptionRequestConfig {
+        runtime: controls,
+        decode: decode.clone(),
+        window: CandleWhisperWindowControls {
+            timing_mode: CandleWhisperTimingMode::NoTimestamps,
+            leading_context_seconds: 0.0,
+            trailing_context_seconds: 0.0,
+        },
+    };
     let mut observer = RecordingObserver::default();
 
     let first = provider
-        .transcribe_with_runtime_controls_and_decode_request_config_and_observer(
-            request(),
-            controls,
-            decode.clone(),
-            &mut observer,
-        )
+        .transcribe_with_request_config_and_observer(request(), config.clone(), &mut observer)
         .expect("the first controlled request should load and run the model");
 
     assert!(first
         .diagnostics
         .iter()
         .any(|item| item == "asrModelSession=loaded"));
+    assert!(first
+        .diagnostics
+        .iter()
+        .any(|item| item == "timingMode=noTimestamps"));
+    assert!(first
+        .diagnostics
+        .iter()
+        .any(|item| item == "leadingContextSeconds=0"));
+    assert!(first
+        .diagnostics
+        .iter()
+        .any(|item| item == "trailingContextSeconds=0"));
     assert_eq!(observer.resolution_starts, 1);
     assert_eq!(observer.resolution_ends, 1);
     assert!(observer
@@ -127,12 +145,7 @@ fn controlled_reusable_candle_operation_reports_reuse_and_honors_cancellation() 
     let second_request_events_start = observer.events.len();
     observer.cancel_on_reuse = true;
     let error = provider
-        .transcribe_with_runtime_controls_and_decode_request_config_and_observer(
-            request(),
-            controls,
-            decode,
-            &mut observer,
-        )
+        .transcribe_with_request_config_and_observer(request(), config, &mut observer)
         .expect_err("cancellation should stop the reused request at the observer safe check");
 
     assert!(error.to_string().contains("cancelled"));
