@@ -16,10 +16,9 @@ jobs:
       bun_version: "1.3.14"
       node_version: ""
       install_command: cd ../.. && bun install --frozen-lockfile
-      pre_command: bun run playwright:install
       storybook_build_command: bun run storybook:build
       storybook_test_command: bun run storybook:test:ci
-      install_playwright: false
+      install_playwright: true
       timeout_minutes: 45
       artifact_paths: |
         packages/video-analysis-ui/storybook-static

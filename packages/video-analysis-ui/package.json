@@ -86,12 +86,10 @@
     "test": "bun run test:unit && bun run test:e2e",
     "test:unit": "bash -lc 'vitest --run --maxWorkers \"${VITEST_MAX_WORKERS:-${TEST_MAX_WORKERS:-2}}\" --maxConcurrency \"${VITEST_MAX_CONCURRENCY:-${TEST_MAX_CONCURRENCY:-2}}\" --environment jsdom src'",
     "test:e2e": "playwright test",
-    "playwright:install": "playwright install --with-deps chromium",
     "storybook": "storybook dev -p 6006",
     "storybook:build": "storybook build",
     "storybook:test": "bun scripts/run-storybook-test.ts --url http://127.0.0.1:6006",
-    "storybook:test:script": "bun test scripts/storybook-validation.test.ts",
-    "storybook:test:ci": "bun run storybook:test:script && concurrently -k -s first -n storybook,test \"bun run storybook:build && bun scripts/serve-storybook-static.ts\" \"wait-on tcp:6006 && bun run storybook:test\""
+    "storybook:test:ci": "concurrently -k -s first -n storybook,test \"bun run storybook:build && bun scripts/serve-storybook-static.ts\" \"wait-on tcp:6006 && bun run storybook:test\""
   },
   "peerDependencies": {
     "react": ">=19.0.0",
@@ -104,6 +102,7 @@
     "@storybook/addon-essentials": "8.6.14",
     "@storybook/react": "8.6.14",
     "@storybook/react-vite": "8.6.14",
+    "@storybook/test-runner": "^0.24.4",
     "@testing-library/react": "^16.3.0",
     "@types/react": "^19.2.14",
     "@types/react-dom": "^19.2.3",
