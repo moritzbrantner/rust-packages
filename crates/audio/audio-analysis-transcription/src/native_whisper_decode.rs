@@ -583,6 +583,25 @@ mod tests {
     }
 
     #[test]
+    fn beam_size_five_stays_bounded_by_the_generation_limit() {
+        let config = CandleWhisperDecodeConfig {
+            beam_size: 5,
+            ..CandleWhisperDecodeConfig::default()
+        };
+        let calls = Cell::new(0);
+
+        let result = decode_with_config(&config, 6, 8, |_| {
+            calls.set(calls.get() + 1);
+            Ok(vec![5.0, 4.0, 3.0, 2.0, 1.0, 0.0, f32::NEG_INFINITY])
+        })
+        .unwrap();
+
+        assert_eq!(result.token_ids.len(), 8);
+        assert!(!result.completed);
+        assert_eq!(calls.get(), 1 + 5 * 7);
+    }
+
+    #[test]
     fn length_penalty_can_prefer_a_longer_beam_hypothesis() {
         let short = SearchCandidate {
             token_ids: vec![1],
