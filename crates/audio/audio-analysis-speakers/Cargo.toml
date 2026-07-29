@@ -22,6 +22,7 @@ audio-analysis-recognition.workspace = true
 model-runtime = { workspace = true, optional = true }
 runtime-onnx = { workspace = true, optional = true }
 ndarray = { workspace = true, optional = true }
+sha2 = { workspace = true, optional = true }
 serde.workspace = true
 serde_json.workspace = true
 video-analysis-core.workspace = true
@@ -29,7 +30,7 @@ video-analysis-core.workspace = true
 [features]
 default = []
 onnx = ["dep:runtime-onnx", "runtime-onnx/onnxruntime"]
-pyannote-diarization = ["onnx", "dep:ndarray"]
+pyannote-diarization = ["onnx", "dep:ndarray", "dep:sha2"]
 model-bundles = ["dep:model-runtime"]
 external-tests = ["onnx", "model-bundles"]
 
