@@ -5,10 +5,9 @@ use std::path::PathBuf;
 use audio_analysis_transcription::{
     AsrRequest, CandleWhisperComputeType, CandleWhisperDecodeConfig,
     CandleWhisperDecodeRequestConfig, CandleWhisperOptions, CandleWhisperRuntimeControls,
-    CandleWhisperTimingMode, CandleWhisperTranscriptionRequestConfig,
-    CandleWhisperWindowControls, LoadedAudio, NativeDevicePreference,
-    ReusableCandleWhisperTranscriber, SpeechActivitySegment, TranscriptionPipelineEvent,
-    TranscriptionPipelineObserver, TranscriptionTask,
+    CandleWhisperTimingMode, CandleWhisperTranscriptionRequestConfig, CandleWhisperWindowControls,
+    LoadedAudio, NativeDevicePreference, ReusableCandleWhisperTranscriber, SpeechActivitySegment,
+    TranscriptionPipelineEvent, TranscriptionPipelineObserver, TranscriptionTask,
 };
 
 #[derive(Default)]
