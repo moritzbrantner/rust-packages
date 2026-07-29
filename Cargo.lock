@@ -2365,8 +2365,10 @@ dependencies = [
  "moenarch-video-analysis-core",
  "moenarch-video-analysis-ffmpeg",
  "rayon",
+ "rustfft",
  "serde",
  "serde_json",
+ "sha2",
  "tempfile",
  "tokenizers",
 ]

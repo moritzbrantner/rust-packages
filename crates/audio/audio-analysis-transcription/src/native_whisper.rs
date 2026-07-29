@@ -12,6 +12,7 @@ use candle_nn::{
 };
 use candle_transformers::models::whisper::{self};
 use flate2::{write::ZlibEncoder, Compression};
+use rustfft::{num_complex::Complex32, FftPlanner};
 use serde::Deserialize;
 use std::io::Write;
 #[cfg(test)]
@@ -1750,8 +1751,15 @@ struct CandleWhisperSession {
     tokenizer: Tokenizer,
     generation: GenerationConfig,
     mel_filters: Vec<f32>,
+    transformers_mel_filters: Vec<f32>,
     encoder_duration_seconds: f64,
     decoder_duration_seconds: f64,
+}
+
+#[derive(Clone, Copy)]
+enum WhisperFeatureExtractorMode {
+    Legacy,
+    Transformers,
 }
 
 impl CandleWhisperSession {
@@ -1816,6 +1824,8 @@ impl CandleWhisperSession {
         };
         let mel_filters =
             mel_filter_bank(config.num_mel_bins, whisper::N_FFT, whisper::SAMPLE_RATE);
+        let transformers_mel_filters =
+            transformers_mel_filter_bank(config.num_mel_bins, whisper::N_FFT, whisper::SAMPLE_RATE);
         Ok(Self {
             setup,
             device,
@@ -1823,6 +1833,7 @@ impl CandleWhisperSession {
             tokenizer,
             generation,
             mel_filters,
+            transformers_mel_filters,
             encoder_duration_seconds: 0.0,
             decoder_duration_seconds: 0.0,
         })
@@ -1869,6 +1880,12 @@ impl CandleWhisperSession {
         let request_started = std::time::Instant::now();
         let max_prompt_tokens = (self.model.config().max_target_positions / 2).saturating_sub(1);
         let batch_size = candle_batch_size(options, request.chunks.len());
+        let feature_extractor_mode =
+            if window_controls.timing_mode == CandleWhisperTimingMode::NoTimestamps {
+                WhisperFeatureExtractorMode::Transformers
+            } else {
+                WhisperFeatureExtractorMode::Legacy
+            };
         for batch in request.chunks.chunks(batch_size) {
             let windows = collect_chunk_windows(
                 &request.audio.samples,
@@ -1886,6 +1903,7 @@ impl CandleWhisperSession {
                         let timed = self.decode_window_with_timing_mode(
                             &window.samples,
                             window_controls.timing_mode,
+                            feature_extractor_mode,
                             &window_decode,
                         )?;
                         prompt_state.record_generated_tokens(
@@ -1900,6 +1918,7 @@ impl CandleWhisperSession {
                     .decode_windows_with_timing_mode(
                         &windows,
                         window_controls.timing_mode,
+                        feature_extractor_mode,
                         decode,
                     )?,
             };
@@ -2160,12 +2179,17 @@ impl CandleWhisperSession {
         &mut self,
         samples: &[f32],
         mode: CandleWhisperTimingMode,
+        feature_extractor_mode: WhisperFeatureExtractorMode,
         decode: &CandleWhisperDecodeRequestConfig,
     ) -> Result<WhisperTimedWindow> {
         match mode {
             CandleWhisperTimingMode::NoTimestamps => {
-                let decoded =
-                    self.decode_window(samples, WhisperDecodeMode::WithoutTimestamps, decode)?;
+                let decoded = self.decode_window(
+                    samples,
+                    WhisperDecodeMode::WithoutTimestamps,
+                    feature_extractor_mode,
+                    decode,
+                )?;
                 Ok(WhisperTimedWindow {
                     conditioning_token_ids: decoded.diagnostics.decoded_token_ids.clone(),
                     decoded: decoded.window,
@@ -2176,8 +2200,12 @@ impl CandleWhisperSession {
             }
             CandleWhisperTimingMode::Auto => {
                 if timestamp_spec_for_timing_mode(&self.tokenizer, mode)?.is_some() {
-                    let decoded =
-                        self.decode_window(samples, WhisperDecodeMode::TimestampTokens, decode)?;
+                    let decoded = self.decode_window(
+                        samples,
+                        WhisperDecodeMode::TimestampTokens,
+                        feature_extractor_mode,
+                        decode,
+                    )?;
                     let diagnostics = decoded.diagnostics.clone();
                     if has_stable_timestamp_segments(&decoded.window, samples) {
                         return Ok(WhisperTimedWindow {
@@ -2191,6 +2219,7 @@ impl CandleWhisperSession {
                     let mut fallback = self.decode_window_with_timing_mode(
                         samples,
                         CandleWhisperTimingMode::NoTimestamps,
+                        feature_extractor_mode,
                         decode,
                     )?;
                     fallback.fallback_reason = Some("unstableTimestampSegments");
@@ -2207,6 +2236,7 @@ impl CandleWhisperSession {
                 let mut fallback = self.decode_window_with_timing_mode(
                     samples,
                     CandleWhisperTimingMode::NoTimestamps,
+                    feature_extractor_mode,
                     decode,
                 )?;
                 fallback.fallback_reason = Some("missingTimestampMetadata");
@@ -2214,8 +2244,12 @@ impl CandleWhisperSession {
             }
             CandleWhisperTimingMode::TimestampTokensRequired => {
                 timestamp_spec_for_timing_mode(&self.tokenizer, mode)?;
-                let decoded =
-                    self.decode_window(samples, WhisperDecodeMode::TimestampTokens, decode)?;
+                let decoded = self.decode_window(
+                    samples,
+                    WhisperDecodeMode::TimestampTokens,
+                    feature_extractor_mode,
+                    decode,
+                )?;
                 let diagnostics = decoded.diagnostics.clone();
                 if !has_stable_timestamp_segments(&decoded.window, samples) {
                     return Err(model_output_mismatch(
@@ -2237,6 +2271,7 @@ impl CandleWhisperSession {
         &mut self,
         windows: &[ChunkWindow],
         mode: CandleWhisperTimingMode,
+        feature_extractor_mode: WhisperFeatureExtractorMode,
         decode: &CandleWhisperDecodeRequestConfig,
     ) -> Result<Vec<WhisperTimedWindow>> {
         if windows.is_empty() {
@@ -2244,7 +2279,12 @@ impl CandleWhisperSession {
         }
         match mode {
             CandleWhisperTimingMode::NoTimestamps => self
-                .decode_window_batch(windows, WhisperDecodeMode::WithoutTimestamps, decode)?
+                .decode_window_batch(
+                    windows,
+                    WhisperDecodeMode::WithoutTimestamps,
+                    feature_extractor_mode,
+                    decode,
+                )?
                 .into_iter()
                 .map(|decoded| {
                     Ok(WhisperTimedWindow {
@@ -2261,6 +2301,7 @@ impl CandleWhisperSession {
                     let mut fallback = self.decode_windows_with_timing_mode(
                         windows,
                         CandleWhisperTimingMode::NoTimestamps,
+                        feature_extractor_mode,
                         decode,
                     )?;
                     for timed in &mut fallback {
@@ -2268,8 +2309,12 @@ impl CandleWhisperSession {
                     }
                     return Ok(fallback);
                 }
-                let timestamp_decoded =
-                    self.decode_window_batch(windows, WhisperDecodeMode::TimestampTokens, decode)?;
+                let timestamp_decoded = self.decode_window_batch(
+                    windows,
+                    WhisperDecodeMode::TimestampTokens,
+                    feature_extractor_mode,
+                    decode,
+                )?;
                 let mut results: Vec<Option<WhisperTimedWindow>> = vec![None; windows.len()];
                 let mut fallback_indices = Vec::new();
                 for (index, (window, decoded)) in windows.iter().zip(timestamp_decoded).enumerate()
@@ -2295,6 +2340,7 @@ impl CandleWhisperSession {
                     let fallbacks = self.decode_windows_with_timing_mode(
                         &fallback_windows,
                         CandleWhisperTimingMode::NoTimestamps,
+                        feature_extractor_mode,
                         decode,
                     )?;
                     for ((index, timestamp_diagnostics), mut fallback) in
@@ -2320,8 +2366,12 @@ impl CandleWhisperSession {
             }
             CandleWhisperTimingMode::TimestampTokensRequired => {
                 timestamp_spec_for_timing_mode(&self.tokenizer, mode)?;
-                let decoded =
-                    self.decode_window_batch(windows, WhisperDecodeMode::TimestampTokens, decode)?;
+                let decoded = self.decode_window_batch(
+                    windows,
+                    WhisperDecodeMode::TimestampTokens,
+                    feature_extractor_mode,
+                    decode,
+                )?;
                 decoded
                     .into_iter()
                     .zip(windows)
@@ -2349,6 +2399,7 @@ impl CandleWhisperSession {
         &mut self,
         samples: &[f32],
         mode: WhisperDecodeMode,
+        feature_extractor_mode: WhisperFeatureExtractorMode,
         decode: &CandleWhisperDecodeRequestConfig,
     ) -> Result<WhisperDecodeOutput> {
         self.decode_window_batch(
@@ -2361,6 +2412,7 @@ impl CandleWhisperSession {
                 global_end_seconds: samples.len() as f64 / whisper::SAMPLE_RATE as f64,
             }],
             mode,
+            feature_extractor_mode,
             decode,
         )
         .map(|mut outputs| outputs.remove(0))
@@ -2370,9 +2422,10 @@ impl CandleWhisperSession {
         &mut self,
         windows: &[ChunkWindow],
         mode: WhisperDecodeMode,
+        feature_extractor_mode: WhisperFeatureExtractorMode,
         decode: &CandleWhisperDecodeRequestConfig,
     ) -> Result<Vec<WhisperDecodeOutput>> {
-        let audio_features = self.encode_window_batch(windows)?;
+        let audio_features = self.encode_window_batch(windows, feature_extractor_mode)?;
         let token_outputs =
             self.decode_tokens_batch(&audio_features, windows.len(), mode, decode)?;
         token_outputs
@@ -2381,11 +2434,15 @@ impl CandleWhisperSession {
             .collect()
     }
 
-    fn encode_window_batch(&mut self, windows: &[ChunkWindow]) -> Result<Tensor> {
+    fn encode_window_batch(
+        &mut self,
+        windows: &[ChunkWindow],
+        feature_extractor_mode: WhisperFeatureExtractorMode,
+    ) -> Result<Tensor> {
         if should_microbatch_encoder(&self.setup.resolved_device, windows.len()) {
-            return self.encode_windows_individually(windows);
+            return self.encode_windows_individually(windows, feature_extractor_mode);
         }
-        let mel = self.mel_tensor_batch(windows)?;
+        let mel = self.mel_tensor_batch(windows, feature_extractor_mode)?;
         let started = std::time::Instant::now();
         let encoded = self
             .model
@@ -2395,10 +2452,15 @@ impl CandleWhisperSession {
         Ok(encoded)
     }
 
-    fn encode_windows_individually(&mut self, windows: &[ChunkWindow]) -> Result<Tensor> {
+    fn encode_windows_individually(
+        &mut self,
+        windows: &[ChunkWindow],
+        feature_extractor_mode: WhisperFeatureExtractorMode,
+    ) -> Result<Tensor> {
         let mut encoded = Vec::with_capacity(windows.len());
         for window in windows {
-            let mel = self.mel_tensor_batch(std::slice::from_ref(window))?;
+            let mel =
+                self.mel_tensor_batch(std::slice::from_ref(window), feature_extractor_mode)?;
             let started = std::time::Instant::now();
             let features = self.model.encode(&mel).map_err(|error| {
                 model_output_mismatch(format!("Whisper encoder failed: {error}"))
@@ -2412,19 +2474,38 @@ impl CandleWhisperSession {
         })
     }
 
-    fn mel_tensor_batch(&self, windows: &[ChunkWindow]) -> Result<Tensor> {
+    fn mel_tensor_batch(
+        &self,
+        windows: &[ChunkWindow],
+        feature_extractor_mode: WhisperFeatureExtractorMode,
+    ) -> Result<Tensor> {
         let n_mel = self.model.config().num_mel_bins;
         let mut features = Vec::with_capacity(windows.len() * n_mel * whisper::N_FRAMES);
         for window in windows {
-            let mel =
-                whisper::audio::pcm_to_mel(self.model.config(), &window.samples, &self.mel_filters);
-            let mel_frames = mel.len() / n_mel;
-            for mel_index in 0..n_mel {
-                let row_start = mel_index * mel_frames;
-                let available = mel_frames.min(whisper::N_FRAMES);
-                features.extend_from_slice(&mel[row_start..row_start + available]);
-                if available < whisper::N_FRAMES {
-                    features.extend(std::iter::repeat_n(0.0, whisper::N_FRAMES - available));
+            match feature_extractor_mode {
+                WhisperFeatureExtractorMode::Legacy => {
+                    let mel = whisper::audio::pcm_to_mel(
+                        self.model.config(),
+                        &window.samples,
+                        &self.mel_filters,
+                    );
+                    let mel_frames = mel.len() / n_mel;
+                    for mel_index in 0..n_mel {
+                        let row_start = mel_index * mel_frames;
+                        let available = mel_frames.min(whisper::N_FRAMES);
+                        features.extend_from_slice(&mel[row_start..row_start + available]);
+                        if available < whisper::N_FRAMES {
+                            features
+                                .extend(std::iter::repeat_n(0.0, whisper::N_FRAMES - available));
+                        }
+                    }
+                }
+                WhisperFeatureExtractorMode::Transformers => {
+                    features.extend(transformers_whisper_pcm_to_mel(
+                        self.model.config(),
+                        &window.samples,
+                        &self.transformers_mel_filters,
+                    ));
                 }
             }
         }
@@ -3696,6 +3777,39 @@ fn mel_filter_bank(n_mels: usize, n_fft: usize, sample_rate: usize) -> Vec<f32> 
     filters
 }
 
+fn transformers_mel_filter_bank(n_mels: usize, n_fft: usize, sample_rate: usize) -> Vec<f32> {
+    let n_freqs = n_fft / 2 + 1;
+    let min_mel = whisper_slaney_hz_to_mel(0.0);
+    let max_mel = whisper_slaney_hz_to_mel(sample_rate as f32 / 2.0);
+    let mel_points = (0..n_mels + 2)
+        .map(|index| min_mel + (max_mel - min_mel) * index as f32 / (n_mels + 1) as f32)
+        .map(whisper_slaney_mel_to_hz)
+        .collect::<Vec<_>>();
+    let fft_freqs = (0..n_freqs)
+        .map(|index| sample_rate as f32 * index as f32 / n_fft as f32)
+        .collect::<Vec<_>>();
+    let mut filters = vec![0.0; n_mels * n_freqs];
+    for mel_index in 0..n_mels {
+        let lower = mel_points[mel_index];
+        let center = mel_points[mel_index + 1];
+        let upper = mel_points[mel_index + 2];
+        for (freq_index, freq) in fft_freqs.iter().enumerate() {
+            let value = if *freq < lower || *freq > upper {
+                0.0
+            } else if *freq <= center {
+                (*freq - lower) / (center - lower).max(f32::EPSILON)
+            } else {
+                (upper - *freq) / (upper - center).max(f32::EPSILON)
+            };
+            // Transformers Whisper uses librosa/Slaney area normalization.
+            // Keep the row-major layout expected by candle's pcm_to_mel.
+            let area_normalization = 2.0 / (upper - lower).max(f32::EPSILON);
+            filters[mel_index * n_freqs + freq_index] = value.max(0.0) * area_normalization;
+        }
+    }
+    filters
+}
+
 fn hz_to_mel(hz: f32) -> f32 {
     2595.0 * (1.0 + hz / 700.0).log10()
 }
@@ -3704,12 +3818,397 @@ fn mel_to_hz(mel: f32) -> f32 {
     700.0 * (10_f32.powf(mel / 2595.0) - 1.0)
 }
 
+fn transformers_whisper_pcm_to_mel(
+    config: &whisper::Config,
+    samples: &[f32],
+    filters: &[f32],
+) -> Vec<f32> {
+    let n_mel = config.num_mel_bins;
+    let n_fft = whisper::N_FFT;
+    let n_freqs = n_fft / 2 + 1;
+    debug_assert_eq!(filters.len(), n_mel * n_freqs);
+
+    // WhisperFeatureExtractor pads/truncates each window to 30 seconds before
+    // its centered, reflect-padded STFT.
+    let mut audio = vec![0.0_f32; whisper::N_SAMPLES];
+    let copied = samples.len().min(audio.len());
+    audio[..copied].copy_from_slice(&samples[..copied]);
+    let hann = (0..n_fft)
+        .map(|index| 0.5 * (1.0 - (2.0 * std::f32::consts::PI * index as f32 / n_fft as f32).cos()))
+        .collect::<Vec<_>>();
+    let mut planner = FftPlanner::<f32>::new();
+    let fft = planner.plan_fft_forward(n_fft);
+    let mut buffer = vec![Complex32::new(0.0, 0.0); n_fft];
+    let mut mel = vec![0.0_f32; n_mel * whisper::N_FRAMES];
+    let center = n_fft as isize / 2;
+
+    // Center padding produces N_FRAMES + 1 frames. Whisper drops the final one.
+    for frame in 0..whisper::N_FRAMES {
+        let frame_start = frame as isize * whisper::HOP_LENGTH as isize - center;
+        for (offset, value) in buffer.iter_mut().enumerate() {
+            let index = reflect_index(frame_start + offset as isize, audio.len());
+            *value = Complex32::new(audio[index] * hann[offset], 0.0);
+        }
+        fft.process(&mut buffer);
+        for mel_index in 0..n_mel {
+            let filter = &filters[mel_index * n_freqs..(mel_index + 1) * n_freqs];
+            let energy = buffer[..n_freqs]
+                .iter()
+                .zip(filter)
+                .map(|(value, weight)| value.norm_sqr() * weight)
+                .sum::<f32>()
+                .max(1e-10);
+            mel[mel_index * whisper::N_FRAMES + frame] = energy.log10();
+        }
+    }
+
+    let floor = mel.iter().copied().max_by(f32::total_cmp).unwrap_or(0.0) - 8.0;
+    for value in &mut mel {
+        *value = value.max(floor);
+        *value = (*value + 4.0) / 4.0;
+    }
+    mel
+}
+
+fn reflect_index(index: isize, len: usize) -> usize {
+    debug_assert!(len > 1);
+    if index < 0 {
+        (-index) as usize
+    } else if index >= len as isize {
+        (2 * len as isize - index - 2) as usize
+    } else {
+        index as usize
+    }
+}
+
+fn whisper_slaney_hz_to_mel(hz: f32) -> f32 {
+    const MIN_LOG_HZ: f32 = 1_000.0;
+    const MIN_LOG_MEL: f32 = 15.0;
+    let linear = 3.0 * hz / 200.0;
+    if hz < MIN_LOG_HZ {
+        linear
+    } else {
+        MIN_LOG_MEL + (hz / MIN_LOG_HZ).ln() * (27.0 / 6.4_f32.ln())
+    }
+}
+
+fn whisper_slaney_mel_to_hz(mel: f32) -> f32 {
+    const MIN_LOG_HZ: f32 = 1_000.0;
+    const MIN_LOG_MEL: f32 = 15.0;
+    let linear = 200.0 * mel / 3.0;
+    if mel < MIN_LOG_MEL {
+        linear
+    } else {
+        MIN_LOG_HZ * ((6.4_f32.ln() / 27.0) * (mel - MIN_LOG_MEL)).exp()
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
     use candle_core::quantized::QTensor;
+    use sha2::{Digest, Sha256};
     use std::io::Cursor;
     use tokenizers::models::wordlevel::WordLevel;
+
+    #[test]
+    #[ignore = "requires pinned German audio, WhisperX JSON, Whisper-small bundle, and Transformers mel/logit oracles; run explicitly with --ignored"]
+    fn german_no_align_fp32_matches_pinned_transformers_greedy_trace() {
+        let bundle = std::env::var_os("CANDLE_WHISPER_SMALL_BUNDLE")
+            .map(PathBuf::from)
+            .expect("CANDLE_WHISPER_SMALL_BUNDLE must point at revision 973afd24965f72e36ca33b3055d56a652f456b4d");
+        let audio_path = std::env::var_os("CANDLE_WHISPER_GERMAN_WAV")
+            .map(PathBuf::from)
+            .expect("CANDLE_WHISPER_GERMAN_WAV must point at the pinned five-second cache probe");
+        const PINNED_REVISION: &str = "973afd24965f72e36ca33b3055d56a652f456b4d";
+        assert_eq!(
+            bundle.file_name().and_then(|name| name.to_str()),
+            Some(PINNED_REVISION),
+            "Whisper-small bundle must be the pinned Hugging Face snapshot"
+        );
+        let assert_sha256 = |path: &Path, expected: &str| {
+            let bytes = std::fs::read(path).expect("pinned parity resource");
+            let actual = format!("{:x}", Sha256::digest(bytes));
+            assert_eq!(
+                actual,
+                expected,
+                "pinned resource changed: {}",
+                path.display()
+            );
+        };
+        assert_sha256(
+            &audio_path,
+            "80df13c0cf5733684be7ccc9a243ce45637debfc5186be575a1d0608ad929ca6",
+        );
+        let whisperx_oracle_path =
+            std::env::var_os("CANDLE_WHISPER_GERMAN_WHISPERX_ORACLE")
+                .map(PathBuf::from)
+                .expect(
+                    "CANDLE_WHISPER_GERMAN_WHISPERX_ORACLE must point at the retained WhisperX 3.8.6 JSON",
+                );
+        let whisperx_oracle_bytes =
+            std::fs::read(whisperx_oracle_path).expect("retained WhisperX 3.8.6 oracle");
+        assert_eq!(
+            format!("{:x}", Sha256::digest(&whisperx_oracle_bytes)),
+            "1b38bea5200eea4c037eea0420ff71c73283c238f9820c978a60ca0c7612e095",
+            "retained WhisperX 3.8.6 oracle changed"
+        );
+        let whisperx_oracle: serde_json::Value =
+            serde_json::from_slice(&whisperx_oracle_bytes).expect("WhisperX JSON");
+        let whisperx_segment = &whisperx_oracle["segments"][0];
+        assert_eq!(whisperx_segment["start"], serde_json::json!(0.322));
+        assert_eq!(whisperx_segment["end"], serde_json::json!(5.0));
+        assert_eq!(
+            whisperx_segment["text"]
+                .as_str()
+                .expect("WhisperX segment text")
+                .trim(),
+            "Das ist nicht dein Lieblingsverband."
+        );
+        for (name, expected) in [
+            (
+                "config.json",
+                "e6a2b489da1b5aed65a8eb8d1e7466fa867ad5643a8bc138ba708bd56b2875c4",
+            ),
+            (
+                "generation_config.json",
+                "71565b8ef50d0bf7a1193ed4bbed195b94e70c18894d81bba2f1233dcec3ab53",
+            ),
+            (
+                "tokenizer.json",
+                "27fc476bfe7f17299480be2273fc0608e4d5a99aba2ab5dec5374b4482d1a566",
+            ),
+            (
+                "preprocessor_config.json",
+                "9b5cd03a36fbb8a627c64d98a5b5b126ead95a77720723944487311f0110b666",
+            ),
+            (
+                "model.safetensors",
+                "1d7734884874f1a1513ed9aa760a4f8e97aaa02fd6d93a3a85d27b2ae9ca596b",
+            ),
+        ] {
+            assert_sha256(&bundle.join(name), expected);
+        }
+        let mut reader = hound::WavReader::open(&audio_path).expect("German PCM fixture");
+        let spec = reader.spec();
+        assert_eq!(spec.sample_rate, whisper::SAMPLE_RATE as u32);
+        assert_eq!(spec.channels, 1);
+        assert_eq!(spec.bits_per_sample, 16);
+        let samples = reader
+            .samples::<i16>()
+            .map(|sample| sample.expect("PCM sample") as f32 / 32_768.0)
+            .collect::<Vec<_>>();
+        let duration = samples.len() as f64 / spec.sample_rate as f64;
+        assert!((duration - 5.0).abs() <= f64::EPSILON);
+        let request = AsrRequest {
+            audio: crate::LoadedAudio {
+                samples,
+                sample_rate: spec.sample_rate,
+                channels: spec.channels,
+                source: Some("pinned-german-cache-probe".to_string()),
+            },
+            chunks: vec![SpeechActivitySegment::new(0.322, duration, 1.0)
+                .expect("exact WhisperX 3.8.6 speech span")],
+            task: TranscriptionTask::Transcribe,
+            language: Some("de".to_string()),
+            model_id: "openai/whisper-small".to_string(),
+        };
+        let options = CandleWhisperOptions {
+            model_id: request.model_id.clone(),
+            language: request.language.clone(),
+            device: crate::NativeDevicePreference::Cpu,
+            compute_type: CandleWhisperComputeType::Fp32,
+            model_bundle: Some(bundle),
+            model_cache_only: true,
+            batch_chunks: false,
+            max_batch_size: Some(1),
+            ..CandleWhisperOptions::default()
+        };
+        let config = CandleWhisperTranscriptionRequestConfig {
+            runtime: CandleWhisperRuntimeControls {
+                decoder_threads: Some(8),
+                ..CandleWhisperRuntimeControls::default()
+            },
+            decode: CandleWhisperDecodeRequestConfig::default(),
+            window: CandleWhisperWindowControls {
+                timing_mode: CandleWhisperTimingMode::NoTimestamps,
+                leading_context_seconds: 0.0,
+                trailing_context_seconds: 0.0,
+            },
+        };
+        let setup =
+            WhisperRunSetup::from_options_and_request(&options, &request).expect("run setup");
+        let mut session = CandleWhisperSession::load(setup).expect("load Whisper-small");
+        let windows = collect_chunk_windows(
+            &request.audio.samples,
+            request.audio.sample_rate,
+            &request.chunks,
+            &config.window,
+        )
+        .expect("zero-context windows");
+        assert_eq!(windows.len(), 1);
+
+        let mel = session
+            .mel_tensor_batch(&windows, WhisperFeatureExtractorMode::Transformers)
+            .expect("Candle mel");
+        assert_eq!(mel.dims3().expect("mel shape"), (1, 80, 3000));
+        let mel_values = mel
+            .flatten_all()
+            .and_then(|mel| mel.to_vec1::<f32>())
+            .expect("f32 mel values");
+        let mel_min = mel_values.iter().copied().fold(f32::INFINITY, f32::min);
+        let mel_max = mel_values.iter().copied().fold(f32::NEG_INFINITY, f32::max);
+        let mel_oracle_path = std::env::var_os("CANDLE_WHISPER_GERMAN_MEL_ORACLE")
+            .map(PathBuf::from)
+            .expect(
+                "CANDLE_WHISPER_GERMAN_MEL_ORACLE must point at the retained Transformers f32le tensor",
+            );
+        let mel_oracle_bytes =
+            std::fs::read(mel_oracle_path).expect("retained Transformers mel oracle");
+        assert_eq!(
+            format!("{:x}", Sha256::digest(&mel_oracle_bytes)),
+            "2e5702b857570249e43ab92804c28cabf8194f8f03c1fd48f97c3bfd9c091fbf",
+            "retained Transformers mel oracle changed"
+        );
+        let mut oracle_chunks = mel_oracle_bytes.chunks_exact(std::mem::size_of::<f32>());
+        let mel_oracle = oracle_chunks
+            .by_ref()
+            .map(|bytes| f32::from_le_bytes(bytes.try_into().expect("four-byte f32 chunk")))
+            .collect::<Vec<_>>();
+        assert!(oracle_chunks.remainder().is_empty());
+        assert_eq!(mel_oracle.len(), mel_values.len());
+        let mel_max_abs_diff = mel_values
+            .iter()
+            .zip(&mel_oracle)
+            .map(|(actual, expected)| (actual - expected).abs())
+            .fold(0.0_f32, f32::max);
+        let mel_root_mean_square_diff = (mel_values
+            .iter()
+            .zip(&mel_oracle)
+            .map(|(actual, expected)| f64::from(actual - expected).powi(2))
+            .sum::<f64>()
+            / mel_values.len() as f64)
+            .sqrt();
+        assert!(
+            (mel_min - -0.702_159_9).abs() <= 1e-4,
+            "Candle/Transformers mel minimum diverged: {mel_min}"
+        );
+        assert!(
+            (mel_max - 1.297_840_1).abs() <= 1e-4,
+            "Candle/Transformers mel maximum diverged: {mel_max}"
+        );
+        assert!(
+            mel_max_abs_diff <= 1e-4,
+            "Candle/Transformers complete mel tensor diverged: maxAbsDiff={mel_max_abs_diff}, rmsDiff={mel_root_mean_square_diff}"
+        );
+
+        let initial = session
+            .initial_tokens(WhisperDecodeMode::WithoutTimestamps, &[])
+            .expect("German no-timestamps prompt");
+        assert_eq!(initial.token_ids, vec![50258, 50261, 50359, 50363]);
+        let features = session
+            .encode_window_batch(&windows, WhisperFeatureExtractorMode::Transformers)
+            .expect("encoder features");
+        let mut no_speech_probability = None;
+        let mut stats = WhisperGenerationStats::default();
+        let first_logits = session
+            .configured_search_logits(
+                &features,
+                &initial.token_ids,
+                initial.sot_position,
+                &[],
+                WhisperDecodeMode::WithoutTimestamps,
+                &config.decode,
+                &mut no_speech_probability,
+                &mut stats,
+            )
+            .expect("first filtered logits");
+        assert_eq!(
+            argmax_finite(&first_logits),
+            Some(2846),
+            "first Candle token diverged from Transformers"
+        );
+        let logits_oracle_path =
+            std::env::var_os("CANDLE_WHISPER_GERMAN_LOGITS_ORACLE")
+                .map(PathBuf::from)
+                .expect(
+                    "CANDLE_WHISPER_GERMAN_LOGITS_ORACLE must point at the retained filtered Transformers f32le vector",
+                );
+        let logits_oracle_bytes =
+            std::fs::read(logits_oracle_path).expect("retained Transformers logits oracle");
+        assert_eq!(
+            format!("{:x}", Sha256::digest(&logits_oracle_bytes)),
+            "751015116dcded3c45314938e471679439abd6ddc08ee5509bc16a66cd540412",
+            "retained Transformers filtered-logits oracle changed"
+        );
+        let mut logits_oracle_chunks = logits_oracle_bytes.chunks_exact(std::mem::size_of::<f32>());
+        let logits_oracle = logits_oracle_chunks
+            .by_ref()
+            .map(|bytes| f32::from_le_bytes(bytes.try_into().expect("four-byte f32 chunk")))
+            .collect::<Vec<_>>();
+        assert!(logits_oracle_chunks.remainder().is_empty());
+        assert_eq!(logits_oracle.len(), first_logits.len());
+
+        // Candle and PyTorch use different CPU kernels. Compare every filtered
+        // vocabulary logit with a fixed numerical bound, and require the exact
+        // suppression mask, greedy argmax, and complete generated sequence.
+        let mut logits_max_abs_diff = 0.0_f32;
+        for (token_id, (actual, expected)) in first_logits.iter().zip(&logits_oracle).enumerate() {
+            if expected.is_finite() {
+                assert!(
+                    actual.is_finite(),
+                    "Candle suppressed finite Transformers token {token_id}"
+                );
+                logits_max_abs_diff = logits_max_abs_diff.max((actual - expected).abs());
+            } else {
+                assert_eq!(
+                    *actual,
+                    f32::NEG_INFINITY,
+                    "Candle/Transformers suppression mask diverged for token {token_id}"
+                );
+            }
+        }
+        assert!(
+            logits_max_abs_diff <= 5e-2,
+            "complete first-step Candle/Transformers logits diverged: maxAbsDiff={logits_max_abs_diff}"
+        );
+
+        let decoded = session
+            .decode_tokens_configured(
+                &features,
+                WhisperDecodeMode::WithoutTimestamps,
+                &config.decode,
+            )
+            .expect("greedy decode");
+        assert_eq!(
+            decoded.token_ids,
+            vec![2846, 1418, 1979, 25641, 11197, 5199, 1109, 331, 4235, 13,]
+        );
+        let greedy_text =
+            decode_text_tokens(&session.tokenizer, &decoded.token_ids).expect("greedy text");
+        assert_eq!(greedy_text.trim(), "Das ist nicht dein Lieblingsverband.");
+
+        // The exact greedy oracle above is the prerequisite for exercising the
+        // bounded beam-size-five path on the same encoded German window.
+        let mut beam_decode = config.decode.clone();
+        beam_decode.search.beam_size = 5;
+        let beam_token_bound = 1;
+        session.generation.max_length = Some(initial.token_ids.len() + beam_token_bound);
+        let beam = session
+            .decode_tokens_configured(
+                &features,
+                WhisperDecodeMode::WithoutTimestamps,
+                &beam_decode,
+            )
+            .expect("bounded beam-size-five decode");
+        assert!(!beam.token_ids.is_empty(), "beam decode produced no tokens");
+        assert!(
+            beam.token_ids.len() <= beam_token_bound,
+            "beam decode exceeded the explicit test token bound"
+        );
+        let beam_text = decode_text_tokens(&session.tokenizer, &beam.token_ids).expect("beam text");
+        assert!(!beam_text.trim().is_empty(), "beam decode produced no text");
+    }
 
     #[test]
     fn model_resolution_observer_can_cancel_before_resolution_work() {
