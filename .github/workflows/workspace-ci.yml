@@ -52,6 +52,7 @@ jobs:
           python3 scripts/test_check_ci_sanity.py
           python3 scripts/test_run_changed_frontend.py
           python3 scripts/test_run_changed_python_tests.py
+          python3 scripts/test_workflow_ci_topology.py
           python3 scripts/check_ci_sanity.py --base "origin/${GITHUB_BASE_REF:-main}"
           python3 scripts/run_changed_python_tests.py --base "origin/${GITHUB_BASE_REF:-main}"
           scripts/check_repo_hygiene.sh
@@ -68,6 +69,7 @@ jobs:
         scripts/check_generated_artifacts.sh &&
         (test ! -f scripts/test_check_repository_boundaries.py || python3 scripts/test_check_repository_boundaries.py) &&
         (test ! -f scripts/test_check_release_plan.py || python3 scripts/test_check_release_plan.py)
+      concurrency_group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}-architecture
       timeout_minutes: 20
 
   rust-checks:
@@ -81,6 +83,7 @@ jobs:
       pre_command: rustup toolchain install 1.95.0 --profile minimal --component clippy --component rustfmt && rustup default 1.95.0
       unit_test_command: git fetch --no-tags origin "${GITHUB_BASE_REF:-main}" && CHECK_FAST_FRONTEND=none BASE_REF="origin/${GITHUB_BASE_REF:-main}" scripts/check-fast.sh
       cache_cargo: true
+      concurrency_group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}-rust
       timeout_minutes: 60
 
   frontend-checks:
@@ -92,6 +95,7 @@ jobs:
       node_version: ""
       install_command: bun install --frozen-lockfile
       unit_test_command: git fetch --no-tags origin "${GITHUB_BASE_REF:-main}" && python3 scripts/run_changed_frontend.py --base "origin/${GITHUB_BASE_REF:-main}" --kind application
+      concurrency_group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}-frontend
       timeout_minutes: 30
 
   wasm-checks:
@@ -105,6 +109,7 @@ jobs:
       pre_command: rustup target add wasm32-unknown-unknown && cargo install wasm-pack --locked --version 0.14.0
       unit_test_command: git fetch --no-tags origin "${GITHUB_BASE_REF:-main}" && python3 scripts/run_changed_frontend.py --base "origin/${GITHUB_BASE_REF:-main}" --kind wasm
       cache_cargo: true
+      concurrency_group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}-wasm
       timeout_minutes: 45
 
   storybook-checks:
@@ -119,6 +124,7 @@ jobs:
       storybook_build_command: bun run storybook:build
       storybook_test_command: bun run storybook:test:ci
       install_playwright: true
+      concurrency_group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}-storybook
       timeout_minutes: 45
 
   browser-e2e-checks:
@@ -134,6 +140,7 @@ jobs:
       e2e_command: bun run ui:test:e2e && bun run web:test:e2e
       install_playwright: true
       cache_cargo: true
+      concurrency_group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}-browser-e2e
       timeout_minutes: 60
 
   full-workspace-checks:
@@ -149,6 +156,7 @@ jobs:
       e2e_command: "true"
       install_playwright: true
       cache_cargo: true
+      concurrency_group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}-full-workspace
       timeout_minutes: 90
 
   ci-gate:
