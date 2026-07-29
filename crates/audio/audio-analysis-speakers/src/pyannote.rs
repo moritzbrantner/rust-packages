@@ -19,10 +19,11 @@ use std::fs;
 use std::path::{Path, PathBuf};
 
 use runtime_onnx::{
-    f32_output_by_name_or_index, first_f32_output, single_f32_input, OnnxF32Tensor, OnnxRunner,
-    OnnxSession,
+    f32_output_by_name_or_index, first_f32_output, single_f32_input, OnnxDimension, OnnxF32Tensor,
+    OnnxIoInfo, OnnxRunner, OnnxSession, OnnxSessionMetadata, OnnxTensorElementType,
 };
 use serde::{Deserialize, Serialize};
+use sha2::{Digest, Sha256};
 use video_analysis_core::{DetectError, Result};
 
 use crate::{
@@ -38,8 +39,18 @@ const DEFAULT_PLDA_TRANSFORM_FILE: &str = "plda_transform.json";
 const DEFAULT_PLDA_MODEL_FILE: &str = "plda_model.json";
 const DEFAULT_CLUSTERING_CONFIG_FILE: &str = "clustering.json";
 const DEFAULT_MODEL_ID: &str = "pyannote/speaker-diarization-community-1";
+const PINNED_SOURCE_REVISION: &str = "3533c8cf8e369892e6b79ff1bf80f7b0286a54ee";
+const APPROVED_ARTIFACT_SET_SHA256: &str =
+    "0a12189874dace9b590af9b09ef4637552006130716db57c35d72f984b36c577";
 const DEFAULT_LABEL_FORMAT: &str = "SPEAKER_{:02}";
 const ACTIVE_THRESHOLD: f32 = 0.5;
+// Pinned segmentation-3.0 receptive-field resolution. The converted model
+// produces 589 frames for a 10-second chunk. Pyannote places the first frame
+// at half the receptive-field duration and advances by this exact step.
+const SEGMENTATION_FRAME_STEP_SECONDS: f64 = 0.016_875;
+const SEGMENTATION_FRAME_OFFSET_SECONDS: f64 = 0.030_968_75;
+// ceil(400 minimum embedding samples / 160_000 window samples * 589 frames)
+const EMBEDDING_MIN_CLEAN_FRAMES: usize = 2;
 
 /// Native pyannote community diarizer configuration.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -70,12 +81,15 @@ pub struct PyannoteCommunityDiarizer {
     manifest: PyannoteDiarizationManifest,
     segmentation: OnnxSession,
     embedding: OnnxSession,
+    plda: plda::Plda,
+    clustering: vbx::VbxConfig,
     config: ResolvedPyannoteConfig,
 }
 
 #[derive(Debug, Clone)]
 struct ResolvedPyannoteConfig {
     bundle_path: PathBuf,
+    manifest_path: PathBuf,
     segmentation_model_path: PathBuf,
     embedding_model_path: PathBuf,
     plda_transform_path: PathBuf,
@@ -89,6 +103,11 @@ struct ResolvedPyannoteConfig {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 struct PyannoteDiarizationManifest {
+    schema_version: u32,
+    kind: String,
+    source: PyannoteSourceManifest,
+    artifact_set_sha256: String,
+    files: BTreeMap<String, String>,
     #[serde(default = "default_model_id")]
     model_id: String,
     #[serde(default = "default_sample_rate")]
@@ -98,6 +117,14 @@ struct PyannoteDiarizationManifest {
     segmentation: PyannoteSegmentationManifest,
     embedding: PyannoteEmbeddingManifest,
     clustering: PyannoteClusteringManifest,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct PyannoteSourceManifest {
+    model_id: String,
+    revision: String,
+    license: String,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -135,15 +162,15 @@ struct PyannoteClusteringManifest {
     #[serde(default = "default_clustering_kind")]
     kind: String,
     #[serde(default = "default_clustering_threshold")]
-    threshold: f32,
+    threshold: f64,
     #[serde(default = "default_fa")]
-    fa: f32,
+    fa: f64,
     #[serde(default = "default_fb")]
-    fb: f32,
+    fb: f64,
     #[serde(default = "default_vbx_iters")]
     max_iters: usize,
     #[serde(default = "default_min_active_ratio")]
-    min_active_ratio: f32,
+    min_active_ratio: f64,
     #[serde(default = "default_true")]
     constrained_assignment: bool,
 }
@@ -152,6 +179,7 @@ struct PyannoteClusteringManifest {
 struct SegmentationBatch {
     windows: Vec<SegmentationWindow>,
     total_frames: usize,
+    audio_duration_seconds: f64,
 }
 
 #[derive(Debug, Clone)]
@@ -165,7 +193,6 @@ struct SegmentationWindow {
 struct LocalSpeakerEmbedding {
     chunk: usize,
     local_speaker: usize,
-    active_frames: usize,
     clean_frames: usize,
     values: Vec<f32>,
 }
@@ -175,29 +202,48 @@ struct AssignedLocalSpeaker {
     chunk: usize,
     local_speaker: usize,
     speaker: usize,
-    score: f32,
 }
 
 impl PyannoteCommunityDiarizer {
     /// Builds a pyannote community diarizer from a local ONNX bundle.
     pub fn from_config(config: PyannoteCommunityDiarizationConfig) -> Result<Self> {
         let resolved = resolve_config(config)?;
-        let manifest = load_manifest(&resolved.bundle_path, DEFAULT_MANIFEST_FILE)?;
+        let manifest = load_manifest(&resolved.manifest_path)?;
         validate_manifest(&manifest)?;
+        validate_bundle_files(&resolved, &manifest)?;
+        let plda = plda::Plda::load(&resolved.plda_transform_path, &resolved.plda_model_path)?;
+        if plda.input_dimension() != manifest.embedding.dimension {
+            return Err(setup_error(
+                "PLDA input dimension does not match embedding dimension",
+            ));
+        }
+        let clustering = load_clustering(&resolved.clustering_config_path)?;
+        vbx::validate_config(&clustering)?;
+        validate_clustering_matches_manifest(&clustering, &manifest.clustering)?;
         let segmentation = OnnxSession::from_file_with_options(
             &resolved.segmentation_model_path,
             runtime_onnx::OnnxSessionOptions::default(),
         )
         .map_err(map_onnx_session_error)?;
+        validate_segmentation_metadata(
+            &segmentation.metadata().map_err(map_onnx_session_error)?,
+            &manifest,
+        )?;
         let embedding = OnnxSession::from_file_with_options(
             &resolved.embedding_model_path,
             runtime_onnx::OnnxSessionOptions::default(),
         )
         .map_err(map_onnx_session_error)?;
+        validate_embedding_metadata(
+            &embedding.metadata().map_err(map_onnx_session_error)?,
+            &manifest,
+        )?;
         Ok(Self {
             manifest,
             segmentation,
             embedding,
+            plda,
+            clustering,
             config: resolved,
         })
     }
@@ -219,12 +265,35 @@ impl PyannoteCommunityDiarizer {
         let samples = audio.samples();
         let segmentations = self.run_segmentations(samples)?;
         let embeddings = self.run_embeddings(&segmentations)?;
-        let assignments = assign_local_speakers(
-            &embeddings,
+        let vbx = vbx::cluster(
+            &embeddings
+                .iter()
+                .map(|embedding| vbx::VbxEmbedding {
+                    chunk: embedding.chunk,
+                    local_speaker: embedding.local_speaker,
+                    clean_frames: embedding.clean_frames,
+                    values: &embedding.values,
+                })
+                .collect::<Vec<_>>(),
+            self.manifest.segmentation.frames,
             self.config.min_speakers,
             self.config.max_speakers,
-            self.manifest.clustering.threshold,
+            &self.plda,
+            &self.clustering,
         )?;
+        let posterior_iterations = vbx.posterior_iterations;
+        let training_embeddings = vbx.training_embeddings;
+        let automatic_speakers = vbx.automatic_speakers;
+        let retained_speakers = vbx.retained_speakers;
+        let assignments = vbx
+            .assignments
+            .into_iter()
+            .map(|assignment| AssignedLocalSpeaker {
+                chunk: assignment.chunk,
+                local_speaker: assignment.local_speaker,
+                speaker: assignment.speaker,
+            })
+            .collect::<Vec<_>>();
         let segments = reconstruct_segments(&self.manifest, &segmentations, &assignments)?;
         let speaker_count = segments
             .iter()
@@ -245,6 +314,7 @@ impl PyannoteCommunityDiarizer {
             "diarizationRuntime=onnx".to_string(),
             "pyannoteOnnxGraphOptimization=default".to_string(),
             format!("diarizationModel={}", self.manifest.model_id),
+            format!("pyannoteSourceRevision={}", self.manifest.source.revision),
             format!("diarizationSpeakerCount={speaker_count}"),
             format!(
                 "diarizationMinSpeakers={}",
@@ -265,27 +335,20 @@ impl PyannoteCommunityDiarizer {
                 self.manifest.embedding.dimension
             ),
             "pyannoteClustering=vbx".to_string(),
+            format!("pyannoteVbxFa={}", self.clustering.fa),
+            format!("pyannoteVbxFb={}", self.clustering.fb),
+            format!("pyannoteVbxPosteriorIterations={}", posterior_iterations),
+            format!("pyannoteVbxTrainingEmbeddings={training_embeddings}"),
+            format!("pyannoteVbxAutomaticSpeakers={automatic_speakers}"),
+            format!("pyannoteVbxRetainedSpeakers={retained_speakers}"),
+            format!(
+                "pyannoteArtifactSetSha256={}",
+                self.manifest.artifact_set_sha256
+            ),
+            "pyannotePldaTransform=applied".to_string(),
+            "pyannotePldaModel=applied".to_string(),
+            "pyannoteConstrainedAssignment=applied".to_string(),
             "speakerEmbeddingProvider=pyannote-onnx".to_string(),
-            format!(
-                "pyannoteSegmentationModel={}",
-                self.config.segmentation_model_path.display()
-            ),
-            format!(
-                "pyannoteEmbeddingModel={}",
-                self.config.embedding_model_path.display()
-            ),
-            format!(
-                "pyannotePldaTransform={}",
-                self.config.plda_transform_path.display()
-            ),
-            format!(
-                "pyannotePldaModel={}",
-                self.config.plda_model_path.display()
-            ),
-            format!(
-                "pyannoteClusteringConfig={}",
-                self.config.clustering_config_path.display()
-            ),
         ];
         Ok(PyannoteCommunityDiarizationResult {
             response: SpeakerDiarizationResponse {
@@ -319,7 +382,7 @@ impl PyannoteCommunityDiarizer {
             }
             let tensor = single_f32_input(
                 self.manifest.segmentation.input_name.clone(),
-                vec![1, window_samples],
+                vec![1, 1, window_samples],
                 values.clone(),
             )
             .map_err(map_onnx_runtime_error)?;
@@ -344,6 +407,7 @@ impl PyannoteCommunityDiarizer {
         }
         Ok(SegmentationBatch {
             total_frames: windows.len() * self.manifest.segmentation.frames,
+            audio_duration_seconds: samples.len() as f64 / SAMPLE_RATE as f64,
             windows,
         })
     }
@@ -355,15 +419,24 @@ impl PyannoteCommunityDiarizer {
         let mut embeddings = Vec::new();
         for (chunk, window) in segmentations.windows.iter().enumerate() {
             for local_speaker in 0..self.manifest.segmentation.local_speakers {
-                let mask = speaker_mask(&self.manifest, window, local_speaker);
-                let active_frames = mask
+                let full_mask = speaker_mask(&self.manifest, window, local_speaker);
+                let active_frames = full_mask
                     .iter()
                     .filter(|value| **value > ACTIVE_THRESHOLD)
                     .count();
-                let clean_frames = clean_speaker_frames(&self.manifest, window, local_speaker);
+                let clean_mask = clean_speaker_mask(&self.manifest, window, local_speaker);
+                let clean_frames = clean_mask
+                    .iter()
+                    .filter(|value| **value > ACTIVE_THRESHOLD)
+                    .count();
                 if active_frames == 0 {
                     continue;
                 }
+                let mask = if clean_frames > EMBEDDING_MIN_CLEAN_FRAMES {
+                    clean_mask
+                } else {
+                    full_mask
+                };
                 let waveform = single_f32_input(
                     self.manifest.embedding.waveform_input_name.clone(),
                     vec![1, 1, window.samples.len()],
@@ -389,7 +462,6 @@ impl PyannoteCommunityDiarizer {
                     embeddings.push(LocalSpeakerEmbedding {
                         chunk,
                         local_speaker,
-                        active_frames,
                         clean_frames,
                         values,
                     });
@@ -404,10 +476,9 @@ fn resolve_config(config: PyannoteCommunityDiarizationConfig) -> Result<Resolved
     validate_speaker_bounds(config.min_speakers, config.max_speakers)?;
     let bundle_path = config.bundle_path;
     if !bundle_path.is_dir() {
-        return Err(setup_error(format!(
-            "pyannote diarization bundle `{}` does not exist or is not a directory",
-            bundle_path.display()
-        )));
+        return Err(setup_error(
+            "pyannote diarization bundle does not exist or is not a directory",
+        ));
     }
     let manifest_file = config
         .manifest_file
@@ -433,7 +504,7 @@ fn resolve_config(config: PyannoteCommunityDiarizationConfig) -> Result<Resolved
         .clustering_config_file
         .as_deref()
         .unwrap_or(DEFAULT_CLUSTERING_CONFIG_FILE);
-    require_file(&bundle_path.join(manifest_file), "manifest")?;
+    let manifest_path = require_file(&bundle_path.join(manifest_file), "manifest")?;
     let segmentation_model_path = require_file(
         &bundle_path.join(segmentation_model_file),
         "segmentation model",
@@ -449,6 +520,7 @@ fn resolve_config(config: PyannoteCommunityDiarizationConfig) -> Result<Resolved
     )?;
     Ok(ResolvedPyannoteConfig {
         bundle_path,
+        manifest_path,
         segmentation_model_path,
         embedding_model_path,
         plda_transform_path,
@@ -465,29 +537,37 @@ fn require_file(path: &Path, role: &str) -> Result<PathBuf> {
         Ok(path.to_path_buf())
     } else {
         Err(setup_error(format!(
-            "pyannote diarization {role} `{}` does not exist or is not a file",
-            path.display()
+            "pyannote diarization {role} does not exist or is not a file"
         )))
     }
 }
 
-fn load_manifest(bundle_path: &Path, file_name: &str) -> Result<PyannoteDiarizationManifest> {
-    let path = bundle_path.join(file_name);
-    let text = fs::read_to_string(&path).map_err(|error| {
+fn load_manifest(path: &Path) -> Result<PyannoteDiarizationManifest> {
+    let text = fs::read_to_string(path).map_err(|error| {
         setup_error(format!(
-            "failed to read pyannote diarization manifest `{}`: {error}",
-            path.display()
+            "failed to read pyannote diarization manifest: {error}"
         ))
     })?;
     serde_json::from_str(&text).map_err(|error| {
         DetectError::InvalidArgument(format!(
-            "invalid_request: failed to parse pyannote diarization manifest `{}`: {error}",
-            path.display()
+            "invalid_request: failed to parse pyannote diarization manifest: {error}"
         ))
     })
 }
 
 fn validate_manifest(manifest: &PyannoteDiarizationManifest) -> Result<()> {
+    if manifest.schema_version != 1
+        || manifest.kind != "pyannote-diarization"
+        || manifest.model_id != DEFAULT_MODEL_ID
+        || manifest.source.model_id != DEFAULT_MODEL_ID
+        || manifest.source.revision != PINNED_SOURCE_REVISION
+        || manifest.source.license != "CC-BY-4.0"
+        || manifest.artifact_set_sha256 != APPROVED_ARTIFACT_SET_SHA256
+    {
+        return Err(setup_error(
+            "pyannote diarization manifest provenance does not match the approved community bundle",
+        ));
+    }
     if manifest.sample_rate != SAMPLE_RATE {
         return Err(DetectError::InvalidArgument(format!(
             "invalid_request: pyannote diarization manifest sampleRate must be {SAMPLE_RATE}, got {}",
@@ -516,6 +596,198 @@ fn validate_manifest(manifest: &PyannoteDiarizationManifest) -> Result<()> {
             "invalid_request: pyannote diarization embedding manifest values are invalid"
                 .to_string(),
         ));
+    }
+    Ok(())
+}
+
+fn validate_bundle_files(
+    resolved: &ResolvedPyannoteConfig,
+    manifest: &PyannoteDiarizationManifest,
+) -> Result<()> {
+    let provenance = resolved.bundle_path.join("MODEL_PROVENANCE.md");
+    let license = resolved.bundle_path.join("LICENSE.md");
+    let required = [
+        (
+            "segmentation.onnx",
+            resolved.segmentation_model_path.as_path(),
+        ),
+        ("embedding.onnx", resolved.embedding_model_path.as_path()),
+        (
+            "plda_transform.json",
+            resolved.plda_transform_path.as_path(),
+        ),
+        ("plda_model.json", resolved.plda_model_path.as_path()),
+        ("clustering.json", resolved.clustering_config_path.as_path()),
+        ("MODEL_PROVENANCE.md", provenance.as_path()),
+        ("LICENSE.md", license.as_path()),
+    ];
+    for (name, path) in required {
+        let expected = manifest.files.get(name).ok_or_else(|| {
+            setup_error(format!("manifest does not checksum required file `{name}`"))
+        })?;
+        if !is_sha256(expected) {
+            return Err(setup_error(format!(
+                "manifest checksum for `{name}` is not SHA-256"
+            )));
+        }
+        let bytes = fs::read(path)
+            .map_err(|error| setup_error(format!("failed to read `{name}`: {error}")))?;
+        let actual = format!("{:x}", Sha256::digest(bytes));
+        if actual != *expected {
+            return Err(setup_error(format!("checksum mismatch for `{name}`")));
+        }
+    }
+    let digest = format!(
+        "{:x}",
+        Sha256::digest(
+            serde_json::to_vec(&manifest.files)
+                .map_err(|error| setup_error(format!("failed to hash manifest files: {error}")))?
+        )
+    );
+    if digest != manifest.artifact_set_sha256 {
+        return Err(setup_error(
+            "artifactSetSha256 does not match the checksummed artifact set",
+        ));
+    }
+    if resolved
+        .bundle_path
+        .file_name()
+        .and_then(|name| name.to_str())
+        .is_some_and(|name| {
+            name.starts_with("sha256-")
+                && name != format!("sha256-{}", manifest.artifact_set_sha256)
+        })
+    {
+        return Err(setup_error(
+            "checksum-addressed snapshot name does not match artifactSetSha256",
+        ));
+    }
+    Ok(())
+}
+
+fn is_sha256(value: &str) -> bool {
+    value.len() == 64 && value.bytes().all(|byte| byte.is_ascii_hexdigit())
+}
+
+fn load_clustering(path: &Path) -> Result<vbx::VbxConfig> {
+    serde_json::from_slice(
+        &fs::read(path)
+            .map_err(|error| setup_error(format!("failed to read clustering config: {error}")))?,
+    )
+    .map_err(|error| setup_error(format!("failed to parse clustering config: {error}")))
+}
+
+fn validate_clustering_matches_manifest(
+    clustering: &vbx::VbxConfig,
+    manifest: &PyannoteClusteringManifest,
+) -> Result<()> {
+    let matches = clustering.kind == manifest.kind
+        && clustering.threshold == manifest.threshold
+        && clustering.fa == manifest.fa
+        && clustering.fb == manifest.fb
+        && clustering.max_iters == manifest.max_iters
+        && clustering.min_active_ratio == manifest.min_active_ratio
+        && clustering.constrained_assignment == manifest.constrained_assignment;
+    if !matches {
+        return Err(setup_error(
+            "clustering.json differs from the manifest VBx configuration",
+        ));
+    }
+    Ok(())
+}
+
+fn validate_segmentation_metadata(
+    metadata: &OnnxSessionMetadata,
+    manifest: &PyannoteDiarizationManifest,
+) -> Result<()> {
+    validate_onnx_io(
+        &metadata.inputs,
+        &manifest.segmentation.input_name,
+        &[
+            1,
+            1,
+            seconds_to_samples(manifest.segmentation.duration_seconds, SAMPLE_RATE)?,
+        ],
+        "segmentation input",
+    )?;
+    validate_onnx_io(
+        &metadata.outputs,
+        &manifest.segmentation.output_name,
+        &[
+            1,
+            manifest.segmentation.frames,
+            manifest.segmentation.local_speakers,
+        ],
+        "segmentation output",
+    )
+}
+
+fn validate_embedding_metadata(
+    metadata: &OnnxSessionMetadata,
+    manifest: &PyannoteDiarizationManifest,
+) -> Result<()> {
+    let window_samples = seconds_to_samples(manifest.segmentation.duration_seconds, SAMPLE_RATE)?;
+    validate_onnx_io(
+        &metadata.inputs,
+        &manifest.embedding.waveform_input_name,
+        &[1, 1, window_samples],
+        "embedding waveform input",
+    )?;
+    validate_onnx_io(
+        &metadata.inputs,
+        &manifest.embedding.mask_input_name,
+        &[1, manifest.embedding.mask_frames],
+        "embedding mask input",
+    )?;
+    validate_onnx_io(
+        &metadata.outputs,
+        &manifest.embedding.output_name,
+        &[1, manifest.embedding.dimension],
+        "embedding output",
+    )
+}
+
+fn validate_onnx_io(
+    values: &[OnnxIoInfo],
+    expected_name: &str,
+    expected_shape: &[usize],
+    role: &str,
+) -> Result<()> {
+    let value = values
+        .iter()
+        .find(|value| value.name == expected_name)
+        .ok_or_else(|| {
+            setup_error(format!(
+                "{role} `{expected_name}` is missing; available names: {}",
+                values
+                    .iter()
+                    .map(|value| value.name.as_str())
+                    .collect::<Vec<_>>()
+                    .join(", ")
+            ))
+        })?;
+    if value.element_type != Some(OnnxTensorElementType::F32) {
+        return Err(setup_error(format!(
+            "{role} `{expected_name}` must use F32"
+        )));
+    }
+    let actual = value
+        .dimensions
+        .iter()
+        .map(|dimension| match dimension {
+            OnnxDimension::Fixed(value) => Some(*value),
+            OnnxDimension::Symbolic(_) | OnnxDimension::Unknown => None,
+        })
+        .collect::<Vec<_>>();
+    if actual.len() != expected_shape.len()
+        || actual
+            .iter()
+            .zip(expected_shape)
+            .any(|(actual, expected)| actual.is_some_and(|actual| actual != *expected))
+    {
+        return Err(setup_error(format!(
+            "{role} `{expected_name}` shape {actual:?} does not match {expected_shape:?}"
+        )));
     }
     Ok(())
 }
@@ -608,13 +880,17 @@ fn speaker_mask(
     mask
 }
 
-fn clean_speaker_frames(
+fn clean_speaker_mask(
     manifest: &PyannoteDiarizationManifest,
     window: &SegmentationWindow,
     local_speaker: usize,
-) -> usize {
-    let mut count = 0_usize;
-    for frame in 0..manifest.segmentation.frames {
+) -> Vec<f32> {
+    let mut mask = vec![0.0; manifest.embedding.mask_frames];
+    for (frame, output) in mask
+        .iter_mut()
+        .enumerate()
+        .take(manifest.segmentation.frames)
+    {
         let mut active = 0_usize;
         let mut selected_active = false;
         for speaker in 0..manifest.segmentation.local_speakers {
@@ -627,106 +903,10 @@ fn clean_speaker_frames(
             }
         }
         if active == 1 && selected_active {
-            count += 1;
+            *output = window.scores[frame * manifest.segmentation.local_speakers + local_speaker];
         }
     }
-    count
-}
-
-fn assign_local_speakers(
-    embeddings: &[LocalSpeakerEmbedding],
-    min_speakers: Option<usize>,
-    max_speakers: Option<usize>,
-    threshold: f32,
-) -> Result<Vec<AssignedLocalSpeaker>> {
-    if embeddings.is_empty() {
-        return Ok(Vec::new());
-    }
-    let frames = embeddings
-        .iter()
-        .map(|embedding| embedding.active_frames.max(1))
-        .max()
-        .unwrap_or(1);
-    let min_clean_frames = (0.2_f32 * frames as f32).ceil() as usize;
-    let train_indices = embeddings
-        .iter()
-        .enumerate()
-        .filter_map(|(index, embedding)| {
-            (embedding.clean_frames >= min_clean_frames).then_some(index)
-        })
-        .collect::<Vec<_>>();
-    let train_indices = if train_indices.is_empty() {
-        (0..embeddings.len()).collect::<Vec<_>>()
-    } else {
-        train_indices
-    };
-    let requested = match (min_speakers, max_speakers) {
-        (Some(min), Some(max)) if min == max => Some(min),
-        _ => None,
-    };
-    let mut centroids: Vec<Vec<f32>> = Vec::new();
-    for &index in &train_indices {
-        let values = l2_normalize(&embeddings[index].values)?;
-        let mut best = None;
-        let mut best_score = f32::NEG_INFINITY;
-        for (cluster, centroid) in centroids.iter().enumerate() {
-            let score = cosine_similarity(&values, centroid)?;
-            if score > best_score {
-                best_score = score;
-                best = Some(cluster);
-            }
-        }
-        let should_create = best.is_none()
-            || best_score < threshold
-            || requested.is_some_and(|count| centroids.len() < count);
-        if should_create {
-            centroids.push(values);
-        } else if let Some(cluster) = best {
-            merge_centroid(&mut centroids[cluster], &values)?;
-        }
-    }
-    let min_clusters = min_speakers.unwrap_or(1).min(embeddings.len()).max(1);
-    let max_clusters = max_speakers
-        .unwrap_or(embeddings.len())
-        .min(embeddings.len())
-        .max(1);
-    while centroids.len() < min_clusters {
-        let next = embeddings
-            .iter()
-            .map(|embedding| l2_normalize(&embedding.values))
-            .collect::<Result<Vec<_>>>()?
-            .into_iter()
-            .max_by(|left, right| {
-                min_similarity(left, &centroids)
-                    .partial_cmp(&min_similarity(right, &centroids))
-                    .unwrap_or(std::cmp::Ordering::Equal)
-            })
-            .unwrap_or_else(|| centroids[0].clone());
-        centroids.push(next);
-    }
-    while centroids.len() > max_clusters {
-        merge_closest_centroids(&mut centroids)?;
-    }
-    let mut assignments = Vec::new();
-    for embedding in embeddings {
-        let values = l2_normalize(&embedding.values)?;
-        let mut best_cluster = 0_usize;
-        let mut best_score = f32::NEG_INFINITY;
-        for (cluster, centroid) in centroids.iter().enumerate() {
-            let score = cosine_similarity(&values, centroid)?;
-            if score > best_score {
-                best_score = score;
-                best_cluster = cluster;
-            }
-        }
-        assignments.push(AssignedLocalSpeaker {
-            chunk: embedding.chunk,
-            local_speaker: embedding.local_speaker,
-            speaker: best_cluster,
-            score: best_score,
-        });
-    }
-    Ok(assignments)
+    mask
 }
 
 fn reconstruct_segments(
@@ -734,52 +914,113 @@ fn reconstruct_segments(
     segmentations: &SegmentationBatch,
     assignments: &[AssignedLocalSpeaker],
 ) -> Result<Vec<SpeakerSegmentPrediction>> {
-    let mut segments = Vec::new();
-    let frame_duration =
-        manifest.segmentation.duration_seconds / manifest.segmentation.frames as f64;
+    let frame_duration = SEGMENTATION_FRAME_STEP_SECONDS;
     let mut by_local = BTreeMap::new();
     for assignment in assignments {
         by_local.insert((assignment.chunk, assignment.local_speaker), assignment);
     }
-    let mut open: BTreeMap<usize, (f64, f64, f32)> = BTreeMap::new();
+    // Stitch the overlapping segmentation windows onto one global frame grid.
+    // Emitting each window independently creates duplicate turns and contradicts
+    // pyannote's overlap aggregation contract.
+    let mut aggregate = BTreeMap::<(usize, usize), (f64, usize)>::new();
+    let mut speaker_count = BTreeMap::<usize, (f64, usize)>::new();
     for (chunk, window) in segmentations.windows.iter().enumerate() {
         for frame in 0..manifest.segmentation.frames {
-            let frame_start = window.start_seconds + frame as f64 * frame_duration;
-            let frame_end = frame_start + frame_duration;
-            let mut active_speakers = BTreeMap::<usize, f32>::new();
+            let frame_center = window.start_seconds
+                + SEGMENTATION_FRAME_OFFSET_SECONDS
+                + frame as f64 * frame_duration;
+            let global_frame = ((frame_center - SEGMENTATION_FRAME_OFFSET_SECONDS) / frame_duration)
+                .round() as usize;
+            let mut window_speakers = BTreeMap::<usize, f32>::new();
+            let mut local_count = 0.0_f64;
             for local_speaker in 0..manifest.segmentation.local_speakers {
                 let score =
                     window.scores[frame * manifest.segmentation.local_speakers + local_speaker];
-                if score <= ACTIVE_THRESHOLD {
-                    continue;
-                }
+                local_count += f64::from(score);
                 if let Some(assignment) = by_local.get(&(chunk, local_speaker)) {
-                    let combined_score = score.max(assignment.score);
-                    active_speakers
+                    window_speakers
                         .entry(assignment.speaker)
-                        .and_modify(|current| *current = current.max(combined_score))
-                        .or_insert(combined_score);
+                        .and_modify(|current| *current = current.max(score))
+                        .or_insert(score);
                 }
             }
-            let active_keys = active_speakers.keys().copied().collect::<BTreeSet<_>>();
-            let closing = open
-                .keys()
-                .copied()
-                .filter(|speaker| !active_keys.contains(speaker))
-                .collect::<Vec<_>>();
-            for speaker in closing {
-                if let Some((start, end, score)) = open.remove(&speaker) {
-                    push_segment(&mut segments, manifest, speaker, start, end, score)?;
-                }
-            }
-            for (speaker, score) in active_speakers {
-                open.entry(speaker)
-                    .and_modify(|entry| {
-                        entry.1 = frame_end;
-                        entry.2 = entry.2.max(score);
+            for (speaker, score) in window_speakers {
+                aggregate
+                    .entry((global_frame, speaker))
+                    .and_modify(|(sum, count)| {
+                        *sum += f64::from(score);
+                        *count += 1;
                     })
-                    .or_insert((frame_start, frame_end, score));
+                    .or_insert((f64::from(score), 1));
             }
+            speaker_count
+                .entry(global_frame)
+                .and_modify(|(sum, count)| {
+                    *sum += local_count;
+                    *count += 1;
+                })
+                .or_insert((local_count, 1));
+        }
+    }
+    let total_frames = ((segmentations.audio_duration_seconds - SEGMENTATION_FRAME_OFFSET_SECONDS)
+        / frame_duration)
+        .ceil()
+        .max(0.0) as usize;
+    let speakers = assignments
+        .iter()
+        .map(|assignment| assignment.speaker)
+        .collect::<BTreeSet<_>>();
+    let mut segments = Vec::new();
+    let mut open = BTreeMap::<usize, (f64, f64, f32)>::new();
+    for frame in 0..total_frames {
+        let frame_start = SEGMENTATION_FRAME_OFFSET_SECONDS + frame as f64 * frame_duration;
+        let frame_end = (frame_start + frame_duration).min(segmentations.audio_duration_seconds);
+        let count = speaker_count
+            .get(&frame)
+            .map(|(sum, observations)| (*sum / *observations as f64).round() as usize)
+            .unwrap_or(0)
+            .min(speakers.len());
+        let mut ranked = speakers
+            .iter()
+            .filter_map(|speaker| {
+                // Pyannote reconstruction deliberately uses overlap-add sums
+                // (`skip_average=true`) before ranking speakers against the
+                // independently averaged instantaneous speaker count.
+                aggregate
+                    .get(&(frame, *speaker))
+                    .map(|(sum, observations)| {
+                        (*speaker, *sum as f32, (*sum / *observations as f64) as f32)
+                    })
+            })
+            .collect::<Vec<_>>();
+        ranked.sort_by(|(left_speaker, left, _), (right_speaker, right, _)| {
+            right
+                .partial_cmp(left)
+                .unwrap_or(std::cmp::Ordering::Equal)
+                .then_with(|| left_speaker.cmp(right_speaker))
+        });
+        let active = ranked
+            .into_iter()
+            .take(count)
+            .map(|(speaker, _, score)| (speaker, score))
+            .collect::<BTreeMap<_, _>>();
+        let closing = open
+            .keys()
+            .copied()
+            .filter(|speaker| !active.contains_key(speaker))
+            .collect::<Vec<_>>();
+        for speaker in closing {
+            if let Some((start, end, score)) = open.remove(&speaker) {
+                push_segment(&mut segments, manifest, speaker, start, end, score)?;
+            }
+        }
+        for (speaker, score) in active {
+            open.entry(speaker)
+                .and_modify(|entry| {
+                    entry.1 = frame_end;
+                    entry.2 = entry.2.max(score);
+                })
+                .or_insert((frame_start, frame_end, score));
         }
     }
     for (speaker, (start, end, score)) in open {
@@ -874,68 +1115,6 @@ fn speaker_label(manifest: &PyannoteDiarizationManifest, speaker: usize) -> Stri
     }
 }
 
-fn l2_normalize(values: &[f32]) -> Result<Vec<f32>> {
-    let norm = values.iter().map(|value| value * value).sum::<f32>().sqrt();
-    if norm <= f32::EPSILON || !norm.is_finite() {
-        return Err(DetectError::InvalidArgument(
-            "invalid_request: pyannote embedding norm must be finite and non-zero".to_string(),
-        ));
-    }
-    Ok(values.iter().map(|value| value / norm).collect())
-}
-
-fn cosine_similarity(left: &[f32], right: &[f32]) -> Result<f32> {
-    if left.len() != right.len() {
-        return Err(DetectError::InvalidArgument(
-            "invalid_request: pyannote embedding dimensions differ".to_string(),
-        ));
-    }
-    Ok(left.iter().zip(right).map(|(l, r)| l * r).sum())
-}
-
-fn merge_centroid(centroid: &mut [f32], values: &[f32]) -> Result<()> {
-    if centroid.len() != values.len() {
-        return Err(DetectError::InvalidArgument(
-            "invalid_request: pyannote centroid dimensions differ".to_string(),
-        ));
-    }
-    for (left, right) in centroid.iter_mut().zip(values) {
-        *left = (*left + *right) * 0.5;
-    }
-    let normalized = l2_normalize(centroid)?;
-    centroid.copy_from_slice(&normalized);
-    Ok(())
-}
-
-fn min_similarity(values: &[f32], centroids: &[Vec<f32>]) -> f32 {
-    if centroids.is_empty() {
-        return f32::NEG_INFINITY;
-    }
-    centroids
-        .iter()
-        .filter_map(|centroid| cosine_similarity(values, centroid).ok())
-        .fold(f32::INFINITY, f32::min)
-}
-
-fn merge_closest_centroids(centroids: &mut Vec<Vec<f32>>) -> Result<()> {
-    if centroids.len() <= 1 {
-        return Ok(());
-    }
-    let mut best = (0_usize, 1_usize);
-    let mut best_score = f32::NEG_INFINITY;
-    for left in 0..centroids.len() {
-        for right in (left + 1)..centroids.len() {
-            let score = cosine_similarity(&centroids[left], &centroids[right])?;
-            if score > best_score {
-                best_score = score;
-                best = (left, right);
-            }
-        }
-    }
-    let right = centroids.remove(best.1);
-    merge_centroid(&mut centroids[best.0], &right)
-}
-
 fn format_optional_usize(value: Option<usize>) -> String {
     value
         .map(|value| value.to_string())
@@ -948,13 +1127,13 @@ fn setup_error(message: impl Into<String>) -> DetectError {
 
 fn map_onnx_session_error(error: runtime_onnx::OnnxRuntimeError) -> DetectError {
     match error {
-        runtime_onnx::OnnxRuntimeError::InvalidArgument(message)
-            if message.contains("does not exist") =>
-        {
-            setup_error(message)
+        runtime_onnx::OnnxRuntimeError::InvalidArgument(_) => {
+            setup_error("failed to initialize pyannote ONNX model")
         }
-        runtime_onnx::OnnxRuntimeError::Io(error) => setup_error(error.to_string()),
-        other => DetectError::InvalidArgument(format!("unsupported_runtime: {other}")),
+        runtime_onnx::OnnxRuntimeError::Io(_) => setup_error("failed to read pyannote ONNX model"),
+        _ => DetectError::InvalidArgument(
+            "unsupported_runtime: failed to initialize pyannote ONNX model".to_string(),
+        ),
     }
 }
 
@@ -1006,15 +1185,15 @@ fn default_clustering_kind() -> String {
     "vbx".to_string()
 }
 
-fn default_clustering_threshold() -> f32 {
+fn default_clustering_threshold() -> f64 {
     0.6
 }
 
-fn default_fa() -> f32 {
+fn default_fa() -> f64 {
     0.07
 }
 
-fn default_fb() -> f32 {
+fn default_fb() -> f64 {
     0.8
 }
 
@@ -1022,7 +1201,7 @@ fn default_vbx_iters() -> usize {
     20
 }
 
-fn default_min_active_ratio() -> f32 {
+fn default_min_active_ratio() -> f64 {
     0.2
 }
 
@@ -1032,6 +1211,15 @@ mod tests {
 
     fn manifest() -> PyannoteDiarizationManifest {
         PyannoteDiarizationManifest {
+            schema_version: 1,
+            kind: "pyannote-diarization".to_string(),
+            source: PyannoteSourceManifest {
+                model_id: DEFAULT_MODEL_ID.to_string(),
+                revision: PINNED_SOURCE_REVISION.to_string(),
+                license: "CC-BY-4.0".to_string(),
+            },
+            artifact_set_sha256: APPROVED_ARTIFACT_SET_SHA256.to_string(),
+            files: BTreeMap::new(),
             model_id: DEFAULT_MODEL_ID.to_string(),
             sample_rate: SAMPLE_RATE,
             label_format: DEFAULT_LABEL_FORMAT.to_string(),
@@ -1074,6 +1262,23 @@ mod tests {
     }
 
     #[test]
+    fn manifest_validation_rejects_revision_and_artifact_digest_mismatches() {
+        let mut wrong_revision = manifest();
+        wrong_revision.source.revision = "unapproved-revision".to_string();
+        assert!(validate_manifest(&wrong_revision)
+            .expect_err("wrong source revision must fail before inference")
+            .to_string()
+            .contains("provenance"));
+
+        let mut wrong_digest = manifest();
+        wrong_digest.artifact_set_sha256 = "0".repeat(64);
+        assert!(validate_manifest(&wrong_digest)
+            .expect_err("wrong artifact digest must fail before inference")
+            .to_string()
+            .contains("provenance"));
+    }
+
+    #[test]
     fn speaker_bounds_reject_zero_and_inverted_range() {
         assert!(validate_speaker_bounds(Some(0), None)
             .unwrap_err()
@@ -1105,6 +1310,7 @@ mod tests {
         let manifest = manifest();
         let segmentations = SegmentationBatch {
             total_frames: 4,
+            audio_duration_seconds: 1.0,
             windows: vec![SegmentationWindow {
                 start_seconds: 0.0,
                 samples: vec![0.0; SAMPLE_RATE as usize],
@@ -1116,13 +1322,11 @@ mod tests {
                 chunk: 0,
                 local_speaker: 0,
                 speaker: 0,
-                score: 1.0,
             },
             AssignedLocalSpeaker {
                 chunk: 0,
                 local_speaker: 1,
                 speaker: 1,
-                score: 1.0,
             },
         ];
 
@@ -1131,5 +1335,50 @@ mod tests {
         assert_eq!(segments.len(), 2);
         assert_eq!(segments[0].speaker, "SPEAKER_00");
         assert_eq!(segments[1].speaker, "SPEAKER_01");
+    }
+
+    fn io(name: &str, dimensions: &[usize]) -> OnnxIoInfo {
+        OnnxIoInfo {
+            name: name.to_string(),
+            element_type: Some(OnnxTensorElementType::F32),
+            dimensions: dimensions
+                .iter()
+                .copied()
+                .map(OnnxDimension::Fixed)
+                .collect(),
+        }
+    }
+
+    #[test]
+    fn segmentation_metadata_requires_three_dimensional_waveform() {
+        let manifest = manifest();
+        let valid = OnnxSessionMetadata {
+            inputs: vec![io("waveform", &[1, 1, 16_000])],
+            outputs: vec![io("segmentations", &[1, 4, 2])],
+        };
+        validate_segmentation_metadata(&valid, &manifest).unwrap();
+
+        let mut rank_two = valid;
+        rank_two.inputs[0] = io("waveform", &[1, 16_000]);
+        let error = validate_segmentation_metadata(&rank_two, &manifest).unwrap_err();
+        assert!(error.to_string().contains("shape"), "{error}");
+    }
+
+    #[test]
+    fn embedding_metadata_requires_waveform_mask_and_embedding_contract() {
+        let manifest = manifest();
+        let valid = OnnxSessionMetadata {
+            inputs: vec![io("waveform", &[1, 1, 16_000]), io("masks", &[1, 4])],
+            outputs: vec![io("embeddings", &[1, 2])],
+        };
+        validate_embedding_metadata(&valid, &manifest).unwrap();
+
+        let mut wrong_mask = valid.clone();
+        wrong_mask.inputs[1] = io("masks", &[1, 3]);
+        assert!(validate_embedding_metadata(&wrong_mask, &manifest).is_err());
+
+        let mut wrong_type = valid;
+        wrong_type.outputs[0].element_type = Some(OnnxTensorElementType::I64);
+        assert!(validate_embedding_metadata(&wrong_type, &manifest).is_err());
     }
 }

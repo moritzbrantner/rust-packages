@@ -54,6 +54,35 @@ callers remain supported.
 - `onnx`: enables `runtime-onnx` execution for caller-owned local ONNX speaker
   embedding models.
 - `model-bundles`: enables model-runtime manifest lookup for local ONNX bundles.
+- `pyannote-diarization`: enables the native, opt-in community-1 runtime for an
+  already-local approved bundle. The runtime validates the pinned source
+  revision, checksum-addressed artifact set, ONNX names/dtypes/ranks, typed
+  PLDA transforms, and VBx configuration before inference. It never downloads
+  or hydrates model files.
+
+The `PyannoteCommunityDiarizationConfig` /
+`PyannoteCommunityDiarizer` interface consumes the converted community bundle:
+`pyannote_diarization_manifest.json`, `segmentation.onnx`, `embedding.onnx`,
+`plda_transform.json`, `plda_model.json`, `clustering.json`, provenance, and
+license documentation. Segmentation executes with f32 `[1, 1, N]`; embedding
+executes with f32 waveform `[1, 1, N]` and masks `[1, 589]`. Diagnostics report
+the approved artifact digest and applied runtime stages, never caller paths.
+
+The ignored retained two-speaker check is explicit and fails when its
+caller-owned resources are absent:
+
+```bash
+ORT_DYLIB_PATH=/path/to/libonnxruntime.so \
+PYANNOTE_COMMUNITY_BUNDLE=/path/to/sha256-0a121898...c577 \
+PYANNOTE_TWO_SPEAKER_WAV=/path/to/retained-two-speaker.wav \
+cargo test -p moenarch-audio-analysis-speakers \
+  --features pyannote-diarization \
+  --test pyannote_community_external -- --ignored
+```
+
+It compares native turns against the pinned upstream pipeline
+permutation-invariantly with exact two-speaker bounds and a retained
+frame-disagreement tolerance. No model or media artifact is committed.
 
 Ignored ONNX smoke:
 

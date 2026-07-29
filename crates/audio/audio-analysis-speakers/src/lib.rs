@@ -2380,7 +2380,7 @@ fn format_onnx_dimensions(dimensions: &[runtime_onnx::OnnxDimension]) -> String 
 fn onnx_speaker_input_kind(input: &SelectedOnnxIo) -> Result<OnnxSpeakerInputKind> {
     match input.dimensions.as_slice() {
         [_, _] => Ok(OnnxSpeakerInputKind::Waveform),
-        [_, channel, _] if matches!(channel, runtime_onnx::OnnxDimension::Fixed(1)) => {
+        [_, runtime_onnx::OnnxDimension::Fixed(1), _] => {
             Ok(OnnxSpeakerInputKind::Waveform)
         }
         [_, frames, bins] => match bins {
