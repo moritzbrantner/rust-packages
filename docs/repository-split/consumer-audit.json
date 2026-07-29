@@ -1,0 +1,766 @@
+{
+  "audit_commit": "d032ad2890c1df3c6a5b9eff024562f00d017fce",
+  "consumers": [
+    {
+      "automatic_update_eligible": true,
+      "clean_checkout_expectation": "published foundation contracts only",
+      "dependency_source": "crates.io (repository not locally available)",
+      "downstream_publication_required": true,
+      "inspection_status": "known extracted family; not locally inspected or built in Phase A",
+      "local_codevelopment": "uncommitted Cargo patch",
+      "migration_issue": 111,
+      "namespace_concerns": "historical runtime package name must move to the selected published moenarch foundation contract",
+      "packages": [
+        "legacy runtime/foundation contract alias"
+      ],
+      "publication_required_before_migration": true,
+      "relationship": "independent extracted family and foundation consumer",
+      "release_order": [
+        "foundation publication",
+        "geo-analysis consumer PR",
+        "affected geo-analysis publication if authorized"
+      ],
+      "repository": "geo-analysis",
+      "version_requirements": [
+        "exact candidate selected by #111"
+      ],
+      "verification_commands": [
+        "cargo metadata --format-version 1 --no-deps",
+        "cargo test --workspace",
+        "cargo package --locked"
+      ]
+    },
+    {
+      "automatic_update_eligible": true,
+      "clean_checkout_expectation": "registry-only Cargo resolution",
+      "dependency_source": "crates.io",
+      "dependencies": [
+        {
+          "alias": "audio-analysis-speakers",
+          "evidence": "native-whisperx/Cargo.toml:32",
+          "features": [],
+          "package": "moenarch-audio-analysis-speakers",
+          "requirement": "0.1.3",
+          "source_type": "crates.io"
+        },
+        {
+          "alias": "audio-analysis-transcription",
+          "evidence": "native-whisperx/Cargo.toml:33; native-whisperx/vendor/moenarch-audio-analysis-transcription/Cargo.toml",
+          "features": [],
+          "package": "moenarch-audio-analysis-transcription",
+          "requirement": "0.1.11",
+          "source_type": "vendored path vendor/moenarch-audio-analysis-transcription"
+        },
+        {
+          "alias": "model-runtime",
+          "evidence": "native-whisperx/Cargo.toml:34",
+          "features": [],
+          "package": "moenarch-model-runtime",
+          "requirement": "0.1.0",
+          "source_type": "crates.io"
+        },
+        {
+          "alias": "text-model-runtime",
+          "evidence": "native-whisperx/Cargo.toml:35",
+          "features": [],
+          "package": "moenarch-text-model-runtime",
+          "requirement": "0.1.0",
+          "source_type": "crates.io"
+        },
+        {
+          "alias": "text-transcripts",
+          "evidence": "native-whisperx/Cargo.toml:36",
+          "features": [],
+          "package": "moenarch-text-transcripts",
+          "requirement": "0.1.1",
+          "source_type": "crates.io"
+        },
+        {
+          "alias": "video-analysis-core",
+          "evidence": "native-whisperx/Cargo.toml:37",
+          "features": [],
+          "package": "moenarch-video-analysis-core",
+          "requirement": "0.1.3",
+          "source_type": "crates.io"
+        }
+      ],
+      "downstream_publication_required": true,
+      "inspection_status": "local manifests and release docs inspected; not built",
+      "local_codevelopment": "uncommitted Cargo patch",
+      "migration_issue": 123,
+      "namespace_concerns": "published aliases include historical and moenarch names",
+      "packages": [
+        "audio, text, model-runtime, media contracts"
+      ],
+      "publication_required_before_migration": true,
+      "relationship": "direct application consumer",
+      "release_order": [
+        "foundation",
+        "nlp-stack",
+        "audio-analysis",
+        "native-whisperx",
+        "native-whisperx-cli",
+        "subtitle-merger dependency PR"
+      ],
+      "repository": "native-whisperx",
+      "version_requirements": [
+        "exact release candidates selected in #123"
+      ],
+      "verification_commands": [
+        "cargo test --workspace --all-features",
+        "cargo package -p native-whisperx --locked",
+        "cargo install --path crates/native-whisperx-cli --locked"
+      ]
+    },
+    {
+      "automatic_update_eligible": true,
+      "clean_checkout_expectation": "exact published native-whisperx version",
+      "dependency_source": "crates.io (second order)",
+      "dependencies": [
+        {
+          "alias": "native-whisperx",
+          "evidence": "subtitle-merger/backend/Cargo.toml:11",
+          "features": [
+            "native",
+            "media-decode",
+            "translation"
+          ],
+          "package": "native-whisperx",
+          "requirement": "=0.1.14",
+          "source_type": "crates.io"
+        }
+      ],
+      "downstream_publication_required": false,
+      "inspection_status": "local manifests inspected; not built",
+      "local_codevelopment": "none committed",
+      "migration_issue": 123,
+      "namespace_concerns": "inherits native-whisperx upstream constraints",
+      "packages": [
+        "native-whisperx exact version"
+      ],
+      "publication_required_before_migration": true,
+      "relationship": "second-order compatibility canary",
+      "release_order": [
+        "native-whisperx",
+        "subtitle-merger dependency PR"
+      ],
+      "repository": "subtitle-merger",
+      "version_requirements": [
+        "exact"
+      ],
+      "verification_commands": [
+        "cargo test --workspace",
+        "bun run test",
+        "bun run build"
+      ]
+    },
+    {
+      "automatic_update_eligible": true,
+      "clean_checkout_expectation": "all Rust packages resolve from registries",
+      "dependency_source": "mixed crates.io/path/shim",
+      "dependencies": [
+        {
+          "alias": "audio-analysis-core",
+          "evidence": "media-similarity/backend/Cargo.toml:15",
+          "features": [],
+          "package": "moenarch-audio-analysis-core",
+          "requirement": "0.1.0",
+          "source_type": "crates.io"
+        },
+        {
+          "alias": "audio-analysis-rhythm",
+          "evidence": "media-similarity/backend/Cargo.toml:16",
+          "features": [],
+          "package": "moenarch-audio-analysis-rhythm",
+          "requirement": "0.1.0",
+          "source_type": "crates.io"
+        },
+        {
+          "alias": "audio-analysis-speakers",
+          "evidence": "media-similarity/backend/Cargo.toml:17",
+          "features": [],
+          "package": "moenarch-audio-analysis-speakers",
+          "requirement": "0.1.3",
+          "source_type": "crates.io"
+        },
+        {
+          "alias": "audio-analysis-transcription",
+          "evidence": "media-similarity/backend/Cargo.toml:18",
+          "features": [
+            "candle",
+            "model-bundles"
+          ],
+          "package": "moritzbrantner-audio-analysis-transcription",
+          "requirement": "0.1.7",
+          "source_type": "crates.io"
+        },
+        {
+          "alias": "image-analysis-core",
+          "evidence": "media-similarity/backend/Cargo.toml:19",
+          "features": [],
+          "package": "moenarch-image-analysis-core",
+          "requirement": "0.1.0",
+          "source_type": "crates.io"
+        },
+        {
+          "alias": "image-analysis-io",
+          "evidence": "media-similarity/backend/Cargo.toml:20",
+          "features": [],
+          "package": "moenarch-image-analysis-io",
+          "requirement": "0.1.0",
+          "source_type": "crates.io"
+        },
+        {
+          "alias": "image-analysis-processing",
+          "evidence": "media-similarity/backend/Cargo.toml:21",
+          "features": [],
+          "package": "moenarch-image-analysis-processing",
+          "requirement": "0.1.0",
+          "source_type": "crates.io"
+        },
+        {
+          "alias": "jobs-core",
+          "evidence": "media-similarity/backend/Cargo.toml:22",
+          "features": [],
+          "package": "moenarch-jobs-core",
+          "requirement": "0.1.1",
+          "source_type": "crates.io"
+        },
+        {
+          "alias": "model-runtime",
+          "evidence": "media-similarity/backend/Cargo.toml:24",
+          "features": [],
+          "package": "moenarch-model-runtime",
+          "requirement": "0.1.0",
+          "source_type": "crates.io"
+        },
+        {
+          "alias": "runtime-onnx",
+          "evidence": "media-similarity/backend/Cargo.toml:25",
+          "features": [
+            "onnxruntime"
+          ],
+          "package": "moenarch-runtime-onnx",
+          "requirement": "0.1.0",
+          "source_type": "crates.io"
+        },
+        {
+          "alias": "text-analysis-core",
+          "evidence": "media-similarity/backend/Cargo.toml:26; media-similarity/backend/shims/text-analysis-core/Cargo.toml",
+          "features": [],
+          "package": "text-analysis-core",
+          "requirement": null,
+          "source_type": "local application shim path backend/shims/text-analysis-core"
+        },
+        {
+          "alias": "text-transcripts",
+          "evidence": "media-similarity/backend/Cargo.toml:27",
+          "features": [
+            "native"
+          ],
+          "package": "moenarch-text-transcripts",
+          "requirement": "0.1.2",
+          "source_type": "crates.io"
+        },
+        {
+          "alias": "vector-analysis-core",
+          "evidence": "media-similarity/backend/Cargo.toml:45",
+          "features": [],
+          "package": "moenarch-vector-analysis-core",
+          "requirement": "0.1.0",
+          "source_type": "crates.io"
+        },
+        {
+          "alias": "video-analysis-core",
+          "evidence": "media-similarity/backend/Cargo.toml:46",
+          "features": [],
+          "package": "moenarch-video-analysis-core",
+          "requirement": "0.1.3",
+          "source_type": "crates.io"
+        },
+        {
+          "alias": "video-analysis-detectors",
+          "evidence": "media-similarity/backend/Cargo.toml:47",
+          "features": [],
+          "package": "moenarch-video-analysis-detectors",
+          "requirement": "0.1.0",
+          "source_type": "crates.io"
+        },
+        {
+          "alias": "video-analysis-ffmpeg",
+          "evidence": "media-similarity/backend/Cargo.toml:48",
+          "features": [],
+          "package": "moenarch-video-analysis-ffmpeg",
+          "requirement": "0.1.0",
+          "source_type": "crates.io"
+        },
+        {
+          "alias": "video-analysis-split",
+          "evidence": "media-similarity/backend/Cargo.toml:49",
+          "features": [],
+          "package": "moenarch-video-analysis-split",
+          "requirement": "0.1.0",
+          "source_type": "crates.io"
+        },
+        {
+          "alias": "image-analysis-embeddings",
+          "evidence": "media-similarity/backend/Cargo.toml:55",
+          "features": [
+            "onnx"
+          ],
+          "package": "moenarch-image-analysis-embeddings",
+          "requirement": "0.1.0",
+          "source_type": "crates.io"
+        },
+        {
+          "alias": "image-analysis-detection",
+          "evidence": "media-similarity/backend/Cargo.toml:56",
+          "features": [
+            "onnx"
+          ],
+          "package": "moenarch-image-analysis-detection",
+          "requirement": "0.1.0",
+          "source_type": "crates.io"
+        }
+      ],
+      "downstream_publication_required": false,
+      "inspection_status": "local manifests and docs inspected; not built",
+      "local_codevelopment": "uncommitted Cargo patch only",
+      "migration_issue": 124,
+      "namespace_concerns": "mixed old/new publisher names and stale versions",
+      "packages": [
+        "image",
+        "audio",
+        "text",
+        "vector",
+        "model-runtime",
+        "ONNX",
+        "video",
+        "local text shim"
+      ],
+      "publication_required_before_migration": true,
+      "relationship": "broad direct integration canary",
+      "release_order": [
+        "foundation",
+        "nlp-stack",
+        "audio-analysis",
+        "visual-analysis",
+        "consumer PR"
+      ],
+      "repository": "media-similarity",
+      "version_requirements": [
+        "mixed; exact audit owned by #124"
+      ],
+      "verification_commands": [
+        "cargo check --workspace",
+        "bun run test",
+        "docker compose config"
+      ]
+    },
+    {
+      "automatic_update_eligible": true,
+      "clean_checkout_expectation": "no sibling path dependencies",
+      "dependency_source": "path and crates.io",
+      "dependencies": [
+        {
+          "alias": "text-core",
+          "evidence": "youtube-corpus/Cargo.toml:41",
+          "features": [],
+          "package": "moritzbrantner-text-core",
+          "requirement": null,
+          "source_type": "sibling path ../rust-packages/crates/text/text-core"
+        },
+        {
+          "alias": "text-embeddings",
+          "evidence": "youtube-corpus/Cargo.toml:42",
+          "features": [],
+          "package": "moritzbrantner-text-embeddings",
+          "requirement": null,
+          "source_type": "sibling path ../rust-packages/crates/text/text-embeddings"
+        },
+        {
+          "alias": "text-lexical",
+          "evidence": "youtube-corpus/Cargo.toml:43",
+          "features": [],
+          "package": "moritzbrantner-text-lexical",
+          "requirement": null,
+          "source_type": "sibling path ../rust-packages/crates/text/text-lexical"
+        },
+        {
+          "alias": "text-transcripts",
+          "evidence": "youtube-corpus/Cargo.toml:44",
+          "features": [],
+          "package": "moritzbrantner-text-transcripts",
+          "requirement": null,
+          "source_type": "sibling path ../rust-packages/crates/text/text-transcripts"
+        },
+        {
+          "alias": "runtime-core",
+          "evidence": "youtube-corpus/Cargo.toml:45",
+          "features": [],
+          "package": "moritzbrantner-runtime-core",
+          "requirement": null,
+          "source_type": "sibling path ../rust-packages/crates/runtime/runtime-core"
+        },
+        {
+          "alias": "jobs-core",
+          "evidence": "youtube-corpus/Cargo.toml:46",
+          "features": [],
+          "package": "moritzbrantner-jobs-core",
+          "requirement": null,
+          "source_type": "sibling path ../rust-packages/crates/jobs/jobs-core"
+        },
+        {
+          "alias": "video-analysis-ffmpeg",
+          "evidence": "youtube-corpus/Cargo.toml:47",
+          "features": [],
+          "package": "moritzbrantner-video-analysis-ffmpeg",
+          "requirement": null,
+          "source_type": "sibling path ../rust-packages/crates/video/video-analysis-ffmpeg"
+        },
+        {
+          "alias": "video-analysis-ingest",
+          "evidence": "youtube-corpus/Cargo.toml:48",
+          "features": [],
+          "package": "moritzbrantner-video-analysis-ingest",
+          "requirement": null,
+          "source_type": "sibling path ../rust-packages/crates/video/video-analysis-ingest"
+        }
+      ],
+      "downstream_publication_required": false,
+      "inspection_status": "local manifests inspected; not built",
+      "local_codevelopment": "documented uncommitted Cargo patch",
+      "migration_issue": 125,
+      "namespace_concerns": "current aliases must preserve Rust import names",
+      "packages": [
+        "text",
+        "transcript",
+        "runtime",
+        "jobs",
+        "FFmpeg",
+        "ingest"
+      ],
+      "publication_required_before_migration": true,
+      "relationship": "direct product consumer",
+      "release_order": [
+        "foundation",
+        "nlp-stack",
+        "visual/audio neutral IO",
+        "consumer PR"
+      ],
+      "repository": "youtube-corpus",
+      "version_requirements": [
+        "path constraints to replace in #125"
+      ],
+      "verification_commands": [
+        "cargo check --workspace",
+        "cargo test --workspace"
+      ]
+    },
+    {
+      "automatic_update_eligible": true,
+      "clean_checkout_expectation": "pack/install or registry-installed WASM package",
+      "dependency_source": "local npm file",
+      "dependencies": [
+        {
+          "alias": "text-embeddings",
+          "evidence": "document-search/service/Cargo.toml:26",
+          "features": [],
+          "package": "moritzbrantner-text-embeddings",
+          "requirement": "0.1.0",
+          "source_type": "crates.io"
+        },
+        {
+          "alias": "text-index",
+          "evidence": "document-search/service/Cargo.toml:27",
+          "features": [
+            "sqlite"
+          ],
+          "package": "moritzbrantner-text-index",
+          "requirement": "0.1.0",
+          "source_type": "crates.io"
+        },
+        {
+          "alias": "text-lexical",
+          "evidence": "document-search/service/Cargo.toml:28",
+          "features": [],
+          "package": "moritzbrantner-text-lexical",
+          "requirement": "0.1.0",
+          "source_type": "crates.io"
+        },
+        {
+          "alias": "@moritzbrantner/text-core-wasm",
+          "evidence": "document-search/package.json:18",
+          "features": [],
+          "package": "@moritzbrantner/text-core-wasm",
+          "requirement": "file:../rust-packages/packages/text-core-wasm",
+          "source_type": "local npm file"
+        },
+        {
+          "alias": "@moritzbrantner/text-index-wasm",
+          "evidence": "document-search/package.json:19",
+          "features": [],
+          "package": "@moritzbrantner/text-index-wasm",
+          "requirement": "file:../rust-packages/packages/text-index-wasm",
+          "source_type": "local npm file"
+        }
+      ],
+      "downstream_publication_required": false,
+      "inspection_status": "local package manifests inspected; not built",
+      "local_codevelopment": "package-manager pack/install smoke",
+      "migration_issue": 127,
+      "namespace_concerns": "npm owner must be reconciled with platform-packages",
+      "packages": [
+        "text-core WASM",
+        "text-index WASM",
+        "generated JavaScript/TypeScript contracts"
+      ],
+      "publication_required_before_migration": true,
+      "relationship": "direct non-Rust package consumer",
+      "release_order": [
+        "NLP Rust crates",
+        "explicit WASM/npm plan",
+        "consumer PR"
+      ],
+      "repository": "document-search",
+      "version_requirements": [
+        "local file reference today"
+      ],
+      "verification_commands": [
+        "bun install",
+        "bun run test",
+        "bun run build"
+      ]
+    },
+    {
+      "automatic_update_eligible": true,
+      "clean_checkout_expectation": "published foundation versions",
+      "dependency_source": "registry (repository not locally available)",
+      "downstream_publication_required": false,
+      "inspection_status": "known external consumer; not locally inspected or built",
+      "local_codevelopment": "uncommitted Cargo patch",
+      "migration_issue": 131,
+      "namespace_concerns": "geo uses historical runtime names; viz package names need audit",
+      "packages": [
+        "data",
+        "geo",
+        "media contracts"
+      ],
+      "publication_required_before_migration": true,
+      "relationship": "direct Rust/WASM consumer",
+      "release_order": [
+        "foundation",
+        "geo-analysis consumer/release PR if affected",
+        "viz-engine consumer PR"
+      ],
+      "repository": "viz-engine",
+      "version_requirements": [
+        "unknown until #131 audit"
+      ],
+      "verification_commands": [
+        "cargo check --workspace",
+        "bun run test"
+      ]
+    },
+    {
+      "automatic_update_eligible": true,
+      "clean_checkout_expectation": "published NLP packages",
+      "dependency_source": "path or crates.io (repository not locally available)",
+      "downstream_publication_required": false,
+      "inspection_status": "known external consumer; not locally inspected or built",
+      "local_codevelopment": "uncommitted Cargo patch",
+      "migration_issue": 128,
+      "namespace_concerns": "exact aliases and versions need issue audit",
+      "packages": [
+        "text-core",
+        "text-embeddings",
+        "text-linguistics",
+        "text-retrieval"
+      ],
+      "publication_required_before_migration": true,
+      "relationship": "direct product consumer",
+      "release_order": [
+        "NLP publication",
+        "consumer PR"
+      ],
+      "repository": "philosophy-extractor",
+      "version_requirements": [
+        "unknown until #128 audit"
+      ],
+      "verification_commands": [
+        "cargo check --workspace",
+        "cargo test --workspace"
+      ]
+    },
+    {
+      "automatic_update_eligible": true,
+      "clean_checkout_expectation": "released capability crates only",
+      "dependency_source": "path/historical names (repository not locally available)",
+      "downstream_publication_required": false,
+      "inspection_status": "known external consumer; not locally inspected or built",
+      "local_codevelopment": "uncommitted Cargo patch",
+      "migration_issue": 129,
+      "namespace_concerns": "historical or nonexistent names require capability audit",
+      "packages": [
+        "foundation",
+        "audio",
+        "NLP",
+        "visual",
+        "spatial"
+      ],
+      "publication_required_before_migration": true,
+      "relationship": "broad product consumer",
+      "release_order": [
+        "all required capability waves",
+        "consumer PR"
+      ],
+      "repository": "video-analysis-studio",
+      "version_requirements": [
+        "unknown until #129 audit"
+      ],
+      "verification_commands": [
+        "cargo check --workspace",
+        "bun run test",
+        "bun run build"
+      ]
+    },
+    {
+      "automatic_update_eligible": true,
+      "clean_checkout_expectation": "registry dependencies, no monolith Git revision",
+      "dependency_source": "pinned Git revision (repository not locally available)",
+      "downstream_publication_required": false,
+      "inspection_status": "known external consumer; not locally inspected or built",
+      "local_codevelopment": "uncommitted Cargo patch",
+      "migration_issue": 130,
+      "namespace_concerns": "old package names may not map one-to-one",
+      "packages": [
+        "audio",
+        "NLP"
+      ],
+      "publication_required_before_migration": true,
+      "relationship": "direct product consumer",
+      "release_order": [
+        "NLP publication",
+        "audio publication",
+        "consumer PR"
+      ],
+      "repository": "stutter-tracker",
+      "version_requirements": [
+        "old pinned rust-packages revision"
+      ],
+      "verification_commands": [
+        "cargo check --workspace",
+        "cargo test --workspace"
+      ]
+    },
+    {
+      "automatic_update_eligible": false,
+      "clean_checkout_expectation": "schema validation without Rust source checkout",
+      "dependency_source": "schema only",
+      "downstream_publication_required": false,
+      "inspection_status": "known external package owner; not locally inspected or built",
+      "local_codevelopment": "generated schema contract fixtures",
+      "migration_issue": 132,
+      "namespace_concerns": "existing @moritzbrantner/foundation-contract and adjacent npm packages own browser surfaces",
+      "packages": [
+        "TypeScript text/speech/subtitle/OCR/foundation contracts"
+      ],
+      "publication_required_before_migration": false,
+      "relationship": "TypeScript contract interoperability",
+      "release_order": [
+        "schema ownership decision",
+        "separate npm release plan if needed"
+      ],
+      "repository": "platform-packages",
+      "version_requirements": [
+        "schema compatibility, not Cargo"
+      ],
+      "verification_commands": [
+        "npm pack --dry-run",
+        "isolated package install smoke"
+      ]
+    },
+    {
+      "automatic_update_eligible": false,
+      "clean_checkout_expectation": "service/schema interoperability only",
+      "dependency_source": "schema only",
+      "downstream_publication_required": false,
+      "inspection_status": "known external service owner; not locally inspected or built",
+      "local_codevelopment": "JSON Schema/HTTP/queue fixtures",
+      "migration_issue": 133,
+      "namespace_concerns": "mi_contracts remains the Python business-contract owner",
+      "packages": [],
+      "publication_required_before_migration": false,
+      "relationship": "Python/service interoperability",
+      "release_order": [
+        "schema decision",
+        "service adapter work"
+      ],
+      "repository": "media-intelligence",
+      "version_requirements": [
+        "schema compatibility"
+      ],
+      "verification_commands": [
+        "run repository schema/contract tests documented by #133"
+      ]
+    },
+    {
+      "automatic_update_eligible": false,
+      "clean_checkout_expectation": "independent Truth Engine package",
+      "dependency_source": "reference pattern only",
+      "downstream_publication_required": false,
+      "inspection_status": "known external reference; not locally inspected or built",
+      "local_codevelopment": "pack/install smoke pattern",
+      "migration_issue": 132,
+      "namespace_concerns": "must not own multimodal runtime contracts",
+      "packages": [],
+      "publication_required_before_migration": false,
+      "relationship": "generated TypeScript contract packaging reference",
+      "release_order": [
+        "none"
+      ],
+      "repository": "backend-contracts",
+      "version_requirements": [
+        "none"
+      ],
+      "verification_commands": [
+        "reference its documented pack/install smoke"
+      ]
+    },
+    {
+      "automatic_update_eligible": false,
+      "clean_checkout_expectation": "independent build and unchanged MSRV",
+      "dependency_source": "overlap only",
+      "downstream_publication_required": false,
+      "inspection_status": "known external overlap; not locally inspected or built",
+      "local_codevelopment": "explicit adapter only after decision",
+      "migration_issue": 117,
+      "namespace_concerns": "duplicate scene implementation ownership is forbidden",
+      "packages": [
+        "scenedetect-core overlap with video-analysis-detectors/split/core"
+      ],
+      "publication_required_before_migration": false,
+      "relationship": "ownership-overlap decision",
+      "release_order": [
+        "ownership decision",
+        "separate implementation/release issue"
+      ],
+      "repository": "scenedetect-rs",
+      "version_requirements": [
+        "no dependency selected"
+      ],
+      "verification_commands": [
+        "run scenedetect-rs documented parity and MSRV checks in #117"
+      ]
+    }
+  ],
+  "repository": "moritzbrantner/rust-packages",
+  "schema_version": 1,
+  "second_order_chains": [
+    [
+      "foundation / nlp-stack / audio-analysis",
+      "native-whisperx 0.1.14 release closure",
+      "subtitle-merger =0.1.14"
+    ]
+  ]
+}

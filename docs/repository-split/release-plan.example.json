@@ -1,0 +1,33 @@
+{
+  "default_branch_base_sha": "d032ad2890c1df3c6a5b9eff024562f00d017fce",
+  "compatibility_or_deprecation_packages": [],
+  "dependency_order": [
+    "moenarch-video-analysis-test-support"
+  ],
+  "destination_registry": "crates.io",
+  "downstream_consumers": [],
+  "expected_tags": [],
+  "packages": [
+    {
+      "dependency_sources": [],
+      "expected_tag": null,
+      "manifest_path": "crates/test-support/video-analysis-test-support/Cargo.toml",
+      "name": "moenarch-video-analysis-test-support",
+      "new_version": "0.1.1",
+      "old_version": "0.1.0",
+      "owner": "moritzbrantner/rust-packages",
+      "publish": false,
+      "release_dependencies": []
+    }
+  ],
+  "release_issue": "https://github.com/moritzbrantner/rust-packages/issues/107",
+  "repository": "moritzbrantner/rust-packages",
+  "required_checks": [
+    "python3 scripts/check_repository_boundaries.py --check",
+    "python3 scripts/check_release_plan.py --check docs/repository-split/release-plan.example.json"
+  ],
+  "required_consumer_checks": [],
+  "required_features": [],
+  "schema_version": 1,
+  "source_sha": "d032ad2890c1df3c6a5b9eff024562f00d017fce"
+}

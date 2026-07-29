@@ -1,0 +1,18 @@
+{
+  "packages": [
+    {
+      "current_package_name": "moenarch-foundation-core",
+      "ecosystem": "cargo",
+      "package_kind": "library",
+      "target_repository": "moenarch-foundation",
+      "wrapped_library": null
+    },
+    {
+      "current_package_name": "moenarch-audio-core",
+      "ecosystem": "cargo",
+      "package_kind": "library",
+      "target_repository": "audio-analysis",
+      "wrapped_library": null
+    }
+  ]
+}

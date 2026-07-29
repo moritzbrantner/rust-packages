@@ -140,6 +140,18 @@ _Avoid_: Repository owner, git remote, crate module prefix
 A coherent package family moved from this workspace into a separate repository by clean copy, with active implementation ownership and publishing moving to that repository while this workspace keeps only shared foundations or migration signposts.
 _Avoid_: Full media-type repository split, vendored copy, generated package
 
+**Capability Repository**:
+A release-owning repository with one coherent capability boundary, an
+independent clean-checkout build, and only published dependencies in the
+acyclic graph defined by ADR 0012.
+_Avoid_: Directory mirror, distributed monolith, moving-branch dependency
+
+**Exact Release Manifest**:
+The reviewed machine contract that names immutable source/base commits, package
+versions and owners, topological order, registry, checks, tags, and downstream
+consumer gates for one authorized publication wave.
+_Avoid_: Release checklist prose, inferred version bump, publish-all command
+
 **Legacy Package Signpost**:
 A deliberately small deprecated package, module, or documentation stub that points existing package consumers from an old name to the extracted package family without keeping active wrapper implementation in this workspace.
 _Avoid_: Compatibility layer, active wrapper, duplicate implementation

@@ -1,5 +1,11 @@
 # Release Checklist
 
+> ADR 0012 and [`AGENT_DRIVEN_RELEASES.md`](AGENT_DRIVEN_RELEASES.md) supersede
+> this checklist's historical manual-publication policy. Package-specific
+> command sequences below remain useful gate/order references, but publication
+> requires an exact issue and validated manifest and runs through the authorized
+> trusted-publishing workflow.
+
 Use this checklist before tagging a release or publishing any crate wave.
 
 ## Required Gates
@@ -66,7 +72,7 @@ Every publishable crate in the release wave must pass a package dry run before
 tagging:
 
 ```bash
-cargo package --allow-dirty -p <crate-name>
+cargo package --locked -p <crate-name>
 ```
 
 Recommended publish order:
@@ -83,8 +89,8 @@ Recommended publish order:
 For the Model Runtime Spine release slice, prepare and publish the smallest
 runtime/model foundation before the full Wave 1 foundation release. This slice
 is for package consumers that need stable runtime DTOs, job/artifact contracts,
-model bundle lifecycle behavior, and opt-in ONNX Runtime readiness. Publishing
-remains manual: the maintainer runs `cargo publish` only after the verification
+model bundle lifecycle behavior, and opt-in ONNX Runtime readiness. Publication
+is agent-driven only after the exact release issue, manifest, and verification
 commands pass.
 
 Run the release Rust gates plus the opt-in ONNX spine smoke:
@@ -106,19 +112,19 @@ verification resolves registry dependencies, dry-run each dependent crate after
 its prerequisite version has been published to crates.io.
 
 ```bash
-cargo package --allow-dirty -p moenarch-runtime-core
+cargo package --locked -p moenarch-runtime-core
 cargo publish -p moenarch-runtime-core
 
-cargo package --allow-dirty -p moenarch-jobs-core
+cargo package --locked -p moenarch-jobs-core
 cargo publish -p moenarch-jobs-core
 
-cargo package --allow-dirty -p moenarch-video-analysis-core
+cargo package --locked -p moenarch-video-analysis-core
 cargo publish -p moenarch-video-analysis-core
 
-cargo package --allow-dirty -p moenarch-runtime-onnx
+cargo package --locked -p moenarch-runtime-onnx
 cargo publish -p moenarch-runtime-onnx
 
-cargo package --allow-dirty -p moenarch-model-runtime
+cargo package --locked -p moenarch-model-runtime
 cargo publish -p moenarch-model-runtime
 ```
 

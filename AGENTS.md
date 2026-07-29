@@ -345,6 +345,17 @@ cargo doc --workspace --no-deps
 
 Use `scripts/check-fast.sh` as the normal changed-aware local iteration gate.
 
+Repository capability boundaries and future release plans are checked with:
+
+```bash
+python3 scripts/generate_repository_split_inventory.py --check
+python3 scripts/check_repository_boundaries.py --check
+python3 scripts/check_release_plan.py --check docs/repository-split/release-plan.example.json
+python3 scripts/release_preflight.py --check docs/repository-split/release-plan.example.json --print-order
+```
+
+The release preflight validates and prints order only; it never publishes.
+
 Use `scripts/check-preflight.sh` before PR/release-oriented handoff or when
 touching UI routing, builds, e2e behavior, or cross-surface integration.
 
@@ -362,14 +373,16 @@ Benchmark checks belong to `bun run bench`, `performance-ci`, or explicit
 benchmark commands. Do not add benchmarks to the default fast local gate unless
 the task explicitly asks for it.
 
-Release and publish work is manual. Use:
+Release and publish work is authorized only by an exact release issue and
+validated manifest. Use:
 
 ```bash
 docs/RELEASE_CHECKLIST.md
+docs/AGENT_DRIVEN_RELEASES.md
 ```
 
-Do not add release automation or publish crates unless the task explicitly asks
-for that.
+Agents may automate or publish only the exact packages and versions authorized
+by that release contract.
 
 ## Check Selection
 

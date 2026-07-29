@@ -7,6 +7,12 @@ export RUST_TEST_THREADS
 
 scripts/check_generated_artifacts.sh
 scripts/check_generated_snapshots.sh
+python3 scripts/generate_repository_split_inventory.py --check
+python3 scripts/test_generate_repository_split_inventory.py
+python3 scripts/test_check_repository_boundaries.py
+python3 scripts/check_repository_boundaries.py --check
+python3 scripts/test_check_release_plan.py
+python3 scripts/check_release_plan.py --check docs/repository-split/release-plan.example.json
 python3 scripts/audit_crate_progress.py --check
 python3 scripts/test_audit_crate_progress.py
 python3 scripts/audit_crate_progress.py --compare-base "${BASE_REF:-origin/main}"

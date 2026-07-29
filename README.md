@@ -1,5 +1,12 @@
 # Rust Multimodal Analysis Packages
 
+The accepted capability-repository migration is recorded in
+[`ADR 0012`](docs/adr/0012-capability-repository-split-and-agent-releases.md).
+Reviewed ownership and consumer destinations are in
+[`REPOSITORY_DESTINATION_MATRIX.md`](docs/REPOSITORY_DESTINATION_MATRIX.md) and
+[`CONSUMER_RELEASE_MATRIX.md`](docs/CONSUMER_RELEASE_MATRIX.md); future
+publication follows [`AGENT_DRIVEN_RELEASES.md`](docs/AGENT_DRIVEN_RELEASES.md).
+
 This workspace contains Rust-first multimodal building-block crates for video,
 audio, image, text, vector, data, math, animation, 3D, and adapter
 interoperability. Package consumers integrate through foundation contracts and
