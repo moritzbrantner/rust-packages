@@ -639,6 +639,8 @@ struct PyannoteVadManifest {
     sample_rate: Option<u32>,
     #[serde(default)]
     segmentation: Option<PyannoteVadSegmentationManifest>,
+    #[serde(default)]
+    tensor_contract: Option<PyannoteVadTensorContractManifest>,
 }
 
 #[cfg(feature = "pyannote-vad")]
@@ -656,6 +658,25 @@ struct PyannoteVadSegmentationManifest {
     frames: Option<usize>,
     #[serde(default)]
     local_speakers: Option<usize>,
+}
+
+#[cfg(feature = "pyannote-vad")]
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct PyannoteVadTensorContractManifest {
+    #[serde(default)]
+    input_name: Option<String>,
+    #[serde(default)]
+    output_name: Option<String>,
+    #[serde(default)]
+    input_shape: Option<Vec<usize>>,
+    window_seconds: f64,
+    #[serde(default)]
+    frame_count: Option<usize>,
+    #[serde(default)]
+    local_speaker_count: Option<usize>,
+    #[serde(default)]
+    sample_rate: Option<u32>,
 }
 
 #[cfg(feature = "pyannote-vad")]
@@ -764,19 +785,22 @@ fn pyannote_model_shape(
     options: &PyannoteVadOptions,
     manifest: Option<&PyannoteVadManifest>,
 ) -> Result<PyannoteVadModelShape> {
+    let manifest_segmentation = manifest.and_then(|manifest| manifest.segmentation.as_ref());
+    let tensor_contract = manifest.and_then(|manifest| manifest.tensor_contract.as_ref());
     if manifest
         .and_then(|manifest| manifest.sample_rate)
+        .or_else(|| tensor_contract.and_then(|contract| contract.sample_rate))
         .is_some_and(|sample_rate| sample_rate != PYANNOTE_SAMPLE_RATE)
     {
         return Err(DetectError::InvalidArgument(format!(
             "pyannote VAD manifest sampleRate must be {PYANNOTE_SAMPLE_RATE}"
         )));
     }
-    let manifest_segmentation = manifest.and_then(|manifest| manifest.segmentation.as_ref());
     let input_name = options
         .input_name
         .clone()
         .or_else(|| manifest_segmentation.and_then(|segmentation| segmentation.input_name.clone()))
+        .or_else(|| tensor_contract.and_then(|contract| contract.input_name.clone()))
         .or_else(|| metadata.inputs.first().map(|input| input.name.clone()))
         .ok_or_else(|| {
             DetectError::InvalidArgument("pyannote ONNX model has no inputs".to_string())
@@ -801,9 +825,11 @@ fn pyannote_model_shape(
             "pyannote ONNX input `{input_name}` must be f32"
         )));
     }
-    let output_name = options.output_name.clone().or_else(|| {
-        manifest_segmentation.and_then(|segmentation| segmentation.output_name.clone())
-    });
+    let output_name = options
+        .output_name
+        .clone()
+        .or_else(|| manifest_segmentation.and_then(|segmentation| segmentation.output_name.clone()))
+        .or_else(|| tensor_contract.and_then(|contract| contract.output_name.clone()));
     if let Some(output_name) = output_name.as_deref() {
         let output = metadata
             .outputs
@@ -837,13 +863,20 @@ fn pyannote_model_shape(
 
     let window_seconds = manifest_segmentation
         .map(|segmentation| segmentation.duration_seconds)
+        .or_else(|| tensor_contract.map(|contract| contract.window_seconds))
         .filter(|seconds| seconds.is_finite() && *seconds > 0.0)
         .or_else(|| {
             fixed_audio_samples(input).map(|samples| samples as f64 / PYANNOTE_SAMPLE_RATE as f64)
         })
         .unwrap_or(PYANNOTE_DEFAULT_WINDOW_SECONDS);
     let window_samples = ((window_seconds * PYANNOTE_SAMPLE_RATE as f64).round() as usize).max(1);
-    let input_shape = fixed_input_shape(input).unwrap_or_else(|| vec![1, window_samples]);
+    let input_shape = fixed_input_shape(input)
+        .or_else(|| {
+            tensor_contract
+                .and_then(|contract| contract.input_shape.clone())
+                .filter(|shape| !shape.is_empty() && shape.iter().all(|dimension| *dimension > 0))
+        })
+        .unwrap_or_else(|| vec![1, window_samples]);
     let step_ratio = manifest_segmentation
         .and_then(|segmentation| segmentation.step_ratio)
         .filter(|ratio| ratio.is_finite() && *ratio > 0.0)
@@ -856,8 +889,12 @@ fn pyannote_model_shape(
         window_samples,
         window_seconds,
         step_samples,
-        frames: manifest_segmentation.and_then(|segmentation| segmentation.frames),
-        speakers: manifest_segmentation.and_then(|segmentation| segmentation.local_speakers),
+        frames: manifest_segmentation
+            .and_then(|segmentation| segmentation.frames)
+            .or_else(|| tensor_contract.and_then(|contract| contract.frame_count)),
+        speakers: manifest_segmentation
+            .and_then(|segmentation| segmentation.local_speakers)
+            .or_else(|| tensor_contract.and_then(|contract| contract.local_speaker_count)),
     })
 }
 
@@ -884,14 +921,36 @@ fn pyannote_output_frames(
     model: &PyannoteVadModelShape,
     window_start_seconds: f64,
 ) -> Result<Vec<PyannoteVadFrame>> {
-    let (frames, speakers) = pyannote_output_shape(output, model)?;
+    let (frames, output_classes) = pyannote_output_shape(output, model)?;
+    let powerset = model
+        .speakers
+        .is_some_and(|speakers| is_powerset_output(speakers, output_classes));
     let frame_seconds = model.window_seconds / frames as f64;
     let mut result = Vec::with_capacity(frames);
     for frame in 0..frames {
-        let mut score = 0.0_f32;
-        for speaker in 0..speakers {
-            score = score.max(output.values[frame * speakers + speaker]);
+        let values = &output.values[frame * output_classes..(frame + 1) * output_classes];
+        if values.iter().any(|value| !value.is_finite()) {
+            return Err(DetectError::InvalidArgument(
+                "pyannote ONNX output scores must be finite".to_string(),
+            ));
         }
+        let score = if powerset {
+            // pyannote segmentation-3.0 emits log probabilities in powerset
+            // class order: the empty/non-speech set is always class zero.
+            let predicted_class = values
+                .iter()
+                .enumerate()
+                .max_by(|(_, left), (_, right)| left.total_cmp(right))
+                .map(|(class, _)| class)
+                .unwrap_or(0);
+            if predicted_class == 0 {
+                0.0
+            } else {
+                1.0
+            }
+        } else {
+            values.iter().copied().fold(0.0_f32, f32::max)
+        };
         result.push(PyannoteVadFrame {
             start_seconds: window_start_seconds + frame as f64 * frame_seconds,
             end_seconds: window_start_seconds + (frame + 1) as f64 * frame_seconds,
@@ -899,6 +958,26 @@ fn pyannote_output_frames(
         });
     }
     Ok(result)
+}
+
+#[cfg(feature = "pyannote-vad")]
+fn is_powerset_output(speakers: usize, output_classes: usize) -> bool {
+    if speakers == 0 || output_classes <= speakers {
+        return false;
+    }
+    let mut classes = 1usize;
+    let mut combinations = 1usize;
+    for set_size in 1..=speakers {
+        combinations = combinations * (speakers + 1 - set_size) / set_size;
+        classes += combinations;
+        if classes == output_classes {
+            return true;
+        }
+        if classes > output_classes {
+            return false;
+        }
+    }
+    false
 }
 
 #[cfg(feature = "pyannote-vad")]
@@ -1380,6 +1459,58 @@ mod tests {
 
     #[cfg(feature = "pyannote-vad")]
     #[test]
+    fn pyannote_output_frames_convert_powerset_log_probabilities_to_speech() {
+        let model = PyannoteVadModelShape {
+            input_name: "waveform".to_string(),
+            output_name: Some("scores".to_string()),
+            input_shape: vec![1, 1, 160_000],
+            window_samples: 160_000,
+            window_seconds: 10.0,
+            step_samples: 16_000,
+            frames: Some(2),
+            speakers: Some(3),
+        };
+        let output = runtime_onnx::OnnxF32Tensor::new(
+            vec![1, 2, 7],
+            vec![
+                -0.01, -6.0, -7.0, -8.0, -9.0, -10.0, -11.0, -8.0, -0.02, -5.0, -6.0, -7.0, -8.0,
+                -9.0,
+            ],
+        )
+        .expect("powerset tensor");
+
+        let frames = pyannote_output_frames(&output, &model, 0.0).expect("frames");
+
+        assert_eq!(frames.len(), 2);
+        assert_eq!(frames[0].score, 0.0);
+        assert_eq!(frames[1].score, 1.0);
+    }
+
+    #[cfg(feature = "pyannote-vad")]
+    #[test]
+    fn pyannote_runtime_tensor_rejects_non_finite_powerset_scores() {
+        let error = runtime_onnx::OnnxF32Tensor::new(
+            vec![1, 1, 7],
+            vec![-0.01, -6.0, -7.0, f32::NAN, -9.0, -10.0, -11.0],
+        )
+        .expect_err("non-finite score");
+
+        assert!(error
+            .to_string()
+            .contains("f32 tensor values must be finite"));
+    }
+
+    #[cfg(feature = "pyannote-vad")]
+    #[test]
+    fn powerset_output_shape_matches_supported_class_combinations() {
+        assert!(is_powerset_output(3, 4));
+        assert!(is_powerset_output(3, 7));
+        assert!(!is_powerset_output(3, 3));
+        assert!(!is_powerset_output(3, 5));
+    }
+
+    #[cfg(feature = "pyannote-vad")]
+    #[test]
     fn pyannote_model_shape_validates_metadata_and_manifest() {
         let metadata = pyannote_metadata(
             vec![
@@ -1399,6 +1530,7 @@ mod tests {
                 frames: Some(12),
                 local_speakers: Some(3),
             }),
+            tensor_contract: None,
         };
         let shape = pyannote_model_shape(&metadata, &pyannote_options(), Some(&manifest))
             .expect("valid shape");
@@ -1409,6 +1541,43 @@ mod tests {
         assert_eq!(shape.window_samples, 48_000);
         assert_eq!(shape.step_samples, 12_000);
         assert_eq!(shape.frames, Some(12));
+        assert_eq!(shape.speakers, Some(3));
+    }
+
+    #[cfg(feature = "pyannote-vad")]
+    #[test]
+    fn pyannote_model_shape_reads_verified_bundle_tensor_contract() {
+        let metadata = pyannote_metadata(
+            vec![
+                runtime_onnx::OnnxDimension::Fixed(1),
+                runtime_onnx::OnnxDimension::Fixed(1),
+                runtime_onnx::OnnxDimension::Fixed(160_000),
+            ],
+            Some(runtime_onnx::OnnxTensorElementType::F32),
+            Some(runtime_onnx::OnnxTensorElementType::F32),
+        );
+        let manifest: PyannoteVadManifest = serde_json::from_value(serde_json::json!({
+            "tensorContract": {
+                "frameCount": 589,
+                "inputName": "waveform",
+                "inputShape": [1, 1, 160000],
+                "localSpeakerCount": 3,
+                "outputName": "scores",
+                "sampleRate": 16000,
+                "windowSeconds": 10.0
+            }
+        }))
+        .expect("verified bundle manifest");
+
+        let shape = pyannote_model_shape(&metadata, &pyannote_options(), Some(&manifest))
+            .expect("valid shape");
+
+        assert_eq!(shape.input_name, "waveform");
+        assert_eq!(shape.output_name.as_deref(), Some("scores"));
+        assert_eq!(shape.input_shape, vec![1, 1, 160_000]);
+        assert_eq!(shape.window_samples, 160_000);
+        assert_eq!(shape.step_samples, 16_000);
+        assert_eq!(shape.frames, Some(589));
         assert_eq!(shape.speakers, Some(3));
     }
 
