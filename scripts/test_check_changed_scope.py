@@ -22,7 +22,15 @@ class CheckChangedScopeTests(unittest.TestCase):
     def test_rust_library_change_maps_to_one_package(self) -> None:
         scope = self.classify(["crates/text/text-core/src/lib.rs"])
         self.assertEqual(scope["rust_scope"], "changed")
-        self.assertEqual(scope["rust_packages"], ["moenarch-text-core"])
+        self.assertEqual(
+            scope["rust_packages"],
+            [
+                "moenarch-text-core",
+                "moenarch-text-core-cli",
+                "moenarch-text-core-server",
+                "moenarch-text-core-wasm",
+            ],
+        )
         self.assertEqual(scope["progress_scope"], "changed")
         self.assertEqual(scope["progress_packages"], ["moenarch-text-core"])
 
@@ -99,10 +107,51 @@ class CheckChangedScopeTests(unittest.TestCase):
         self.assertEqual(scope["rust_scope"], "workspace")
         self.assertIn("deleted or unknown Rust package path", scope["workspace_reason"])
 
+    def test_documentation_only_ci_plan_avoids_heavy_jobs(self) -> None:
+        plan = self.classify(["docs/development.md"])["ci_plan"]
+        self.assertFalse(plan["rust_checks"])
+        self.assertFalse(plan["storybook_checks"])
+        self.assertFalse(plan["browser_e2e_checks"])
+
+    def test_video_ui_ci_plan_selects_frontend_storybook_and_e2e(self) -> None:
+        plan = self.classify(["packages/video-analysis-ui/src/core/index.tsx"])["ci_plan"]
+        self.assertTrue(plan["frontend_checks"])
+        self.assertTrue(plan["storybook_checks"])
+        self.assertTrue(plan["browser_e2e_checks"])
+
+    def test_wasm_ci_plan_is_separate_from_application_frontend(self) -> None:
+        plan = self.classify(["packages/text-core-wasm/tests/package.test.ts"])["ci_plan"]
+        self.assertTrue(plan["wasm_checks"])
+        self.assertFalse(plan["frontend_checks"])
+
+    def test_root_manifest_and_release_changes_select_full_workspace(self) -> None:
+        root_plan = self.classify(["Cargo.toml"])["ci_plan"]
+        release_plan = self.classify(
+            ["docs/repository-split/release-plan.example.json"]
+        )["ci_plan"]
+        for plan in (root_plan, release_plan):
+            self.assertTrue(plan["full_workspace_checks"])
+            self.assertTrue(plan["storybook_checks"])
+            self.assertFalse(plan["browser_e2e_checks"])
+
+    def test_explicit_full_ci_selects_full_workspace(self) -> None:
+        scope = scope_mod.classify_changed_files(
+            changed_files=["docs/development.md"],
+            packages=self.packages(),
+            package_json_paths=self.package_json_paths(),
+            full_ci=True,
+        ).to_json()
+        self.assertTrue(scope["ci_plan"]["full_workspace_checks"])
+
     def classify(self, paths: list[str]) -> dict:
         return scope_mod.classify_changed_files(
             changed_files=paths,
-            packages=[
+            packages=self.packages(),
+            package_json_paths=self.package_json_paths(),
+        ).to_json()
+
+    def packages(self) -> list:
+        return [
                 scope_mod.CargoPackage("moenarch-video-analysis", ".", "Cargo.toml"),
                 scope_mod.CargoPackage(
                     "moenarch-text-core",
@@ -113,25 +162,29 @@ class CheckChangedScopeTests(unittest.TestCase):
                     "moenarch-text-core-cli",
                     "crates/text/text-core-cli",
                     "crates/text/text-core-cli/Cargo.toml",
+                    ("moenarch-text-core",),
                 ),
                 scope_mod.CargoPackage(
                     "moenarch-text-core-server",
                     "crates/text/text-core-server",
                     "crates/text/text-core-server/Cargo.toml",
+                    ("moenarch-text-core",),
                 ),
                 scope_mod.CargoPackage(
                     "moenarch-text-core-wasm",
                     "crates/bindings/text-core-wasm",
                     "crates/bindings/text-core-wasm/Cargo.toml",
+                    ("moenarch-text-core",),
                 ),
-            ],
-            package_json_paths=[
+            ]
+
+    def package_json_paths(self) -> list[str]:
+        return [
                 "packages/text-core-wasm/package.json",
                 "packages/text-core-app/package.json",
                 "packages/video-analysis-ui/package.json",
                 "prototypes/web/video-analysis-web/package.json",
-            ],
-        ).to_json()
+            ]
 
 
 if __name__ == "__main__":

@@ -24,6 +24,27 @@ FRONTEND_WORKSPACE_FILES = {
     "package.json",
     "bun.lock",
 }
+FULL_WORKSPACE_FILES = {
+    "Cargo.toml",
+    "Cargo.lock",
+    ".cargo/config.toml",
+    "package.json",
+    "bun.lock",
+    "docs/repository-split/package-ownership.json",
+    "docs/repository-split/dependency-boundary-baseline.json",
+}
+FULL_WORKSPACE_PREFIXES = (
+    "scripts/fixtures/release_plans/",
+)
+RELEASE_PLAN_MARKERS = (
+    "release-plan",
+    "release_plan",
+)
+ARCHITECTURE_PREFIXES = (
+    ".github/workflows/",
+    "scripts/",
+    "docs/repository-split/",
+)
 SNAPSHOT_FILES = {
     "docs/CRATE_PROGRESS_LEDGER.md",
     "docs/CRATE_INVENTORY.md",
@@ -64,6 +85,7 @@ class CargoPackage:
     name: str
     manifest_dir: str
     manifest_path: str
+    dependencies: tuple[str, ...] = ()
 
     @property
     def base(self) -> str:
@@ -94,6 +116,7 @@ class Scope:
     frontend_reasons: list[str] | None = None
     progress_reasons: list[str] | None = None
     snapshot_paths: list[str] | None = None
+    ci_plan: dict[str, bool] | None = None
 
     def to_json(self) -> dict:
         return {
@@ -112,6 +135,7 @@ class Scope:
             "frontend_reasons": self.frontend_reasons or [],
             "progress_reasons": self.progress_reasons or [],
             "snapshot_paths": self.snapshot_paths or [],
+            "ci_plan": self.ci_plan or {},
         }
 
 
@@ -122,6 +146,8 @@ def main() -> int:
         "--paths-file",
         help="read changed paths from a file instead of git; use - for stdin",
     )
+    parser.add_argument("--full-ci", action="store_true")
+    parser.add_argument("--github-output")
     args = parser.parse_args()
 
     root = ROOT
@@ -137,8 +163,12 @@ def main() -> int:
         package_json_paths=package_json_paths,
         base_ref=args.base,
         root=root,
+        full_ci=args.full_ci,
     )
-    print(json.dumps(scope.to_json(), indent=2, sort_keys=True))
+    payload = scope.to_json()
+    if args.github_output:
+        write_github_outputs(Path(args.github_output), payload)
+    print(json.dumps(payload, indent=2, sort_keys=True))
     return 0
 
 
@@ -149,6 +179,7 @@ def classify_changed_files(
     package_json_paths: Iterable[str],
     base_ref: str = "origin/main",
     root: Path = ROOT,
+    full_ci: bool = False,
 ) -> Scope:
     paths = sorted(set(normalize_path(path) for path in changed_files if normalize_path(path)))
     package_json_set = set(package_json_paths)
@@ -253,6 +284,9 @@ def classify_changed_files(
     scope.frontend_reasons = dedupe(frontend_reasons)
     scope.progress_reasons = dedupe(progress_reasons)
     scope.snapshot_paths = sorted(snapshot_paths)
+    if scope.rust_scope == "changed":
+        scope.rust_packages = reverse_dependency_closure(rust_packages, packages)
+    scope.ci_plan = build_ci_plan(paths, scope, full_ci=full_ci)
     return scope
 
 
@@ -267,6 +301,15 @@ def cargo_packages(root: Path) -> list[CargoPackage]:
                 name=package["name"],
                 manifest_dir=manifest_dir.relative_to(root).as_posix(),
                 manifest_path=manifest_path.relative_to(root).as_posix(),
+                dependencies=tuple(
+                    sorted(
+                        {
+                            str(dependency.get("name") or "")
+                            for dependency in package.get("dependencies") or []
+                            if dependency.get("name")
+                        }
+                    )
+                ),
             )
         )
     packages.sort(key=lambda package: len(package.manifest_dir), reverse=True)
@@ -285,6 +328,83 @@ def git_changed_paths(root: Path, base: str) -> list[str]:
         output = git_output(root, command)
         paths.update(line.strip() for line in output.splitlines() if line.strip())
     return sorted(paths)
+
+
+def reverse_dependency_closure(
+    changed_packages: set[str],
+    packages: list[CargoPackage],
+) -> list[str]:
+    selected = set(changed_packages)
+    while True:
+        dependents = {
+            package.name
+            for package in packages
+            if package.name not in selected
+            and any(dependency in selected for dependency in package.dependencies)
+        }
+        if not dependents:
+            return sorted(selected)
+        selected.update(dependents)
+
+
+def build_ci_plan(paths: list[str], scope: Scope, *, full_ci: bool) -> dict[str, bool]:
+    release_change = any(
+        marker in path.lower() for path in paths for marker in RELEASE_PLAN_MARKERS
+    )
+    ownership_change = any(
+        path in FULL_WORKSPACE_FILES
+        or any(path.startswith(prefix) for prefix in FULL_WORKSPACE_PREFIXES)
+        for path in paths
+    )
+    full_workspace = full_ci or release_change or ownership_change
+    ui_change = any(path.startswith("packages/video-analysis-ui/") for path in paths)
+    web_change = any(path.startswith("prototypes/web/video-analysis-web/") for path in paths)
+    wasm_change = any(
+        (
+            path.startswith("packages/")
+            and "-wasm/" in path
+        )
+        or path.startswith("crates/bindings/")
+        for path in paths
+    )
+    application_frontend_change = any(
+        (path.startswith("packages/") and "-app/" in path)
+        or path.startswith("packages/video-analysis-ui/")
+        or path.startswith("prototypes/web/")
+        for path in paths
+    )
+    architecture = any(
+        path in FULL_WORKSPACE_FILES
+        or any(path.startswith(prefix) for prefix in ARCHITECTURE_PREFIXES)
+        for path in paths
+    )
+    return {
+        "architecture_checks": architecture,
+        "rust_checks": scope.rust_scope != "none" and not full_workspace,
+        "frontend_checks": application_frontend_change and not full_workspace,
+        "wasm_checks": wasm_change and not full_workspace,
+        "storybook_checks": ui_change or full_workspace,
+        "browser_e2e_checks": (ui_change or web_change or full_ci) and not full_workspace,
+        "full_workspace_checks": full_workspace,
+    }
+
+
+def write_github_outputs(path: Path, payload: dict) -> None:
+    plan = payload.get("ci_plan") or {}
+    lines = [
+        f"{name}={'true' if enabled else 'false'}"
+        for name, enabled in sorted(plan.items())
+    ]
+    lines.extend(
+        [
+            "rust_scope=" + str(payload.get("rust_scope") or "none"),
+            "rust_packages_json=" + json.dumps(payload.get("rust_packages") or [], separators=(",", ":")),
+            "frontend_commands_json="
+            + json.dumps(payload.get("frontend_commands") or [], separators=(",", ":")),
+        ]
+    )
+    with path.open("a", encoding="utf-8") as handle:
+        handle.write("\n".join(lines) + "\n")
 
 
 def package_for_path(path: str, packages: list[CargoPackage]) -> CargoPackage | None:

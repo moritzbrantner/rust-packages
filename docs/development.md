@@ -69,6 +69,32 @@ For the full local baseline with external-tool checks, use:
 scripts/check.sh
 ```
 
+## Pull-request CI
+
+`workspace-ci` always runs a lightweight planner and repository sanity gate.
+The planner classifies the exact pull-request diff and selects only the affected
+Rust, frontend, WASM, Storybook, browser, architecture, or full-workspace jobs.
+Changed Rust crates include their workspace reverse-dependency closure. Root
+manifests, broad lockfiles, ownership maps, and release-plan inputs select the
+full workspace. A final always-running `ci-gate` is the single stable required
+check: it accepts legitimately unselected jobs but fails closed when a selected
+job is skipped, cancelled, or unsuccessful. Add the `full-ci` label when an
+ordinary change needs the broad path.
+
+New commits cancel obsolete ordinary pull-request runs. Release, publication,
+and deployment workflows are deliberately outside that cancellation policy.
+The weekly `full-workspace-ci` keeps broad Rust, frontend/WASM, Storybook,
+browser, generated-inventory, and package checks off the critical path of
+unrelated pull requests.
+
+The pinned reusable workflows cache Cargo registry, Git, and target data using
+the runner OS and `Cargo.lock` hash; changing the lockfile invalidates the exact
+cache key, while the OS restore prefix can still reuse downloads safely.
+`wasm-pack` remains pinned to `0.14.0`, and Playwright installs the browser
+version locked by the workspace dependencies. The job graph avoids installing
+either tool in an unselected job and does not share caches or credentials with
+unmanaged runners. No self-hosted runner is assumed by this configuration.
+
 ## Local Build Cache
 
 Cargo and package build outputs are local artifacts. If the checkout looks large,

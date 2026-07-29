@@ -8,35 +8,122 @@ permissions:
   contents: read
   packages: read
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
 jobs:
-  rust-fast:
+  planner:
+    name: Plan affected CI surfaces
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    outputs:
+      architecture_checks: ${{ steps.scope.outputs.architecture_checks }}
+      rust_checks: ${{ steps.scope.outputs.rust_checks }}
+      frontend_checks: ${{ steps.scope.outputs.frontend_checks }}
+      wasm_checks: ${{ steps.scope.outputs.wasm_checks }}
+      storybook_checks: ${{ steps.scope.outputs.storybook_checks }}
+      browser_e2e_checks: ${{ steps.scope.outputs.browser_e2e_checks }}
+      full_workspace_checks: ${{ steps.scope.outputs.full_workspace_checks }}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Fetch pull-request base
+        run: git fetch --no-tags origin "${GITHUB_BASE_REF:-main}"
+
+      - name: Classify changed surfaces
+        id: scope
+        env:
+          FULL_CI: ${{ contains(github.event.pull_request.labels.*.name, 'full-ci') }}
+        run: |
+          args=(--base "origin/${GITHUB_BASE_REF:-main}" --github-output "$GITHUB_OUTPUT")
+          if [[ "$FULL_CI" == "true" ]]; then
+            args+=(--full-ci)
+          fi
+          python3 scripts/check_changed_scope.py "${args[@]}"
+
+      - name: Run lightweight always-on sanity checks
+        run: |
+          git diff --check "origin/${GITHUB_BASE_REF:-main}...HEAD"
+          python3 scripts/test_check_changed_scope.py
+          python3 scripts/test_check_ci_gate.py
+          python3 scripts/test_check_ci_sanity.py
+          python3 scripts/test_run_changed_frontend.py
+          python3 scripts/test_run_changed_python_tests.py
+          python3 scripts/check_ci_sanity.py --base "origin/${GITHUB_BASE_REF:-main}"
+          python3 scripts/run_changed_python_tests.py --base "origin/${GITHUB_BASE_REF:-main}"
+          scripts/check_repo_hygiene.sh
+
+  architecture-checks:
+    if: needs.planner.outputs.architecture_checks == 'true'
+    needs: planner
+    uses: moritzbrantner/reusable-workflows/.github/workflows/fast-validation.yml@workflow-standard-v1
+    with:
+      bun_version: ""
+      node_version: ""
+      install_command: ""
+      unit_test_command: >-
+        scripts/check_generated_artifacts.sh &&
+        (test ! -f scripts/test_check_repository_boundaries.py || python3 scripts/test_check_repository_boundaries.py) &&
+        (test ! -f scripts/test_check_release_plan.py || python3 scripts/test_check_release_plan.py)
+      timeout_minutes: 20
+
+  rust-checks:
+    if: needs.planner.outputs.rust_checks == 'true'
+    needs: planner
+    uses: moritzbrantner/reusable-workflows/.github/workflows/fast-validation.yml@workflow-standard-v1
+    with:
+      bun_version: ""
+      node_version: ""
+      install_command: ""
+      pre_command: rustup toolchain install 1.95.0 --profile minimal --component clippy --component rustfmt && rustup default 1.95.0
+      unit_test_command: git fetch --no-tags origin "${GITHUB_BASE_REF:-main}" && CHECK_FAST_FRONTEND=none BASE_REF="origin/${GITHUB_BASE_REF:-main}" scripts/check-fast.sh
+      cache_cargo: true
+      timeout_minutes: 60
+
+  frontend-checks:
+    if: needs.planner.outputs.frontend_checks == 'true'
+    needs: planner
     uses: moritzbrantner/reusable-workflows/.github/workflows/fast-validation.yml@workflow-standard-v1
     with:
       bun_version: "1.3.14"
       node_version: ""
-      install_command: ""
-      pre_command: rustup toolchain install 1.95.0 --profile minimal --component clippy --component rustfmt && rustup default 1.95.0
-      format_command: bun run hygiene:generated && bun run snapshot:check && bun run progress:check && cargo fmt --all --check
-      lint_command: cargo clippy --workspace --lib --tests --examples -- -D warnings
-      unit_test_command: git fetch --no-tags origin "${GITHUB_BASE_REF:-main}" && BASE_REF="origin/${GITHUB_BASE_REF:-main}" bun run progress:touched && bun run progress:test && cargo test --jobs "${CARGO_BUILD_JOBS:-2}" --workspace --lib --tests
-      build_command: cargo doc --workspace --no-deps
-      cache_cargo: true
-      timeout_minutes: 60
+      install_command: bun install --frozen-lockfile
+      unit_test_command: git fetch --no-tags origin "${GITHUB_BASE_REF:-main}" && python3 scripts/run_changed_frontend.py --base "origin/${GITHUB_BASE_REF:-main}" --kind application
+      timeout_minutes: 30
 
-  frontend-fast:
+  wasm-checks:
+    if: needs.planner.outputs.wasm_checks == 'true'
+    needs: planner
     uses: moritzbrantner/reusable-workflows/.github/workflows/fast-validation.yml@workflow-standard-v1
     with:
       bun_version: "1.3.14"
       node_version: ""
       install_command: bun install --frozen-lockfile
       pre_command: rustup target add wasm32-unknown-unknown && cargo install wasm-pack --locked --version 0.14.0
-      typecheck_command: bun run ui:typecheck && bun run web:typecheck
-      build_command: bun run ui:build && bun run web:build
-      unit_test_command: bun run text-wasm:test && bun run text-analysis-wasm:test && bun run text-linguistics-wasm:test && bun run audio-wasm:test && bun run video-wasm:test && bun run maps-wasm:test && bun run ui:test:unit && bun run web:test:unit && bun run web:test:api
+      unit_test_command: git fetch --no-tags origin "${GITHUB_BASE_REF:-main}" && python3 scripts/run_changed_frontend.py --base "origin/${GITHUB_BASE_REF:-main}" --kind wasm
       cache_cargo: true
       timeout_minutes: 45
 
-  web-e2e:
+  storybook-checks:
+    if: needs.planner.outputs.storybook_checks == 'true'
+    needs: planner
+    uses: moritzbrantner/reusable-workflows/.github/workflows/storybook-validation.yml@workflow-standard-v1
+    with:
+      working_directory: packages/video-analysis-ui
+      bun_version: "1.3.14"
+      node_version: ""
+      install_command: cd ../.. && bun install --frozen-lockfile
+      storybook_build_command: bun run storybook:build
+      storybook_test_command: bun run storybook:test:ci
+      install_playwright: true
+      timeout_minutes: 45
+
+  browser-e2e-checks:
+    if: needs.planner.outputs.browser_e2e_checks == 'true'
+    needs: planner
     uses: moritzbrantner/reusable-workflows/.github/workflows/e2e-validation.yml@workflow-standard-v1
     with:
       bun_version: "1.3.14"
@@ -48,8 +135,53 @@ jobs:
       install_playwright: true
       cache_cargo: true
       timeout_minutes: 60
-      artifact_paths: |
-        packages/video-analysis-ui/playwright-report
-        packages/video-analysis-ui/test-results
-        prototypes/web/video-analysis-web/playwright-report
-        prototypes/web/video-analysis-web/test-results
+
+  full-workspace-checks:
+    if: needs.planner.outputs.full_workspace_checks == 'true'
+    needs: planner
+    uses: moritzbrantner/reusable-workflows/.github/workflows/e2e-validation.yml@workflow-standard-v1
+    with:
+      bun_version: "1.3.14"
+      node_version: ""
+      install_command: bun install --frozen-lockfile
+      pre_command: rustup toolchain install 1.95.0 --profile minimal --component clippy --component rustfmt && rustup default 1.95.0 && rustup target add wasm32-unknown-unknown && cargo install wasm-pack --locked --version 0.14.0
+      build_command: git fetch --no-tags origin "${GITHUB_BASE_REF:-main}" && BASE_REF="origin/${GITHUB_BASE_REF:-main}" scripts/check-preflight.sh
+      e2e_command: "true"
+      install_playwright: true
+      cache_cargo: true
+      timeout_minutes: 90
+
+  ci-gate:
+    name: CI gate
+    if: always()
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    needs:
+      - planner
+      - architecture-checks
+      - rust-checks
+      - frontend-checks
+      - wasm-checks
+      - storybook-checks
+      - browser-e2e-checks
+      - full-workspace-checks
+    steps:
+      - uses: actions/checkout@v6
+      - name: Require every selected job to succeed
+        run: >-
+          python3 scripts/check_ci_gate.py
+          --planner-result '${{ needs.planner.result }}'
+          --selected architecture_checks=${{ needs.planner.outputs.architecture_checks || 'false' }}
+          --selected rust_checks=${{ needs.planner.outputs.rust_checks || 'false' }}
+          --selected frontend_checks=${{ needs.planner.outputs.frontend_checks || 'false' }}
+          --selected wasm_checks=${{ needs.planner.outputs.wasm_checks || 'false' }}
+          --selected storybook_checks=${{ needs.planner.outputs.storybook_checks || 'false' }}
+          --selected browser_e2e_checks=${{ needs.planner.outputs.browser_e2e_checks || 'false' }}
+          --selected full_workspace_checks=${{ needs.planner.outputs.full_workspace_checks || 'false' }}
+          --result architecture_checks=${{ needs.architecture-checks.result }}
+          --result rust_checks=${{ needs.rust-checks.result }}
+          --result frontend_checks=${{ needs.frontend-checks.result }}
+          --result wasm_checks=${{ needs.wasm-checks.result }}
+          --result storybook_checks=${{ needs.storybook-checks.result }}
+          --result browser_e2e_checks=${{ needs.browser-e2e-checks.result }}
+          --result full_workspace_checks=${{ needs.full-workspace-checks.result }}
