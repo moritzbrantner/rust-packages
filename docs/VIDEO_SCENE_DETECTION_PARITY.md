@@ -1,5 +1,16 @@
 # Video Scene Detection Parity
 
+## Ownership
+
+[ADR 0013](adr/0013-scenedetect-rs-owns-scene-detection.md) selects
+`scenedetect-core` as the canonical owner of scene-specific contracts, the five
+overlapping detector implementations, Detection Stats and Scene List artifacts,
+and PySceneDetect parity behavior. This document records the existing
+visual-analysis compatibility lane while the separately gated adapter migration
+is pending. `video-analysis-split` remains the split-planning and execution
+owner, and the visual package operation IDs and serialized compatibility shapes
+remain unchanged.
+
 This workspace treats PySceneDetect as the behavior baseline for scene boundary
 detectors and surrounding workflows. The Rust APIs stay idiomatic and crate
 owned; parity means comparable detector behavior, scene lists, stats, outputs,
