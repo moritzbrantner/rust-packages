@@ -89,8 +89,8 @@ creating incomplete public libraries or temporary path/Git dependencies.
 With current issue state, the deterministic longest path is:
 
 ```text
-#146 → #108 → #109 → #110 → #136 → #111 → #113 → #114
-     → #118 → #119 → #120 → #121 → #129 → #134
+#108 → #109 → #110 → #136 → #111 → #113 → #114 → #118
+     → #119 → #120 → #121 → #129 → #134
 ```
 
 The path is based on unresolved dependencies, not the total issue count. Wave 2
@@ -101,16 +101,16 @@ release path.
 
 After #107 completed, the three initially evaluated groups were:
 
-- #108: neutral media contracts in `rust-packages`, now dependency-blocked by
-  the active non-overlapping authority-schema prerequisite #146;
+- #108: neutral media contracts in `rust-packages`, now active after the
+  authority-schema prerequisite #146 merged;
 - #117: scene-ownership analysis in non-overlapping decision documents,
   dependency-ready after #107 closed;
 - #135: the former hosted release-environment policy in `geo-analysis`, now
   closed as superseded by authoritative local Cargo publication.
 
-#146 and #117 have disjoint write scopes and share no exclusive resource.
+#108 and #117 have disjoint write scopes and share no exclusive resource.
 #117 is part of the runnable frontier, but the current one-worker policy leaves
-it queued while #146 is active. A slice becomes a parallel candidate only after
+it queued while #108 is active. A slice becomes a parallel candidate only after
 it is independently dependency-ready, any human blocker is cleared, and the
 repository has a current passing exact-head local verification receipt. Missing
 or stale local evidence permits at most one new worker; repeated reproducible
