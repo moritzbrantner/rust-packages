@@ -181,7 +181,9 @@ fn synthetic_fixtures_are_not_public_package_identifier_inputs() {
     let files = tracked_identifier_files(root);
 
     assert!(
-        files.iter().all(|path| !path.starts_with(root.join("scripts/fixtures"))),
+        files
+            .iter()
+            .all(|path| !path.starts_with(root.join("scripts/fixtures"))),
         "synthetic test fixtures must not be treated as public packages"
     );
     assert!(
