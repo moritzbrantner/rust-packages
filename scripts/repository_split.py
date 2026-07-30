@@ -1,0 +1,259 @@
+#!/usr/bin/env python3
+"""Shared, standard-library-only helpers for the capability repository split."""
+
+from __future__ import annotations
+
+import json
+import re
+import subprocess
+from pathlib import Path
+from typing import Iterable
+
+ROOT = Path(__file__).resolve().parents[1]
+OWNERSHIP_PATH = ROOT / "docs/repository-split/package-ownership.json"
+BASELINE_PATH = ROOT / "docs/repository-split/dependency-boundary-baseline.json"
+
+TARGET_REPOSITORIES = {
+    "moenarch-foundation",
+    "nlp-stack",
+    "audio-analysis",
+    "visual-analysis",
+    "spatial-analysis",
+    "rust-packages",
+}
+
+ALLOWED_DEPENDENCIES = {
+    "moenarch-foundation": set(),
+    "nlp-stack": {"moenarch-foundation"},
+    "audio-analysis": {"moenarch-foundation", "nlp-stack"},
+    "visual-analysis": {"moenarch-foundation", "nlp-stack"},
+    "spatial-analysis": {"moenarch-foundation", "visual-analysis"},
+    "rust-packages": {
+        "moenarch-foundation",
+        "nlp-stack",
+        "audio-analysis",
+        "visual-analysis",
+        "spatial-analysis",
+    },
+}
+
+SPATIAL_VIDEO_FAMILIES = {
+    "video-analysis-gaussian-splatting",
+    "video-analysis-mvs",
+    "video-analysis-posture",
+    "video-analysis-posture-io",
+    "video-analysis-radiance-fields",
+    "video-analysis-radiance-io",
+    "video-analysis-radiance-pipeline",
+    "video-analysis-reconstruction",
+    "video-analysis-sfm",
+}
+
+NON_LIBRARY_SUFFIXES = ("-cli", "-server", "-wasm", "-app")
+SEMVER_RE = re.compile(
+    r"^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)"
+    r"(?:-([0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*))?"
+    r"(?:\+([0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*))?$"
+)
+FULL_SHA_RE = re.compile(r"^[0-9a-f]{40}$")
+
+
+def load_json(path: Path) -> dict:
+    with path.open(encoding="utf-8") as handle:
+        return json.load(handle)
+
+
+def write_json(path: Path, value: object) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(value, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+
+
+def cargo_metadata(root: Path = ROOT) -> dict:
+    completed = subprocess.run(
+        ["cargo", "metadata", "--format-version", "1", "--no-deps"],
+        cwd=root,
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    return json.loads(completed.stdout)
+
+
+def strip_publisher(name: str) -> str:
+    for prefix in ("moenarch-", "moritzbrantner-"):
+        if name.startswith(prefix):
+            return name[len(prefix) :]
+    return name.split("/", 1)[-1]
+
+
+def wrapped_library_name(name: str) -> str:
+    base = strip_publisher(name)
+    for suffix in NON_LIBRARY_SUFFIXES:
+        if base.endswith(suffix):
+            return base[: -len(suffix)]
+    return base
+
+
+def target_repository(name: str) -> str:
+    base = wrapped_library_name(name)
+    if base in SPATIAL_VIDEO_FAMILIES or base.startswith(("three-d-", "animation-")):
+        return "spatial-analysis"
+    if base.startswith("text-"):
+        return "nlp-stack"
+    if base.startswith("audio-"):
+        return "audio-analysis"
+    if base == "image-analysis-comfyui" or base.startswith("comfyui-"):
+        return "rust-packages"
+    if base.startswith(("image-", "vision-", "video-")) and name not in {
+        "moenarch-video-analysis",
+        "moenarch-video-analysis-cli",
+        "moenarch-video-analysis-test-support",
+        "moenarch-video-analysis-use-cases",
+    }:
+        return "visual-analysis"
+    if base.startswith(
+        (
+            "data-",
+            "dense-",
+            "graph-",
+            "jobs-",
+            "math-",
+            "model-",
+            "numbers-",
+            "runtime-",
+            "tensor-",
+            "vector-",
+        )
+    ):
+        return "moenarch-foundation"
+    return "rust-packages"
+
+
+def package_kind(name: str, manifest_path: str, cargo: bool) -> str:
+    base = strip_publisher(name)
+    if base.endswith("-cli"):
+        return "CLI"
+    if base.endswith("-server"):
+        return "server"
+    if base.endswith("-wasm"):
+        return "WASM" if cargo else "npm wrapper"
+    if base.endswith("-app") or manifest_path.startswith("prototypes/"):
+        return "app" if not manifest_path.startswith("prototypes/") else "prototype"
+    if "test-support" in base or "benchmarks" in base:
+        return "test support"
+    if name == "moenarch-video-analysis":
+        return "facade"
+    return "library"
+
+
+def dependency_kind(dependency: dict) -> str:
+    return dependency.get("kind") or "normal"
+
+
+def internal_dependency_edges(metadata: dict) -> list[dict]:
+    """Return every distinct workspace dependency edge and declaration kind."""
+
+    packages = {package["name"]: package for package in metadata["packages"]}
+    edges_by_key: dict[tuple[str, str, str, bool], dict] = {}
+    for package in metadata["packages"]:
+        for dependency in package["dependencies"]:
+            if dependency["name"] in packages:
+                kind = dependency_kind(dependency)
+                optional = bool(dependency.get("optional"))
+                key = (package["name"], dependency["name"], kind, optional)
+                edge = edges_by_key.setdefault(
+                    key,
+                    {
+                        "source_package": package["name"],
+                        "dependency_package": dependency["name"],
+                        "dependency_kind": kind,
+                        "optional": optional,
+                        "declaration_kinds": [kind],
+                    },
+                )
+    return [edges_by_key[key] for key in sorted(edges_by_key)]
+
+
+def find_cycle(nodes: Iterable[str], edges: Iterable[tuple[str, str]]) -> list[str] | None:
+    adjacency: dict[str, set[str]] = {node: set() for node in nodes}
+    for source, dependency in edges:
+        adjacency.setdefault(source, set()).add(dependency)
+        adjacency.setdefault(dependency, set())
+    visiting: set[str] = set()
+    visited: set[str] = set()
+    path: list[str] = []
+
+    def visit(node: str) -> list[str] | None:
+        if node in visiting:
+            start = path.index(node)
+            return path[start:] + [node]
+        if node in visited:
+            return None
+        visiting.add(node)
+        path.append(node)
+        for dependency in sorted(adjacency[node]):
+            cycle = visit(dependency)
+            if cycle:
+                return cycle
+        path.pop()
+        visiting.remove(node)
+        visited.add(node)
+        return None
+
+    for node in sorted(adjacency):
+        cycle = visit(node)
+        if cycle:
+            return cycle
+    return None
+
+
+def find_cycles(
+    nodes: Iterable[str], edges: Iterable[tuple[str, str]]
+) -> list[list[str]]:
+    """Return canonical simple directed cycles for the small repository graph."""
+
+    adjacency: dict[str, set[str]] = {node: set() for node in nodes}
+    for source, dependency in edges:
+        adjacency.setdefault(source, set()).add(dependency)
+        adjacency.setdefault(dependency, set())
+    found: set[tuple[str, ...]] = set()
+
+    def canonical(path: list[str]) -> tuple[str, ...]:
+        cycle = path[:-1]
+        rotations = [tuple(cycle[index:] + cycle[:index]) for index in range(len(cycle))]
+        selected = min(rotations)
+        return selected + (selected[0],)
+
+    def walk(start: str, node: str, path: list[str]) -> None:
+        for dependency in sorted(adjacency[node]):
+            if dependency == start:
+                found.add(canonical(path + [start]))
+            elif dependency not in path:
+                walk(start, dependency, path + [dependency])
+
+    for start in sorted(adjacency):
+        walk(start, start, [start])
+    return [list(cycle) for cycle in sorted(found)]
+
+
+def topological_order(nodes: Iterable[str], edges: Iterable[tuple[str, str]]) -> list[str]:
+    nodes = list(dict.fromkeys(nodes))
+    dependencies: dict[str, set[str]] = {node: set() for node in nodes}
+    dependents: dict[str, set[str]] = {node: set() for node in nodes}
+    for dependent, dependency in edges:
+        dependencies[dependent].add(dependency)
+        dependents[dependency].add(dependent)
+    ready = sorted(node for node in nodes if not dependencies[node])
+    result = []
+    while ready:
+        node = ready.pop(0)
+        result.append(node)
+        for dependent in sorted(dependents[node]):
+            dependencies[dependent].discard(node)
+            if not dependencies[dependent] and dependent not in result and dependent not in ready:
+                ready.append(dependent)
+                ready.sort()
+    if len(result) != len(nodes):
+        cycle = find_cycle(nodes, edges)
+        raise ValueError(f"dependency cycle: {' -> '.join(cycle or [])}")
+    return result

@@ -99,6 +99,23 @@ class CheckChangedScopeTests(unittest.TestCase):
         self.assertEqual(scope["rust_scope"], "workspace")
         self.assertIn("deleted or unknown Rust package path", scope["workspace_reason"])
 
+    def test_repository_split_generator_selects_both_generated_matrices(self) -> None:
+        scope = self.classify(["scripts/generate_repository_split_inventory.py"])
+        self.assertEqual(
+            scope["snapshot_paths"],
+            [
+                "docs/CONSUMER_RELEASE_MATRIX.md",
+                "docs/REPOSITORY_DESTINATION_MATRIX.md",
+            ],
+        )
+
+    def test_repository_split_matrix_change_selects_its_snapshot(self) -> None:
+        scope = self.classify(["docs/REPOSITORY_DESTINATION_MATRIX.md"])
+        self.assertEqual(
+            scope["snapshot_paths"],
+            ["docs/REPOSITORY_DESTINATION_MATRIX.md"],
+        )
+
     def classify(self, paths: list[str]) -> dict:
         return scope_mod.classify_changed_files(
             changed_files=paths,

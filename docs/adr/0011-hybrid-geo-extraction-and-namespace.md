@@ -2,7 +2,8 @@
 
 ## Status
 
-Accepted.
+Accepted; primary-media split guidance partially superseded by
+[ADR 0012](0012-capability-repository-split-and-agent-releases.md).
 
 ## Context
 
@@ -25,7 +26,9 @@ signposts in `rust-packages` once active implementation ownership moves out.
 
 ## Decision
 
-Use a hybrid extraction strategy instead of a full media-type repository split.
+The following sentence is retained as historical context and is superseded for
+the capability repositories selected by ADR 0012: use a hybrid extraction
+strategy instead of a full media-type repository split.
 `rust-packages` remains the home for shared multimodal foundations, audited
 package-surface contracts, and migration signposts. Adjacent package families
 may move out when they have coherent ownership, clear package boundaries, and a
