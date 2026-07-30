@@ -70,12 +70,14 @@ def baseline_entry(
     target: str,
     kind: str = "normal",
     *,
+    optional: bool = False,
     reason: str = "reviewed exact migration edge",
 ) -> dict:
     return {
         "source_package": source,
         "dependency_package": target,
         "dependency_kind": kind,
+        "optional": optional,
         "reason": reason,
         "migration_issue": "https://github.com/moritzbrantner/rust-packages/issues/109",
         "target_phase": "foundation",
@@ -181,12 +183,12 @@ class RepositoryBoundaryCheckTests(unittest.TestCase):
         )
         self.assertIn(
             "new forbidden edge: foundation -> audio "
-            "(build; moenarch-foundation -> audio-analysis)",
+            "(build optional; moenarch-foundation -> audio-analysis)",
             errors,
         )
         self.assertIn(
             "stale baseline violations must be removed after the edge is fixed: "
-            "foundation->audio(optional)",
+            "foundation->audio(optional required)",
             errors,
         )
         self.assertEqual(len(violations), 1)
@@ -195,6 +197,34 @@ class RepositoryBoundaryCheckTests(unittest.TestCase):
             "build",
         )
         self.assertTrue(violations[0]["optional"])
+
+    def test_required_and_optional_declarations_remain_distinct_edges(self) -> None:
+        errors, violations, _ = self.validate(
+            [
+                package(
+                    "foundation",
+                    [
+                        dependency("audio", optional=False),
+                        dependency("audio", optional=True),
+                    ],
+                ),
+                package("audio"),
+            ],
+            [
+                record("foundation", "moenarch-foundation"),
+                record("audio", "audio-analysis"),
+            ],
+            [
+                baseline_entry("foundation", "audio", optional=False),
+                baseline_entry("foundation", "audio", optional=True),
+            ],
+        )
+        self.assertEqual(errors, "")
+        self.assertEqual(len(violations), 2)
+        self.assertEqual(
+            {violation["optional"] for violation in violations},
+            {False, True},
+        )
 
     def test_adapter_must_name_a_wrapped_library_with_same_owner(self) -> None:
         errors, _, _ = self.validate(
@@ -290,7 +320,8 @@ class RepositoryBoundaryCheckTests(unittest.TestCase):
         self.assertNotEqual(completed.returncode, 0)
         self.assertIn(
             "new forbidden edge: moenarch-foundation-core -> "
-            "moenarch-audio-core (normal; moenarch-foundation -> audio-analysis)",
+            "moenarch-audio-core "
+            "(normal required; moenarch-foundation -> audio-analysis)",
             completed.stderr,
         )
 

@@ -120,14 +120,15 @@ create GitHub Releases, and open consumer PRs without another confirmation.
 They may not use administrator bypasses, publish an unspecified package, or
 publish a version absent from the authorization.
 
-Target repositories use crates.io trusted publishing with GitHub Actions OIDC,
-minimal permissions, an exact workflow/environment binding, and a dedicated
-`release` environment without human reviewers when policy permits. The workflow
-validates the manifest and immutable SHA, packages and publishes topologically,
-waits with bounded registry verification, resumes idempotently from the first
-unpublished crate, and tags only registry-verified versions. A local credential
-fallback is allowed only when the release issue and manifest explicitly select
-it; credential values are never inspected or logged.
+Agents may publish locally through Cargo's already-configured credential.
+GitHub Actions/OIDC trusted publishing is an optional alternative, not a
+prerequisite. Before either path, the validator fetches the exact live release
+issue and binds its structured authorization to the repository, issue URL,
+immutable source/base SHAs, required checks, and exact package versions. The
+publisher packages and publishes topologically, verifies each registry version,
+resumes idempotently from the first unpublished crate, and tags only
+registry-verified versions. Credential values are never inspected, printed,
+copied, placed in arguments, or logged.
 
 If a wave partially publishes, already published versions remain immutable and
 are neither republished nor automatically yanked. Record the partial state, fix

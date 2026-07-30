@@ -154,23 +154,23 @@ def internal_dependency_edges(metadata: dict) -> list[dict]:
     """Return every distinct workspace dependency edge and declaration kind."""
 
     packages = {package["name"]: package for package in metadata["packages"]}
-    edges_by_key: dict[tuple[str, str, str], dict] = {}
+    edges_by_key: dict[tuple[str, str, str, bool], dict] = {}
     for package in metadata["packages"]:
         for dependency in package["dependencies"]:
             if dependency["name"] in packages:
                 kind = dependency_kind(dependency)
-                key = (package["name"], dependency["name"], kind)
+                optional = bool(dependency.get("optional"))
+                key = (package["name"], dependency["name"], kind, optional)
                 edge = edges_by_key.setdefault(
                     key,
                     {
                         "source_package": package["name"],
                         "dependency_package": dependency["name"],
                         "dependency_kind": kind,
-                        "optional": False,
+                        "optional": optional,
                         "declaration_kinds": [kind],
                     },
                 )
-                edge["optional"] |= bool(dependency.get("optional"))
     return [edges_by_key[key] for key in sorted(edges_by_key)]
 
 

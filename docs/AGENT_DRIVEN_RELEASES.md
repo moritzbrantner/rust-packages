@@ -3,31 +3,13 @@
 This guide defines the non-secret release architecture for future capability
 repositories. Phase A publishes nothing.
 
-## Bootstrap once per repository
+## Publication environment
 
-1. Create a GitHub `release` environment without required human reviewers when
-   repository and organization policy permit. Do not weaken an existing broader
-   policy silently.
-2. In crates.io, bind the exact owner, repository, workflow filename, and
-   `release` environment as a trusted publisher. This binding and the GitHub
-   environment cannot be configured from the Phase A checkout.
-3. Prefer a small repository-local workflow. The inspected reusable workflow
-   `package-publish.yml@workflow-standard-v1.3` uses a long-lived token and is
-   not suitable for this OIDC path.
-4. Grant only `contents: read` and `id-token: write` during package publication.
-   A separate job may receive the minimum write permission needed to create
-   verified tags/releases.
-5. Use crates.io's official authentication action
-   `rust-lang/crates-io-auth-action@c6f97d42243bad5fab37ca0427f495c86d5b1a18`
-   (release `v1.0.5`) or a newer officially documented immutable revision after
-   review. Follow the current
-   [crates.io trusted-publishing documentation](https://crates.io/docs/trusted-publishing)
-   rather than remembered workflow syntax.
-
-The first crate for a new trusted-publisher identity still needs crates.io's
-documented bootstrap path. If no trusted binding exists, the release issue must
-record the one-time manual/local bootstrap or human configuration blocker.
-Never add a placeholder token or secret.
+Local Cargo publication is authorized. Use only Cargo's normal
+already-configured credential mechanism; never inspect, print, request, paste,
+copy, or pass a token as a command-line argument. GitHub Actions trusted
+publishing may remain as an optional alternative, but hosted execution and OIDC
+are not prerequisites for release progress.
 
 ## Exact release contract
 
@@ -41,39 +23,46 @@ manifest; a release plan's self-reported dependency data is not trusted.
 reviewed architecture-only example; real release entries use exact bumped
 versions and expected tags.
 
+The exact live release issue must contain this fenced JSON contract. Human prose
+alone is not publication authorization:
+
+```json
+{
+  "release_authorization": {
+    "authorization": "publish",
+    "repository": "moritzbrantner/TARGET_REPOSITORY",
+    "release_issue": "https://github.com/moritzbrantner/TARGET_REPOSITORY/issues/123",
+    "source_sha": "FULL_RELEASE_COMMIT_SHA",
+    "default_branch_base_sha": "FULL_BASE_SHA",
+    "required_checks": ["cargo package --locked"],
+    "packages": [
+      {"name": "package-name", "version": "1.2.3"}
+    ]
+  }
+}
+```
+
 Run the non-publishing preflight:
 
 ```bash
 python3 scripts/check_release_plan.py \
-  --check path/to/release-plan.json \
-  --expected-sha "$(git rev-parse HEAD)" \
-  --expected-base-sha "$(git merge-base origin/main HEAD)" \
-  --authorized-repository moritzbrantner/TARGET_REPOSITORY \
-  --authorized-release-issue RELEASE_ISSUE_NUMBER \
-  --expected-check "cargo package --locked"
+  --check path/to/release-plan.json
 python3 scripts/release_preflight.py \
   --check path/to/release-plan.json \
-  --expected-sha "$(git rev-parse HEAD)" \
-  --expected-base-sha "$(git merge-base origin/main HEAD)" \
-  --authorized-repository moritzbrantner/TARGET_REPOSITORY \
-  --authorized-release-issue RELEASE_ISSUE_NUMBER \
-  --expected-check "cargo package --locked" \
   --print-order
 ```
 
-The preflight never authenticates or publishes. A target repository should copy
-the validator with its reviewed ownership data or adopt an equivalent
-standard-library implementation. Repeat `--expected-check` in manifest order
-for every executable check authorized by the reviewed workflow. Publishable
-plans fail closed unless their repository, issue number, and exact check list
-match these independently supplied values.
+The preflight never authenticates or publishes. For a publishable plan it reads
+the actual local Git head/base and fetches the exact live issue with `gh`; the
+plan must exactly match the issue-authorized repository, issue URL, SHAs,
+checks, packages, and versions. Caller flags cannot self-assert those values.
 
 ## Release pull request and gates
 
 The scoped release PR contains only version bumps, changelog/release notes,
 Cargo-produced lockfile changes, metadata, and the exact manifest. Required
-checks, reviews, and threads must be satisfied before ordinary auto-merge or
-merge. Administrator bypass is forbidden.
+local checks, reviews, and threads must be satisfied before ordinary merge.
+Hosted workflow state is informational only. Administrator bypass is forbidden.
 
 For each package, select the deterministic subset of:
 
@@ -103,7 +92,8 @@ For each package in validated order:
 
 1. Query crates.io for the exact name/version.
 2. If present, verify metadata and mark the step complete.
-3. If absent, run the package gates and publish through trusted OIDC.
+3. If absent, run `cargo package`, inspect its contents, run the authorized
+   release and consumer gates, then publish with normal `cargo publish`.
 4. Poll the crates.io API/index with bounded retries until the exact version is
    resolvable.
 5. Package the next dependent against the registry-visible prerequisite.
@@ -122,10 +112,10 @@ Finally create one scoped dependency-update PR per consumer, remove temporary
 patches, prove registry-only resolution in a clean checkout, run the documented
 consumer gate, and record evidence in the release issue.
 
-## Local fallback
+## Credential safety
 
-Local `cargo publish` is permitted only when the release issue and manifest
-explicitly select it, CI is unavailable, an authenticated Cargo credential
-already exists, the checkout is the exact release commit, and every normal gate
-passes. Never inspect, print, request, paste, or pass the credential value in a
-command argument.
+Publication requires an existing authenticated Cargo credential, a clean exact
+release checkout, the live issue authorization above, a validated manifest, and
+passing exact-head local gates. The credential value is never read back or
+logged. Local verification receipts and diagnostics contain commands and exit
+codes only, never environment values or registry credentials.

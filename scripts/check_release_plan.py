@@ -6,6 +6,7 @@ from __future__ import annotations
 import argparse
 import json
 import re
+import subprocess
 import sys
 import tomllib
 from collections import Counter
@@ -31,6 +32,10 @@ REQUIRED_LIST_FIELDS = (
     "dependency_order",
 )
 DEPENDENCY_SECTIONS = ("dependencies", "build-dependencies", "dev-dependencies")
+AUTHORIZATION_BLOCK_RE = re.compile(
+    r"```json\s*\n(?P<payload>.*?)\n```",
+    re.DOTALL | re.IGNORECASE,
+)
 
 
 def load_document(path: Path) -> dict:
@@ -40,6 +45,74 @@ def load_document(path: Path) -> dict:
         if path.suffix == ".toml":
             return tomllib.load(handle)
     raise ValueError(f"release manifest must be JSON or TOML: {path}")
+
+
+def extract_release_authorization(issue_body: str) -> dict:
+    for match in AUTHORIZATION_BLOCK_RE.finditer(issue_body):
+        try:
+            value = json.loads(match.group("payload"))
+        except json.JSONDecodeError:
+            continue
+        if not isinstance(value, dict):
+            continue
+        authorization = value.get("release_authorization", value)
+        if (
+            isinstance(authorization, dict)
+            and authorization.get("authorization") == "publish"
+        ):
+            return authorization
+    raise ValueError(
+        "release issue is missing a fenced JSON release_authorization object"
+    )
+
+
+def fetch_release_authorization(issue_url: str) -> dict:
+    match = re.fullmatch(
+        r"https://github\.com/(?P<repository>[^/]+/[^/]+)/issues/(?P<number>[1-9]\d*)",
+        issue_url,
+    )
+    if not match:
+        raise ValueError("release issue URL is not canonical")
+    completed = subprocess.run(
+        [
+            "gh",
+            "issue",
+            "view",
+            match.group("number"),
+            "--repo",
+            match.group("repository"),
+            "--json",
+            "body,state,url",
+        ],
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+    if completed.returncode:
+        raise ValueError(
+            "cannot fetch independently controlled release issue: "
+            + (completed.stderr.strip() or "gh issue view failed")
+        )
+    issue = json.loads(completed.stdout)
+    authorization = extract_release_authorization(str(issue.get("body") or ""))
+    return {
+        **authorization,
+        "_issue_state": issue.get("state"),
+        "_issue_url": issue.get("url"),
+    }
+
+
+def git_sha(root: Path, *args: str) -> str:
+    completed = subprocess.run(
+        ["git", *args],
+        cwd=root,
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+    if completed.returncode:
+        raise ValueError(completed.stderr.strip() or f"git {' '.join(args)} failed")
+    return completed.stdout.strip()
 
 
 def semver_parts(version: str) -> tuple[int, int, int, str | None] | None:
@@ -306,12 +379,10 @@ def validate_package_manifest(
 def validate_plan(
     plan: dict,
     ownership: dict,
-    expected_sha: str | None = None,
-    expected_base_sha: str | None = None,
     repository_root: Path = ROOT,
-    authorized_repository: str | None = None,
-    authorized_release_issue: int | None = None,
-    expected_checks: list[str] | None = None,
+    actual_head_sha: str | None = None,
+    actual_base_sha: str | None = None,
+    release_authorization: dict | None = None,
 ) -> list[str]:
     errors: list[str] = []
     repository = plan.get("repository")
@@ -322,34 +393,21 @@ def validate_plan(
     )
     if not isinstance(repository, str) or not repository.startswith("moritzbrantner/"):
         errors.append("repository must be an exact moritzbrantner repository")
-    if publishes_packages and expected_sha is None:
-        errors.append("--expected-sha is required for a publishable plan")
-    if publishes_packages and expected_base_sha is None:
-        errors.append("--expected-base-sha is required for a publishable plan")
-    if publishes_packages and authorized_repository is None:
-        errors.append("--authorized-repository is required for a publishable plan")
-    if publishes_packages and authorized_release_issue is None:
-        errors.append("--authorized-release-issue is required for a publishable plan")
-    if publishes_packages and not expected_checks:
-        errors.append("--expected-check is required for a publishable plan")
-    if (
-        publishes_packages
-        and authorized_repository is not None
-        and repository != authorized_repository
-    ):
+    if publishes_packages and actual_head_sha is None:
+        errors.append("actual Git head SHA is required for a publishable plan")
+    if publishes_packages and actual_base_sha is None:
+        errors.append("actual Git base SHA is required for a publishable plan")
+    if publishes_packages and release_authorization is None:
         errors.append(
-            f"repository {repository!r} does not match independently authorized "
-            f"repository {authorized_repository!r}"
+            "live release-issue authorization is required for a publishable plan"
         )
-    for field, expected in (
-        ("source_sha", expected_sha),
-        ("default_branch_base_sha", expected_base_sha),
-    ):
+    for field in ("source_sha", "default_branch_base_sha"):
         value = plan.get(field)
         if not isinstance(value, str) or not FULL_SHA_RE.fullmatch(value):
             errors.append(f"{field} must be a full lowercase commit SHA")
-        elif expected and value != expected:
-            errors.append(f"{field} {value!r} does not match expected SHA {expected}")
+        actual = actual_head_sha if field == "source_sha" else actual_base_sha
+        if publishes_packages and actual and value != actual:
+            errors.append(f"{field} {value!r} does not match actual Git SHA {actual}")
     issue = plan.get("release_issue")
     if not isinstance(issue, str):
         errors.append("missing exact release issue reference")
@@ -361,20 +419,6 @@ def validate_plan(
             "release issue must be a canonical numeric issue URL for "
             f"{repository}"
         )
-    if (
-        publishes_packages
-        and authorized_repository is not None
-        and authorized_release_issue is not None
-    ):
-        authorized_issue = (
-            f"https://github.com/{authorized_repository}/issues/"
-            f"{authorized_release_issue}"
-        )
-        if issue != authorized_issue:
-            errors.append(
-                f"release issue {issue!r} does not match independently authorized "
-                f"issue {authorized_issue!r}"
-            )
     if plan.get("destination_registry") != "crates.io":
         errors.append("destination_registry must be crates.io")
     for field in REQUIRED_LIST_FIELDS:
@@ -388,12 +432,44 @@ def validate_plan(
         for check in required_checks
     ):
         errors.append("required_checks entries must be nonempty strings")
-    if (
-        publishes_packages
-        and expected_checks
-        and required_checks != expected_checks
-    ):
-        errors.append("required_checks do not match independently reviewed checks")
+    if publishes_packages and release_authorization is not None:
+        authorization_pairs = {
+            field: (release_authorization.get(field), plan.get(field))
+            for field in (
+                "repository",
+                "release_issue",
+                "source_sha",
+                "default_branch_base_sha",
+                "required_checks",
+            )
+        }
+        for field, (authorized, planned) in authorization_pairs.items():
+            if authorized != planned:
+                errors.append(
+                    f"{field} does not match live release-issue authorization"
+                )
+        if release_authorization.get("_issue_url") != issue:
+            errors.append("fetched release issue URL does not match the plan")
+        if release_authorization.get("_issue_state") != "OPEN":
+            errors.append("release issue must be open while publication is authorized")
+        authorized_packages = sorted(
+            (
+                package.get("name"),
+                package.get("version"),
+            )
+            for package in release_authorization.get("packages", [])
+            if isinstance(package, dict)
+        )
+        planned_packages = sorted(
+            (package.get("name"), package.get("new_version"))
+            for package in raw_packages
+            if isinstance(package, dict) and package.get("publish") is True
+        )
+        if authorized_packages != planned_packages:
+            errors.append(
+                "publishable packages and versions do not match live "
+                "release-issue authorization"
+            )
 
     ownership_by_name = {
         record["current_package_name"]: record
@@ -526,15 +602,7 @@ def main() -> int:
     parser.add_argument("--check", type=Path, required=True, metavar="MANIFEST")
     parser.add_argument("--ownership", type=Path, default=OWNERSHIP_PATH)
     parser.add_argument("--repository-root", type=Path, default=ROOT)
-    parser.add_argument("--expected-sha")
-    parser.add_argument("--expected-base-sha")
-    parser.add_argument("--authorized-repository")
-    parser.add_argument("--authorized-release-issue", type=int)
-    parser.add_argument(
-        "--expected-check",
-        action="append",
-        help="independently reviewed executable check; repeat in manifest order",
-    )
+    parser.add_argument("--base-ref", default="origin/main")
     parser.add_argument("--print-order", action="store_true")
     args = parser.parse_args()
     try:
@@ -542,15 +610,36 @@ def main() -> int:
     except (OSError, ValueError, json.JSONDecodeError, tomllib.TOMLDecodeError) as error:
         print(f"error: {error}", file=sys.stderr)
         return 1
+    publishes_packages = any(
+        isinstance(package, dict) and package.get("publish") is True
+        for package in plan.get("packages", [])
+    )
+    try:
+        actual_head_sha = (
+            git_sha(args.repository_root, "rev-parse", "HEAD")
+            if publishes_packages
+            else None
+        )
+        actual_base_sha = (
+            git_sha(args.repository_root, "merge-base", args.base_ref, "HEAD")
+            if publishes_packages
+            else None
+        )
+        authorization = (
+            fetch_release_authorization(str(plan.get("release_issue") or ""))
+            if publishes_packages
+            else None
+        )
+    except (ValueError, json.JSONDecodeError) as error:
+        print(f"error: {error}", file=sys.stderr)
+        return 1
     errors = validate_plan(
         plan,
         load_json(args.ownership),
-        args.expected_sha,
-        args.expected_base_sha,
         args.repository_root,
-        args.authorized_repository,
-        args.authorized_release_issue,
-        args.expected_check,
+        actual_head_sha,
+        actual_base_sha,
+        authorization,
     )
     if errors:
         for error in errors:

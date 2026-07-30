@@ -127,12 +127,13 @@ def validate(
             )
 
     baseline_entries = baseline.get("violations", [])
-    baseline_keys: list[tuple[str, str, str]] = []
+    baseline_keys: list[tuple[str, str, str, bool]] = []
     for index, entry in enumerate(baseline_entries):
         key = (
             entry.get("source_package"),
             entry.get("dependency_package"),
             entry.get("dependency_kind"),
+            bool(entry.get("optional", False)),
         )
         baseline_keys.append(key)
         for field in (
@@ -150,6 +151,8 @@ def validate(
                 errors.append(f"baseline entry {index}: wildcard in {field}")
         if entry.get("dependency_kind") not in {"normal", "build", "dev"}:
             errors.append(f"baseline entry {index}: invalid dependency kind")
+        if "optional" in entry and not isinstance(entry.get("optional"), bool):
+            errors.append(f"baseline entry {index}: optional must be a boolean")
         issue = entry.get("migration_issue", "")
         if not issue.startswith(
             "https://github.com/moritzbrantner/rust-packages/issues/"
@@ -172,7 +175,8 @@ def validate(
         if source_owner == dependency_owner:
             continue
         kind = edge["dependency_kind"]
-        key = (source, dependency, kind)
+        optional = bool(edge.get("optional"))
+        key = (source, dependency, kind, optional)
         if dependency_owner not in ALLOWED_DEPENDENCIES.get(source_owner, set()):
             violation = {
                 **edge,
@@ -184,7 +188,8 @@ def validate(
             if key not in baseline_keys:
                 errors.append(
                     f"new forbidden edge: {source} -> {dependency} "
-                    f"({kind}; {source_owner} -> {dependency_owner})"
+                    f"({kind} {'optional' if optional else 'required'}; "
+                    f"{source_owner} -> {dependency_owner})"
                 )
 
     actual_keys = {
@@ -192,6 +197,7 @@ def validate(
             edge["source_package"],
             edge["dependency_package"],
             edge["dependency_kind"],
+            bool(edge.get("optional")),
         )
         for edge in violations
     }
@@ -199,7 +205,11 @@ def validate(
     if stale:
         errors.append(
             "stale baseline violations must be removed after the edge is fixed: "
-            + ", ".join(f"{source}->{dependency}({kind})" for source, dependency, kind in stale)
+            + ", ".join(
+                f"{source}->{dependency}({kind} "
+                f"{'optional' if optional else 'required'})"
+                for source, dependency, kind, optional in stale
+            )
         )
     return errors, violations, target_cycles
 
@@ -224,6 +234,7 @@ def baseline_entry(edge: dict) -> dict:
         "source_package": source,
         "dependency_package": dependency,
         "dependency_kind": edge["dependency_kind"],
+        "optional": bool(edge.get("optional")),
         "reason": reason,
         "migration_issue": f"https://github.com/moritzbrantner/rust-packages/issues/{issue}",
         "target_phase": phase,

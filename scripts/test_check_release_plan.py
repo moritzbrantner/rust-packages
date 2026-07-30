@@ -10,7 +10,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from check_release_plan import load_document, validate_plan
+from check_release_plan import extract_release_authorization, load_document, validate_plan
 
 ROOT = Path(__file__).resolve().parents[1]
 FIXTURES = ROOT / "scripts/fixtures/release_plans"
@@ -22,6 +22,24 @@ class ReleasePlanCheckTests(unittest.TestCase):
         self.plan = load_document(FIXTURES / "valid.json")
         self.ownership = load_document(FIXTURES / "ownership.json")
         self.invalid = load_document(FIXTURES / "invalid-cases.json")
+        self.authorization = {
+            "authorization": "publish",
+            "repository": self.plan["repository"],
+            "release_issue": self.plan["release_issue"],
+            "source_sha": self.plan["source_sha"],
+            "default_branch_base_sha": self.plan["default_branch_base_sha"],
+            "required_checks": self.plan["required_checks"],
+            "packages": [
+                {
+                    "name": package["name"],
+                    "version": package["new_version"],
+                }
+                for package in self.plan["packages"]
+                if package["publish"]
+            ],
+            "_issue_state": "OPEN",
+            "_issue_url": self.plan["release_issue"],
+        }
 
     def errors(
         self,
@@ -29,24 +47,22 @@ class ReleasePlanCheckTests(unittest.TestCase):
         *,
         root: Path = WORKSPACE,
         ownership: dict | None = None,
-        expected_sha: str | None = "2222222222222222222222222222222222222222",
-        expected_base_sha: str | None = "1111111111111111111111111111111111111111",
-        authorized_repository: str | None = "moritzbrantner/moenarch-foundation",
-        authorized_release_issue: int | None = 111,
-        expected_checks: list[str] | None = None,
+        actual_head_sha: str | None = "2222222222222222222222222222222222222222",
+        actual_base_sha: str | None = "1111111111111111111111111111111111111111",
+        release_authorization: dict | None = None,
     ) -> str:
-        if expected_checks is None:
-            expected_checks = ["cargo package --locked"]
         return "\n".join(
             validate_plan(
                 plan,
                 ownership or self.ownership,
-                expected_sha,
-                expected_base_sha,
                 root,
-                authorized_repository,
-                authorized_release_issue,
-                expected_checks,
+                actual_head_sha,
+                actual_base_sha,
+                (
+                    self.authorization
+                    if release_authorization is None
+                    else release_authorization
+                ),
             )
         )
 
@@ -184,7 +200,7 @@ remote = {{ {git_spec} }}
         plan = copy.deepcopy(self.plan)
         plan["required_checks"] = ["true"]
         self.assertIn(
-            "required_checks do not match independently reviewed checks",
+            "required_checks does not match live release-issue authorization",
             self.errors(plan),
         )
 
@@ -245,7 +261,7 @@ remote = {{ {git_spec} }}
             "https://github.com/moritzbrantner/moenarch-foundation/issues/999"
         )
         self.assertIn(
-            "does not match independently authorized issue",
+            "release_issue does not match live release-issue authorization",
             self.errors(plan),
         )
 
@@ -264,8 +280,8 @@ remote = {{ {git_spec} }}
     def test_source_and_base_sha_bindings_are_enforced(self) -> None:
         errors = self.errors(
             self.plan,
-            expected_sha="3333333333333333333333333333333333333333",
-            expected_base_sha="4444444444444444444444444444444444444444",
+            actual_head_sha="3333333333333333333333333333333333333333",
+            actual_base_sha="4444444444444444444444444444444444444444",
         )
         self.assertIn("source_sha", errors)
         self.assertIn("default_branch_base_sha", errors)
@@ -278,9 +294,9 @@ remote = {{ {git_spec} }}
                 repository_root=WORKSPACE,
             )
         )
-        self.assertIn("--expected-sha is required for a publishable plan", errors)
+        self.assertIn("actual Git head SHA is required for a publishable plan", errors)
         self.assertIn(
-            "--expected-base-sha is required for a publishable plan",
+            "actual Git base SHA is required for a publishable plan",
             errors,
         )
 
@@ -289,14 +305,41 @@ remote = {{ {git_spec} }}
             validate_plan(
                 self.plan,
                 self.ownership,
-                expected_sha="2222222222222222222222222222222222222222",
-                expected_base_sha="1111111111111111111111111111111111111111",
                 repository_root=WORKSPACE,
+                actual_head_sha="2222222222222222222222222222222222222222",
+                actual_base_sha="1111111111111111111111111111111111111111",
             )
         )
-        self.assertIn("--authorized-repository is required", errors)
-        self.assertIn("--authorized-release-issue is required", errors)
-        self.assertIn("--expected-check is required", errors)
+        self.assertIn("live release-issue authorization is required", errors)
+
+    def test_live_authorization_binds_checks_and_versions(self) -> None:
+        authorization = copy.deepcopy(self.authorization)
+        authorization["required_checks"] = ["true"]
+        authorization["packages"][0]["version"] = "9.9.9"
+        errors = self.errors(
+            self.plan,
+            release_authorization=authorization,
+        )
+        self.assertIn(
+            "required_checks does not match live release-issue authorization",
+            errors,
+        )
+        self.assertIn(
+            "publishable packages and versions do not match live "
+            "release-issue authorization",
+            errors,
+        )
+
+    def test_authorization_is_parsed_only_from_explicit_json_contract(self) -> None:
+        body = (
+            "Human prose is not authorization.\n\n```json\n"
+            + json.dumps({"release_authorization": self.authorization})
+            + "\n```\n"
+        )
+        parsed = extract_release_authorization(body)
+        self.assertEqual(parsed["authorization"], "publish")
+        with self.assertRaises(ValueError):
+            extract_release_authorization("Please publish everything.")
 
     def test_manifest_must_match_reviewed_path_and_package_name(self) -> None:
         plan = copy.deepcopy(self.plan)

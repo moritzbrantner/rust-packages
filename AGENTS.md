@@ -362,12 +362,9 @@ touching UI routing, builds, e2e behavior, or cross-surface integration.
 Use `scripts/check.sh` before full release-oriented handoff or when the task
 needs external-tool coverage.
 
-For big changes, run `scripts/check-preflight.sh` or the relevant GitHub Actions
-workflow locally with `act` before handoff when available:
-
-```bash
-act -W .github/workflows/workspace-ci.yml
-```
+For big changes, run `scripts/check-preflight.sh` and store exact-head local
+verification evidence before handoff. GitHub Actions state is informational and
+is not a readiness gate.
 
 Benchmark checks belong to `bun run bench`, `performance-ci`, or explicit
 benchmark commands. Do not add benchmarks to the default fast local gate unless

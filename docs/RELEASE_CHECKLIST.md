@@ -3,8 +3,8 @@
 > ADR 0012 and [`AGENT_DRIVEN_RELEASES.md`](AGENT_DRIVEN_RELEASES.md) supersede
 > this checklist's historical manual-publication policy. Package-specific
 > command sequences below remain useful gate/order references, but publication
-> requires an exact issue and validated manifest and runs through the authorized
-> trusted-publishing workflow.
+> requires an exact live issue authorization, validated manifest, clean exact
+> release commit, and passing local gates. Local Cargo publication is allowed.
 
 Use this checklist before tagging a release or publishing any crate wave.
 
