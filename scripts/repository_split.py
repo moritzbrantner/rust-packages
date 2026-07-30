@@ -63,6 +63,40 @@ def load_json(path: Path) -> dict:
         return json.load(handle)
 
 
+def ownership_records(authority: dict) -> list[dict]:
+    baseline = authority.get("packages")
+    post_baseline = authority.get("post_baseline_packages")
+    baseline_records = baseline if isinstance(baseline, list) else []
+    post_baseline_records = post_baseline if isinstance(post_baseline, list) else []
+    return [*baseline_records, *post_baseline_records]
+
+
+def git_commit_exists(root: Path, commit: str) -> bool:
+    if not FULL_SHA_RE.fullmatch(commit):
+        return False
+    return (
+        subprocess.run(
+            ["git", "cat-file", "-e", f"{commit}^{{commit}}"],
+            cwd=root,
+            check=False,
+            capture_output=True,
+        ).returncode
+        == 0
+    )
+
+
+def git_commit_is_ancestor(root: Path, ancestor: str, descendant: str = "HEAD") -> bool:
+    return (
+        subprocess.run(
+            ["git", "merge-base", "--is-ancestor", ancestor, descendant],
+            cwd=root,
+            check=False,
+            capture_output=True,
+        ).returncode
+        == 0
+    )
+
+
 def write_json(path: Path, value: object) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(value, indent=2, sort_keys=True) + "\n", encoding="utf-8")

@@ -18,6 +18,7 @@ from repository_split import (
     find_cycle,
     internal_dependency_edges,
     load_json,
+    ownership_records,
     write_json,
 )
 
@@ -84,12 +85,12 @@ def validate(
             "reviewed target repository graph is cyclic: "
             + " -> ".join(target_cycle)
         )
-    ownership_records = [
+    cargo_ownership_records = [
         record
-        for record in ownership.get("packages", [])
+        for record in ownership_records(ownership)
         if record.get("ecosystem") == "cargo"
     ]
-    names = [record.get("current_package_name") for record in ownership_records]
+    names = [record.get("current_package_name") for record in cargo_ownership_records]
     duplicates = sorted(name for name, count in Counter(names).items() if count > 1)
     if duplicates:
         errors.append("packages classified more than once: " + ", ".join(duplicates))
@@ -102,7 +103,7 @@ def validate(
 
     owners: dict[str, str] = {}
     records_by_name = {}
-    for record in ownership_records:
+    for record in cargo_ownership_records:
         name = record.get("current_package_name")
         repository = record.get("target_repository")
         records_by_name[name] = record

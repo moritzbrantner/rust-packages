@@ -12,11 +12,15 @@ from pathlib import Path
 
 from repository_split import (
     BASELINE_PATH,
+    FULL_SHA_RE,
     OWNERSHIP_PATH,
     ROOT,
     TARGET_REPOSITORIES,
     cargo_metadata,
+    git_commit_exists,
+    git_commit_is_ancestor,
     load_json,
+    ownership_records,
 )
 
 DESTINATION_MATRIX = ROOT / "docs/REPOSITORY_DESTINATION_MATRIX.md"
@@ -24,6 +28,7 @@ CONSUMERS_PATH = ROOT / "docs/repository-split/consumer-audit.json"
 CONSUMER_MATRIX = ROOT / "docs/CONSUMER_RELEASE_MATRIX.md"
 AUDITED_SOURCE_COMMIT = "d032ad2890c1df3c6a5b9eff024562f00d017fce"
 ADAPTER_KINDS = {"CLI", "server", "WASM", "npm wrapper", "app"}
+ISSUE_URL_PREFIX = "https://github.com/moritzbrantner/rust-packages/issues/"
 
 
 def bun_manifest_facts(root: Path = ROOT) -> dict[str, dict]:
@@ -46,13 +51,56 @@ def validate_authority(
     baseline: dict,
 ) -> list[str]:
     errors: list[str] = []
+    if authority.get("schema_version") != 2:
+        errors.append("schema_version must be 2")
     if authority.get("source_commit") != AUDITED_SOURCE_COMMIT:
         errors.append(
             f"source_commit must be audited commit {AUDITED_SOURCE_COMMIT}"
         )
-    records = authority.get("packages")
-    if not isinstance(records, list):
+    baseline_records = authority.get("packages")
+    if not isinstance(baseline_records, list):
         return errors + ["packages must be a list"]
+    post_baseline_records = authority.get("post_baseline_packages")
+    if not isinstance(post_baseline_records, list):
+        return errors + ["post_baseline_packages must be a list"]
+    records = ownership_records(authority)
+    for index, record in enumerate(post_baseline_records):
+        provenance = record.get("provenance")
+        if not isinstance(provenance, dict):
+            errors.append(f"post-baseline package {index}: missing provenance")
+            continue
+        if set(provenance) != {"introduced_after_commit", "issue"}:
+            errors.append(
+                f"post-baseline package {index}: provenance must contain only "
+                "introduced_after_commit and issue"
+            )
+        commit = provenance.get("introduced_after_commit")
+        if not isinstance(commit, str) or not FULL_SHA_RE.fullmatch(commit):
+            errors.append(
+                f"post-baseline package {index}: introduced_after_commit "
+                "must be an exact full commit"
+            )
+        elif not git_commit_exists(ROOT, commit):
+            errors.append(
+                f"post-baseline package {index}: introduced_after_commit is unavailable"
+            )
+        elif not git_commit_is_ancestor(ROOT, AUDITED_SOURCE_COMMIT, commit):
+            errors.append(
+                f"post-baseline package {index}: introduced_after_commit "
+                "must not predate the Phase A audit"
+            )
+        elif not git_commit_is_ancestor(ROOT, commit):
+            errors.append(
+                f"post-baseline package {index}: introduced_after_commit "
+                "must be an ancestor of HEAD"
+            )
+        issue = provenance.get("issue")
+        if (
+            not isinstance(issue, str)
+            or not issue.startswith(ISSUE_URL_PREFIX)
+            or not issue.removeprefix(ISSUE_URL_PREFIX).isdigit()
+        ):
+            errors.append(f"post-baseline package {index}: invalid creating issue")
     ids = [record.get("id") for record in records]
     duplicate_ids = sorted(item for item, count in Counter(ids).items() if count > 1)
     if duplicate_ids:
@@ -168,7 +216,7 @@ def validate_authority(
 
 
 def destination_markdown(authority: dict) -> str:
-    records = authority["packages"]
+    records = ownership_records(authority)
     cargo_counts = Counter(
         record["target_repository"]
         for record in records
@@ -254,8 +302,8 @@ def consumer_markdown(source: dict) -> str:
             "",
             "## Namespace and registry evidence",
             "",
-            "- All 347 active Cargo workspace packages use the `moenarch-*` namespace.",
-            "- The registry audit found 43 matching workspace libraries and did not find 304 active package names through the broad search; this is evidence, not proof that every missing name has never existed.",
+            "- At the immutable Phase A audit commit, all 347 active Cargo workspace packages used the `moenarch-*` namespace.",
+            "- At that audit commit, the registry search found 43 matching workspace libraries and did not find 304 active package names; this is historical evidence, not a live claim about post-baseline packages.",
             "- `moenarch-text-transcripts` is `0.1.1` in source while crates.io reports `0.1.2`.",
             "- Runtime core, jobs, video core, model runtime, text transcripts, and audio core occur under both historical `moritzbrantner-*` and current `moenarch-*` names in consumer/release material.",
             "- Repository metadata is mixed and must be corrected only by each package's release-owner issue.",
@@ -306,7 +354,7 @@ def main() -> int:
             return 1
         print(
             f"reviewed ownership is valid and matrices are current "
-            f"({len(authority['packages'])} packages)"
+            f"({len(ownership_records(authority))} packages)"
         )
         return 0
     for path, content in expected.items():

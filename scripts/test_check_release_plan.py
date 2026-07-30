@@ -80,6 +80,12 @@ class ReleasePlanCheckTests(unittest.TestCase):
         plan = load_document(FIXTURES / "valid.toml")
         self.assertEqual(self.errors(plan), "")
 
+    def test_post_baseline_package_is_available_to_release_validation(self) -> None:
+        ownership = copy.deepcopy(self.ownership)
+        post_baseline = ownership["packages"].pop(0)
+        ownership["post_baseline_packages"] = [post_baseline]
+        self.assertEqual(self.errors(self.plan, ownership=ownership), "")
+
     def test_cycle_is_rejected(self) -> None:
         plan = copy.deepcopy(self.plan)
         for package in plan["packages"]:

@@ -20,6 +20,7 @@ from repository_split import (
     SEMVER_RE,
     find_cycle,
     load_json,
+    ownership_records,
 )
 
 REQUIRED_LIST_FIELDS = (
@@ -503,7 +504,7 @@ def validate_plan(
 
     ownership_by_name = {
         record["current_package_name"]: record
-        for record in ownership.get("packages", [])
+        for record in ownership_records(ownership)
         if record.get("ecosystem") == "cargo"
     }
     packages = raw_packages
