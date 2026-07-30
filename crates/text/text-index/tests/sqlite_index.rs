@@ -34,10 +34,7 @@ fn documents() -> Vec<IndexDocument> {
         source_id: Some("report".to_string()),
         source_kind: Some("markdown".to_string()),
         uri: None,
-        media_timestamp: Some(
-            video_analysis_core::Timestamp::new(10, video_analysis_core::Timebase::new(1, 1))
-                .into(),
-        ),
+        media_timestamp: Some(text_core::Timestamp::new(10, text_core::Timebase::new(1, 1)).into()),
         duration_seconds: None,
     });
     report.semantic_facets.push(SemanticFacet {

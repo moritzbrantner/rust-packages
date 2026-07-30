@@ -96,14 +96,6 @@
       "dependency_package": "moenarch-video-analysis-core",
       "migration_issue": "https://github.com/moritzbrantner/rust-packages/issues/109",
       "reason": "inappropriate dependency on video-analysis-core remains",
-      "source_package": "moenarch-audio-analysis-separation",
-      "target_phase": "foundation"
-    },
-    {
-      "dependency_kind": "normal",
-      "dependency_package": "moenarch-video-analysis-core",
-      "migration_issue": "https://github.com/moritzbrantner/rust-packages/issues/109",
-      "reason": "inappropriate dependency on video-analysis-core remains",
       "source_package": "moenarch-audio-analysis-speakers",
       "target_phase": "foundation"
     },
@@ -121,14 +113,6 @@
       "migration_issue": "https://github.com/moritzbrantner/rust-packages/issues/109",
       "reason": "inappropriate dependency on video-analysis-core remains",
       "source_package": "moenarch-audio-analysis-test-support",
-      "target_phase": "foundation"
-    },
-    {
-      "dependency_kind": "normal",
-      "dependency_package": "moenarch-video-analysis-core",
-      "migration_issue": "https://github.com/moritzbrantner/rust-packages/issues/109",
-      "reason": "inappropriate dependency on video-analysis-core remains",
-      "source_package": "moenarch-audio-analysis-transcription",
       "target_phase": "foundation"
     },
     {
@@ -157,174 +141,6 @@
     },
     {
       "dependency_kind": "normal",
-      "dependency_package": "moenarch-video-analysis-core",
-      "migration_issue": "https://github.com/moritzbrantner/rust-packages/issues/109",
-      "reason": "inappropriate dependency on video-analysis-core remains",
-      "source_package": "moenarch-data-inversion-core",
-      "target_phase": "foundation"
-    },
-    {
-      "dependency_kind": "normal",
-      "dependency_package": "moenarch-video-analysis-core",
-      "migration_issue": "https://github.com/moritzbrantner/rust-packages/issues/109",
-      "reason": "inappropriate dependency on video-analysis-core remains",
-      "source_package": "moenarch-dense-data",
-      "target_phase": "foundation"
-    },
-    {
-      "dependency_kind": "normal",
-      "dependency_package": "moenarch-video-analysis-core",
-      "migration_issue": "https://github.com/moritzbrantner/rust-packages/issues/109",
-      "reason": "inappropriate dependency on video-analysis-core remains",
-      "source_package": "moenarch-graph-analysis-core",
-      "target_phase": "foundation"
-    },
-    {
-      "dependency_kind": "normal",
-      "dependency_package": "moenarch-video-analysis-core",
-      "migration_issue": "https://github.com/moritzbrantner/rust-packages/issues/109",
-      "reason": "inappropriate dependency on video-analysis-core remains",
-      "source_package": "moenarch-math-linear",
-      "target_phase": "foundation"
-    },
-    {
-      "dependency_kind": "normal",
-      "dependency_package": "moenarch-video-analysis-core",
-      "migration_issue": "https://github.com/moritzbrantner/rust-packages/issues/109",
-      "reason": "inappropriate dependency on video-analysis-core remains",
-      "source_package": "moenarch-math-signal-core",
-      "target_phase": "foundation"
-    },
-    {
-      "dependency_kind": "normal",
-      "dependency_package": "moenarch-video-analysis-core",
-      "migration_issue": "https://github.com/moritzbrantner/rust-packages/issues/109",
-      "reason": "inappropriate dependency on video-analysis-core remains",
-      "source_package": "moenarch-math-sparse-data",
-      "target_phase": "foundation"
-    },
-    {
-      "dependency_kind": "normal",
-      "dependency_package": "moenarch-video-analysis-core",
-      "migration_issue": "https://github.com/moritzbrantner/rust-packages/issues/109",
-      "reason": "inappropriate dependency on video-analysis-core remains",
-      "source_package": "moenarch-math-statistics",
-      "target_phase": "foundation"
-    },
-    {
-      "dependency_kind": "normal",
-      "dependency_package": "moenarch-video-analysis-core",
-      "migration_issue": "https://github.com/moritzbrantner/rust-packages/issues/109",
-      "reason": "inappropriate dependency on video-analysis-core remains",
-      "source_package": "moenarch-numbers-core",
-      "target_phase": "foundation"
-    },
-    {
-      "dependency_kind": "normal",
-      "dependency_package": "moenarch-video-analysis-core",
-      "migration_issue": "https://github.com/moritzbrantner/rust-packages/issues/109",
-      "reason": "inappropriate dependency on video-analysis-core remains",
-      "source_package": "moenarch-tensor-data",
-      "target_phase": "foundation"
-    },
-    {
-      "dependency_kind": "normal",
-      "dependency_package": "moenarch-video-analysis-core",
-      "migration_issue": "https://github.com/moritzbrantner/rust-packages/issues/109",
-      "reason": "inappropriate dependency on video-analysis-core remains",
-      "source_package": "moenarch-text-analysis",
-      "target_phase": "foundation"
-    },
-    {
-      "dependency_kind": "normal",
-      "dependency_package": "moenarch-video-analysis-core",
-      "migration_issue": "https://github.com/moritzbrantner/rust-packages/issues/109",
-      "reason": "inappropriate dependency on video-analysis-core remains",
-      "source_package": "moenarch-text-classification",
-      "target_phase": "foundation"
-    },
-    {
-      "dependency_kind": "normal",
-      "dependency_package": "moenarch-video-analysis-core",
-      "migration_issue": "https://github.com/moritzbrantner/rust-packages/issues/109",
-      "reason": "inappropriate dependency on video-analysis-core remains",
-      "source_package": "moenarch-text-core",
-      "target_phase": "foundation"
-    },
-    {
-      "dependency_kind": "normal",
-      "dependency_package": "moenarch-video-analysis-core",
-      "migration_issue": "https://github.com/moritzbrantner/rust-packages/issues/109",
-      "reason": "inappropriate dependency on video-analysis-core remains",
-      "source_package": "moenarch-text-embeddings",
-      "target_phase": "foundation"
-    },
-    {
-      "dependency_kind": "normal",
-      "dependency_package": "moenarch-video-analysis-core",
-      "migration_issue": "https://github.com/moritzbrantner/rust-packages/issues/109",
-      "reason": "inappropriate dependency on video-analysis-core remains",
-      "source_package": "moenarch-text-generation",
-      "target_phase": "foundation"
-    },
-    {
-      "dependency_kind": "normal",
-      "dependency_package": "moenarch-video-analysis-core",
-      "migration_issue": "https://github.com/moritzbrantner/rust-packages/issues/109",
-      "reason": "inappropriate dependency on video-analysis-core remains",
-      "source_package": "moenarch-text-generation-linguistics",
-      "target_phase": "foundation"
-    },
-    {
-      "dependency_kind": "normal",
-      "dependency_package": "moenarch-video-analysis-core",
-      "migration_issue": "https://github.com/moritzbrantner/rust-packages/issues/109",
-      "reason": "inappropriate dependency on video-analysis-core remains",
-      "source_package": "moenarch-text-index",
-      "target_phase": "foundation"
-    },
-    {
-      "dependency_kind": "normal",
-      "dependency_package": "moenarch-video-analysis-core",
-      "migration_issue": "https://github.com/moritzbrantner/rust-packages/issues/109",
-      "reason": "inappropriate dependency on video-analysis-core remains",
-      "source_package": "moenarch-text-lexical",
-      "target_phase": "foundation"
-    },
-    {
-      "dependency_kind": "normal",
-      "dependency_package": "moenarch-video-analysis-core",
-      "migration_issue": "https://github.com/moritzbrantner/rust-packages/issues/109",
-      "reason": "inappropriate dependency on video-analysis-core remains",
-      "source_package": "moenarch-text-linguistics",
-      "target_phase": "foundation"
-    },
-    {
-      "dependency_kind": "normal",
-      "dependency_package": "moenarch-video-analysis-core",
-      "migration_issue": "https://github.com/moritzbrantner/rust-packages/issues/109",
-      "reason": "inappropriate dependency on video-analysis-core remains",
-      "source_package": "moenarch-text-model-runtime",
-      "target_phase": "foundation"
-    },
-    {
-      "dependency_kind": "normal",
-      "dependency_package": "moenarch-video-analysis-core",
-      "migration_issue": "https://github.com/moritzbrantner/rust-packages/issues/109",
-      "reason": "inappropriate dependency on video-analysis-core remains",
-      "source_package": "moenarch-text-question-answering",
-      "target_phase": "foundation"
-    },
-    {
-      "dependency_kind": "normal",
-      "dependency_package": "moenarch-video-analysis-core",
-      "migration_issue": "https://github.com/moritzbrantner/rust-packages/issues/109",
-      "reason": "inappropriate dependency on video-analysis-core remains",
-      "source_package": "moenarch-text-retrieval",
-      "target_phase": "foundation"
-    },
-    {
-      "dependency_kind": "normal",
       "dependency_package": "moenarch-audio-analysis-core",
       "migration_issue": "https://github.com/moritzbrantner/rust-packages/issues/112",
       "reason": "transcript contracts still import audio or video implementation",
@@ -346,22 +162,6 @@
       "reason": "transcript contracts still import audio or video implementation",
       "source_package": "moenarch-text-transcripts",
       "target_phase": "nlp"
-    },
-    {
-      "dependency_kind": "normal",
-      "dependency_package": "moenarch-video-analysis-core",
-      "migration_issue": "https://github.com/moritzbrantner/rust-packages/issues/109",
-      "reason": "inappropriate dependency on video-analysis-core remains",
-      "source_package": "moenarch-vector-analysis-core",
-      "target_phase": "foundation"
-    },
-    {
-      "dependency_kind": "normal",
-      "dependency_package": "moenarch-video-analysis-core",
-      "migration_issue": "https://github.com/moritzbrantner/rust-packages/issues/109",
-      "reason": "inappropriate dependency on video-analysis-core remains",
-      "source_package": "moenarch-vector-analysis-index",
-      "target_phase": "foundation"
     },
     {
       "dependency_kind": "dev",

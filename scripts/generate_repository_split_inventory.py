@@ -16,9 +16,11 @@ from repository_split import (
     OWNERSHIP_PATH,
     ROOT,
     TARGET_REPOSITORIES,
+    boundary_resolution_keys,
     cargo_metadata,
     load_json,
     ownership_records,
+    validate_boundary_resolution_amendments,
     validate_ownership_authority,
 )
 
@@ -48,6 +50,7 @@ def validate_authority(
     baseline: dict,
 ) -> list[str]:
     errors = validate_ownership_authority(authority, root=ROOT)
+    errors.extend(validate_boundary_resolution_amendments(authority, baseline))
     baseline_records = authority.get("packages")
     if not isinstance(baseline_records, list):
         return errors
@@ -137,6 +140,7 @@ def validate_authority(
                     f"{ecosystem}:{name}: target differs from wrapped library {wrapped}"
                 )
 
+    resolved_keys = boundary_resolution_keys(authority)
     expected_annotations: dict[str, list[dict]] = {}
     for violation in baseline.get("violations", []):
         expected_annotations.setdefault(violation["source_package"], []).append(
@@ -156,7 +160,19 @@ def validate_authority(
             ),
         )
         actual = sorted(
-            record.get("temporary_boundary_violations", []),
+            (
+                violation
+                for violation in record.get("temporary_boundary_violations", [])
+                if (
+                    record["current_package_name"],
+                    violation.get("dependency_package"),
+                    violation.get("dependency_kind"),
+                    bool(violation.get("optional", False)),
+                    violation.get("migration_issue"),
+                    violation.get("target_phase"),
+                )
+                not in resolved_keys
+            ),
             key=lambda item: (
                 item.get("dependency_package", ""),
                 item.get("dependency_kind", ""),

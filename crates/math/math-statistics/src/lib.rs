@@ -2,8 +2,8 @@
 
 pub mod surface;
 use math_linear::{F32Matrix, F32MatrixView, F64Matrix, MatrixShape, PseudoinverseOptions};
+use media_core::{DetectError, Result};
 use numbers_core::{quantile, quartiles, NumberRange, RunningStats};
-use video_analysis_core::{DetectError, Result};
 
 fn invalid_argument(message: impl Into<String>) -> DetectError {
     DetectError::InvalidArgument(message.into())

@@ -2202,8 +2202,8 @@ version = "0.1.0"
 dependencies = [
  "moenarch-audio-analysis-recognition",
  "moenarch-jobs-core",
+ "moenarch-media-core",
  "moenarch-runtime-core",
- "moenarch-video-analysis-core",
  "serde",
  "serde_json",
  "tempfile",
@@ -2358,12 +2358,12 @@ dependencies = [
  "hound",
  "moenarch-audio-analysis-io",
  "moenarch-audio-analysis-speakers",
+ "moenarch-media-core",
  "moenarch-model-runtime",
  "moenarch-runtime-core",
  "moenarch-runtime-onnx",
  "moenarch-text-model-runtime",
  "moenarch-text-transcripts",
- "moenarch-video-analysis-core",
  "moenarch-video-analysis-ffmpeg",
  "rayon",
  "rustfft",
@@ -2634,8 +2634,8 @@ dependencies = [
 name = "moenarch-data-inversion-core"
 version = "0.1.0"
 dependencies = [
+ "moenarch-media-core",
  "moenarch-runtime-core",
- "moenarch-video-analysis-core",
  "serde",
  "serde_json",
 ]
@@ -2680,9 +2680,9 @@ dependencies = [
  "criterion",
  "moenarch-math-linear",
  "moenarch-math-statistics",
+ "moenarch-media-core",
  "moenarch-numbers-core",
  "moenarch-runtime-core",
- "moenarch-video-analysis-core",
  "serde",
  "serde_json",
 ]
@@ -2724,8 +2724,8 @@ dependencies = [
 name = "moenarch-graph-analysis-core"
 version = "0.1.0"
 dependencies = [
+ "moenarch-media-core",
  "moenarch-runtime-core",
- "moenarch-video-analysis-core",
  "serde",
  "serde_json",
 ]
@@ -3343,6 +3343,7 @@ name = "moenarch-math-geometry-2d"
 version = "0.1.0"
 dependencies = [
  "criterion",
+ "moenarch-media-core",
  "moenarch-runtime-core",
  "serde",
  "serde_json",
@@ -3387,10 +3388,10 @@ version = "0.1.0"
 dependencies = [
  "criterion",
  "faer",
+ "moenarch-media-core",
  "moenarch-runtime-core",
  "moenarch-tensor-data",
  "moenarch-vector-analysis-core",
- "moenarch-video-analysis-core",
  "nalgebra",
  "serde",
  "serde_json",
@@ -3434,9 +3435,9 @@ name = "moenarch-math-signal-core"
 version = "0.1.0"
 dependencies = [
  "criterion",
+ "moenarch-media-core",
  "moenarch-numbers-core",
  "moenarch-runtime-core",
- "moenarch-video-analysis-core",
  "serde",
  "serde_json",
 ]
@@ -3480,10 +3481,10 @@ version = "0.1.0"
 dependencies = [
  "criterion",
  "moenarch-math-linear",
+ "moenarch-media-core",
  "moenarch-numbers-core",
  "moenarch-runtime-core",
  "moenarch-vector-analysis-core",
- "moenarch-video-analysis-core",
  "serde",
  "serde_json",
 ]
@@ -3527,9 +3528,9 @@ version = "0.1.0"
 dependencies = [
  "criterion",
  "moenarch-math-linear",
+ "moenarch-media-core",
  "moenarch-numbers-core",
  "moenarch-runtime-core",
- "moenarch-video-analysis-core",
  "serde",
  "serde_json",
 ]
@@ -3622,8 +3623,8 @@ name = "moenarch-numbers-core"
 version = "0.1.0"
 dependencies = [
  "criterion",
+ "moenarch-media-core",
  "moenarch-runtime-core",
- "moenarch-video-analysis-core",
  "serde",
  "serde_json",
 ]
@@ -3683,8 +3684,8 @@ dependencies = [
 name = "moenarch-tensor-data"
 version = "0.1.0"
 dependencies = [
+ "moenarch-media-core",
  "moenarch-runtime-core",
- "moenarch-video-analysis-core",
  "serde",
  "serde_json",
 ]
@@ -3737,7 +3738,6 @@ dependencies = [
  "moenarch-text-linguistics",
  "moenarch-text-retrieval",
  "moenarch-text-transcripts",
- "moenarch-video-analysis-core",
  "serde",
  "serde_json",
 ]
@@ -3785,7 +3785,6 @@ dependencies = [
  "moenarch-text-core",
  "moenarch-text-lexical",
  "moenarch-text-model-runtime",
- "moenarch-video-analysis-core",
  "serde",
  "serde_json",
  "tempfile",
@@ -3830,8 +3829,8 @@ version = "0.1.0"
 dependencies = [
  "criterion",
  "moenarch-jobs-core",
+ "moenarch-media-core",
  "moenarch-runtime-core",
- "moenarch-video-analysis-core",
  "serde",
  "serde_json",
  "unicode-normalization",
@@ -3888,7 +3887,6 @@ dependencies = [
  "moenarch-text-model-runtime",
  "moenarch-vector-analysis-core",
  "moenarch-vector-analysis-index",
- "moenarch-video-analysis-core",
  "serde",
  "serde_json",
  "tokenizers",
@@ -3935,7 +3933,6 @@ dependencies = [
  "moenarch-data-inversion-core",
  "moenarch-runtime-core",
  "moenarch-text-core",
- "moenarch-video-analysis-core",
  "serde",
  "serde_json",
 ]
@@ -3959,7 +3956,6 @@ dependencies = [
  "moenarch-text-core",
  "moenarch-text-generation",
  "moenarch-text-linguistics",
- "moenarch-video-analysis-core",
  "serde",
  "serde_json",
 ]
@@ -4029,7 +4025,6 @@ dependencies = [
  "moenarch-text-embeddings",
  "moenarch-text-lexical",
  "moenarch-vector-analysis-index",
- "moenarch-video-analysis-core",
  "rusqlite",
  "serde",
  "serde_json",
@@ -4076,7 +4071,6 @@ dependencies = [
  "moenarch-math-sparse-data",
  "moenarch-runtime-core",
  "moenarch-text-core",
- "moenarch-video-analysis-core",
  "serde",
  "serde_json",
 ]
@@ -4129,7 +4123,6 @@ dependencies = [
  "moenarch-text-lexical",
  "moenarch-text-model-runtime",
  "moenarch-text-transcripts",
- "moenarch-video-analysis-core",
  "serde",
  "serde_json",
  "tempfile",
@@ -4178,10 +4171,10 @@ dependencies = [
  "candle-nn",
  "candle-transformers",
  "moenarch-jobs-core",
+ "moenarch-media-core",
  "moenarch-model-runtime",
  "moenarch-runtime-core",
  "moenarch-runtime-onnx",
- "moenarch-video-analysis-core",
  "serde",
  "serde_json",
  "tokenizers",
@@ -4224,6 +4217,7 @@ dependencies = [
 name = "moenarch-text-question-answering"
 version = "0.1.0"
 dependencies = [
+ "moenarch-media-core",
  "moenarch-model-runtime",
  "moenarch-runtime-core",
  "moenarch-runtime-onnx",
@@ -4232,7 +4226,6 @@ dependencies = [
  "moenarch-text-lexical",
  "moenarch-text-model-runtime",
  "moenarch-text-retrieval",
- "moenarch-video-analysis-core",
  "serde",
  "serde_json",
 ]
@@ -4283,7 +4276,6 @@ dependencies = [
  "moenarch-text-model-runtime",
  "moenarch-text-transcripts",
  "moenarch-vector-analysis-index",
- "moenarch-video-analysis-core",
  "serde",
  "serde_json",
  "tempfile",
@@ -4561,8 +4553,8 @@ name = "moenarch-vector-analysis-core"
 version = "0.1.0"
 dependencies = [
  "criterion",
+ "moenarch-media-core",
  "moenarch-runtime-core",
- "moenarch-video-analysis-core",
  "serde",
  "serde_json",
 ]
@@ -4605,9 +4597,9 @@ name = "moenarch-vector-analysis-index"
 version = "0.1.0"
 dependencies = [
  "criterion",
+ "moenarch-media-core",
  "moenarch-runtime-core",
  "moenarch-vector-analysis-core",
- "moenarch-video-analysis-core",
  "serde",
  "serde_json",
 ]
@@ -4805,11 +4797,11 @@ dependencies = [
  "moenarch-math-geometry-2d",
  "moenarch-media-core",
  "moenarch-runtime-core",
+ "moenarch-text-core",
  "num-rational",
  "num-traits",
  "serde",
  "serde_json",
- "thiserror 2.0.18",
 ]
 
 [[package]]

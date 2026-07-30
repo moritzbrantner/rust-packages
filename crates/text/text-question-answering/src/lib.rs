@@ -6,6 +6,7 @@ pub mod surface;
 use std::collections::BTreeMap;
 use std::path::PathBuf;
 
+use media_core::{DetectError, Result};
 use retrieved_context::RetrievedContext;
 use serde::{Deserialize, Serialize};
 use text_embeddings::{HashedTextEmbedder, TextEmbedderBackend, TextEmbeddingConfig};
@@ -16,7 +17,6 @@ use text_index::{
 use text_model_runtime::{OnnxQuestionAnswerer, QuestionAnsweringDecodeOptions};
 use text_model_runtime::{QuestionAnsweringBackend, TextRuntimeBackend};
 use text_retrieval::{IngestionOptions, RetrievalIndex, SearchDocument, SearchQuery, SearchResult};
-use video_analysis_core::{DetectError, Result};
 
 /// Runtime families for extractive question answering.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]

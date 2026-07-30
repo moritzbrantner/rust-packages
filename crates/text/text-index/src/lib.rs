@@ -7,6 +7,7 @@ use std::collections::{BTreeMap, BTreeSet};
 use std::path::Path;
 
 use serde::{Deserialize, Serialize};
+use text_core::DetectError;
 use text_core::{
     split_paragraphs, split_sentence_spans, tokenize, TextAnnotationSpan, TextDocumentContract,
     TextProcessingOptions, TextProvenance, TextSegmentContract, TextSourceRef, TextSpan,
@@ -20,7 +21,6 @@ use thiserror::Error;
 use vector_analysis_index::{
     VectorRecord, VectorRecordId, VectorRecordMetadata, VectorSearchIndex,
 };
-use video_analysis_core::DetectError;
 
 const TITLE_METADATA_KEY: &str = "__title";
 
@@ -2000,8 +2000,7 @@ mod tests {
             source_kind: Some("audio".to_string()),
             uri: None,
             media_timestamp: Some(
-                video_analysis_core::Timestamp::new(10, video_analysis_core::Timebase::new(1, 1))
-                    .into(),
+                text_core::Timestamp::new(10, text_core::Timebase::new(1, 1)).into(),
             ),
             duration_seconds: Some(3.0),
         });

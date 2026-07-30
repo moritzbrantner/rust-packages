@@ -1,7 +1,7 @@
 #![doc = include_str!("../README.md")]
 
 pub mod surface;
-use video_analysis_core::{DetectError, Result};
+use media_core::{DetectError, Result};
 
 fn invalid_argument(message: impl Into<String>) -> DetectError {
     DetectError::InvalidArgument(message.into())

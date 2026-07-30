@@ -15,6 +15,7 @@ use candle_nn::{Linear as CandleLinear, Module as CandleModule, VarBuilder as Ca
 use candle_transformers::models::{bert as candle_bert, distilbert as candle_distilbert};
 #[cfg(feature = "model-bundles")]
 use jobs_core::BackgroundJobRunner;
+use media_core::{DetectError, Result};
 #[cfg(feature = "model-bundles")]
 use model_runtime::{
     jobs::spawn_model_download_job, HuggingFaceDownloader, HuggingFaceModelSpec, ModelBundle,
@@ -22,7 +23,6 @@ use model_runtime::{
 };
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
-use video_analysis_core::{DetectError, Result};
 
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(tag = "kind", rename_all = "camelCase")]

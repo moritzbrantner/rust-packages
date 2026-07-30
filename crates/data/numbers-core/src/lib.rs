@@ -1,8 +1,8 @@
 #![doc = include_str!("../README.md")]
 
 pub mod surface;
+use media_core::{DetectError, Result};
 use serde::{Deserialize, Serialize};
-use video_analysis_core::{DetectError, Result};
 
 #[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
 /// Summary statistics for a stream or slice of scalar values.

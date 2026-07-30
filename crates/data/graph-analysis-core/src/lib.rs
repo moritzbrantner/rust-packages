@@ -3,7 +3,7 @@
 pub mod surface;
 use std::collections::{BTreeMap, BTreeSet, VecDeque};
 
-use video_analysis_core::{DetectError, Result};
+use media_core::{DetectError, Result};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 /// Variants describing graph kind.

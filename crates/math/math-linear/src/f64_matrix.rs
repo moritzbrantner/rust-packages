@@ -1,7 +1,7 @@
 use std::convert::TryFrom;
 
 use crate::{invalid_argument, F32Matrix, MatrixLayout, MatrixShape};
-use video_analysis_core::{DetectError, Result};
+use media_core::{DetectError, Result};
 
 #[derive(Debug, Clone, PartialEq)]
 /// Owned finite `f64` matrix stored in row-major order.

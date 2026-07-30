@@ -10,9 +10,7 @@ use text_core::{
     detailed_text_stats, split_sentence_spans, text_stats, tokenize, tokenize_words, word_counts,
     TextProcessingOptions, TextSpan, TextStats, TokenKind,
 };
-use video_analysis_core::{
-    AnalysisEvent, DetectError, Result, TextAnalyzer, TextSegment, Timestamp,
-};
+use text_core::{AnalysisEvent, DetectError, Result, TextAnalyzer, TextSegment, Timestamp};
 
 pub use corpus::*;
 
@@ -1257,7 +1255,7 @@ fn invalid_argument(message: impl Into<String>) -> DetectError {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use video_analysis_core::{OwnedTextSegment, TextPipeline};
+    use text_core::{OwnedTextSegment, TextPipeline};
 
     #[test]
     fn ranks_terms_by_count() {

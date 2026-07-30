@@ -30,11 +30,9 @@ use text_core::{
     AnnotationConfidence, AnnotationProvenance, Sentence, TextAnnotationGraph, TextDocument,
     TextProcessingOptions, Token,
 };
+use text_core::{AnalysisEvent, DetectError, OwnedTextSegment, Result, TextAnalyzer, TextSegment};
 #[cfg(feature = "transcripts")]
 use text_transcripts::{TranscriptSegment, TranscriptionContract, TranscriptionResult};
-use video_analysis_core::{
-    AnalysisEvent, DetectError, OwnedTextSegment, Result, TextAnalyzer, TextSegment,
-};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 /// Variants describing analysis profile.

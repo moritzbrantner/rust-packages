@@ -7,9 +7,9 @@ use math_linear::{F32Matrix, MatrixShape};
 use math_statistics::{
     CovarianceMatrix, PrincipalComponents, RunningCovariance, WeightedObservation,
 };
+use media_core::{DetectError, Result};
 use numbers_core::{NumberSummary, RunningStats};
 use serde::{Deserialize, Serialize};
-use video_analysis_core::{DetectError, Result};
 
 #[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
 /// Weighted point in a fixed-dimensional dense coordinate space.

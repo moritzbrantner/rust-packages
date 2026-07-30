@@ -7,13 +7,13 @@ use std::path::PathBuf;
 
 use serde::{Deserialize, Serialize};
 use text_core::tokenize_words;
+use text_core::{DetectError, Result};
 use text_lexical::{sentiment as lexical_sentiment, SentimentLexicon};
 #[cfg(all(feature = "candle", feature = "model-bundles"))]
 use text_model_runtime::CandleSequenceClassifier;
 #[cfg(all(feature = "onnx", feature = "model-bundles"))]
 use text_model_runtime::OnnxZeroShotClassifier;
 use text_model_runtime::{PairSequenceClassifier, SequenceClassifier, TextRuntimeBackend};
-use video_analysis_core::{DetectError, Result};
 
 /// Text classification capability families exposed by this crate.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]

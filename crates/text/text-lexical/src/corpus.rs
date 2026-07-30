@@ -10,7 +10,7 @@ use text_core::{
     TextProcessingOptions, TextProvenance, TextSegmentContract, TextSourceRef, TimestampContract,
     TokenKind,
 };
-use video_analysis_core::{DetectError, Result, TextSegment};
+use text_core::{DetectError, Result, TextSegment};
 
 const TEXT_CORPUS_SNAPSHOT_SCHEMA_VERSION: u32 = 1;
 

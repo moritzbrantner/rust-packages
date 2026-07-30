@@ -15,11 +15,11 @@ use std::fs;
 use std::path::Path;
 use std::path::PathBuf;
 
+use media_core::{DetectError, Result};
 #[cfg(any(feature = "silero-vad", feature = "pyannote-vad"))]
 use runtime_onnx::OnnxRunner;
 #[cfg(feature = "pyannote-vad")]
 use serde::Deserialize;
-use video_analysis_core::{DetectError, Result};
 
 use crate::{SpeechActivitySegment, TranscriptionVadProvider, VadRequest, VadResponse};
 

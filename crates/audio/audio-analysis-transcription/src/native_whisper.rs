@@ -12,6 +12,7 @@ use candle_nn::{
 };
 use candle_transformers::models::whisper::{self};
 use flate2::{write::ZlibEncoder, Compression};
+use media_core::Result;
 use rustfft::{num_complex::Complex32, FftPlanner};
 use serde::Deserialize;
 use std::io::Write;
@@ -19,7 +20,6 @@ use std::io::Write;
 use text_transcripts::TranscriptWordContract;
 use text_transcripts::{TranscriptSegmentContract, TranscriptionContract};
 use tokenizers::Tokenizer;
-use video_analysis_core::Result;
 
 use crate::native_device::{resolve_native_device, ResolvedNativeDevice};
 use crate::native_whisper_quantized::CandleQ8WhisperModel;
@@ -945,7 +945,7 @@ fn whisper_model_spec(model_id: &str) -> model_runtime::HuggingFaceModelSpec {
 fn missing_whisper_model_error(
     model_id: &str,
     options: &CandleWhisperOptions,
-) -> video_analysis_core::DetectError {
+) -> media_core::DetectError {
     setup_error(format!(
         "failed to resolve native Candle Whisper model `{model_id}`; required files: {}; --model-dir={}; cache-only={}",
         CandleWhisperComputeType::Automatic
@@ -965,7 +965,7 @@ fn missing_whisper_model_error_with_source(
     model_id: &str,
     options: &CandleWhisperOptions,
     source: impl std::fmt::Display,
-) -> video_analysis_core::DetectError {
+) -> media_core::DetectError {
     setup_error(format!(
         "failed to resolve native Candle Whisper model `{model_id}`; required files: {}; --model-dir={}; cache-only={}: {source}",
         CandleWhisperComputeType::Automatic
@@ -4220,7 +4220,7 @@ mod tests {
             CandleWhisperComputeType::Fp32,
             &mut |_| {
                 observed += 1;
-                Err(video_analysis_core::DetectError::InvalidArgument(
+                Err(media_core::DetectError::InvalidArgument(
                     "transcription cancelled at a model boundary".to_string(),
                 ))
             },

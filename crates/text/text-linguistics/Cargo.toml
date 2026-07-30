@@ -28,7 +28,6 @@ text-lexical.workspace = true
 text-model-runtime.workspace = true
 text-transcripts = { workspace = true, optional = true }
 tokenizers = { workspace = true, optional = true }
-video-analysis-core.workspace = true
 model-runtime = { workspace = true, optional = true, features = ["jobs"] }
 [features]
 default = []

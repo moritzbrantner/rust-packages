@@ -4,9 +4,9 @@ pub mod surface;
 use std::collections::BTreeMap;
 use std::fmt;
 
+use media_core::{DetectError, Result};
 use serde::{Deserialize, Serialize};
 use vector_analysis_core::{metric_distance, DenseVector, VectorMetric};
-use video_analysis_core::{DetectError, Result};
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 /// Data type for vector record identifier.

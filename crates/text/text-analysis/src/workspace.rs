@@ -1,6 +1,7 @@
 use std::collections::BTreeMap;
 
 use serde::{Deserialize, Serialize};
+use text_core::{DetectError, Result};
 use text_core::{TextDocumentContract, TextSegmentContract};
 use text_embeddings::{HashedTextEmbedder, TextEmbeddingConfig};
 use text_index::{
@@ -11,7 +12,6 @@ use text_lexical::{CorpusOptions, TextCorpus, TextCorpusDocument};
 use text_retrieval::{
     IngestReport, IngestionOptions, RetrievalIndex, SearchDocument, SearchQuery, SearchResult,
 };
-use video_analysis_core::{DetectError, Result};
 
 use crate::{
     analyze_corpus, analyze_document, CorpusAnalysisOptions, CorpusAnalysisReport,

@@ -51,4 +51,4 @@ assert_eq!(graph.sentences.len(), 1);
 
 - `text-lexical`
 - `text-linguistics`
-- `video-analysis-core`
+- `media-core`

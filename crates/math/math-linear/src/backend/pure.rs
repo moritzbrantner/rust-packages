@@ -1,5 +1,5 @@
 use crate::{invalid_argument, F32MatrixView, LuDecomposition, MatrixShape};
-use video_analysis_core::Result;
+use media_core::Result;
 
 pub(crate) fn pivot_tolerance(values: &[f32]) -> f32 {
     let max_abs = values

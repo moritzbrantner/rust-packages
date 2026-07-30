@@ -16,6 +16,7 @@ categories.workspace = true
 name = "audio_analysis_transcription"
 
 [dependencies]
+media-core.workspace = true
 candle-core = { workspace = true, optional = true }
 candle-nn = { workspace = true, optional = true }
 candle-transformers = { workspace = true, optional = true }
@@ -31,7 +32,6 @@ serde_json.workspace = true
 text-transcripts.workspace = true
 text-model-runtime = { workspace = true, optional = true }
 tokenizers = { workspace = true, optional = true }
-video-analysis-core.workspace = true
 audio-analysis-io = { workspace = true, optional = true }
 audio-analysis-speakers = { package = "moenarch-audio-analysis-speakers", version = "0.1.4", path = "../audio-analysis-speakers" }
 

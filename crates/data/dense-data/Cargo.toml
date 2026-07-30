@@ -16,13 +16,13 @@ categories.workspace = true
 name = "dense_data"
 
 [dependencies]
+media-core.workspace = true
 runtime-core.workspace = true
 serde_json.workspace = true
 serde.workspace = true
 math-linear.workspace = true
 math-statistics.workspace = true
 numbers-core.workspace = true
-video-analysis-core.workspace = true
 
 [dev-dependencies]
 criterion.workspace = true

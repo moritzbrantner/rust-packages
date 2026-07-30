@@ -9,7 +9,7 @@ use std::process::{Command, Stdio};
 use std::str::FromStr;
 
 use audio_analysis_recognition::{AudioRuntime, AudioRuntimeSelection, FallbackPolicy};
-use video_analysis_core::{DetectError, Result};
+use media_core::{DetectError, Result};
 
 /// Request for source separation.
 #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]

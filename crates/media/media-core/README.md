@@ -7,7 +7,11 @@ The crate owns only:
 
 - `Timebase`, the rational duration of one timestamp tick;
 - `Timestamp`, presentation ticks paired with their timebase;
-- `AnalysisEvent`, a domain-neutral labeled result with optional time and score.
+- `AnalysisEvent`, a domain-neutral labeled result with optional time and score;
+- `PixelFormat` and `AudioSampleFormat`, compact stream-format identifiers
+  without frame or buffer ownership;
+- `DetectError` and `Result`, the shared media error identity used across
+  foundation and capability contracts.
 
 `moenarch-video-analysis-core` re-exports these exact types to preserve its
 existing public API and type identity while consumers migrate.
@@ -16,13 +20,18 @@ existing public API and type identity while consumers migrate.
 
 The issue #108 contract audit kept media data in its narrowest existing domain:
 
-- frame and pixel contracts remain in `video-analysis-core`;
-- audio buffer and sample contracts remain in `audio-analysis-core`;
+- video frame and pixel-buffer contracts remain in `video-analysis-core`;
+- audio buffer and audio-frame contracts remain in `audio-analysis-core`;
 - image contracts remain in `image-analysis-core`;
 - transcript and text contracts remain in their text crates;
 - source and stream metadata remain in `video-analysis-ingest`;
-- detection, error, and model-lifecycle contracts remain with their current
+- detection algorithms and model-lifecycle contracts remain with their current
   domain or foundation owners.
+
+The format enums are metadata identifiers used by error and stream contracts;
+they do not own media data. Moving the shared error identity alongside those
+identifiers lets non-visual foundation crates stop depending on video ownership
+without copying error DTOs or changing downstream result types.
 
 No cross-family range contract existed at the audited source head, so none was
 invented for this extraction. No alternate source or stream metadata type is

@@ -26,6 +26,7 @@ use serde::{Deserialize, Serialize};
 #[cfg(feature = "tokenizers")]
 use serde_json::Value;
 use text_core::{segment_document_id, tokenize_words, AnnotationProvenance, TextDocument};
+use text_core::{DetectError, Result, TextSegment};
 use text_lexical::{term_counts, CorpusOptions, TfIdfCorpus};
 pub use text_model_runtime::TokenizedText;
 #[cfg(feature = "tokenizers")]
@@ -34,7 +35,6 @@ use vector_analysis_core::cosine_similarity;
 /// Re-exports the dense vector API.
 pub use vector_analysis_core::DenseVector;
 use vector_analysis_index::{SearchConfig, VectorRecord, VectorSearchIndex};
-use video_analysis_core::{DetectError, Result, TextSegment};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 /// Data type for text embedding config.

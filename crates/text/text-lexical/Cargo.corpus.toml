@@ -16,4 +16,3 @@ categories.workspace = true
 math-sparse-data.workspace = true
 serde.workspace = true
 text-core.workspace = true
-video-analysis-core.workspace = true

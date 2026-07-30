@@ -36,7 +36,59 @@ class RepositorySplitInventoryTests(unittest.TestCase):
                 "issue": "https://github.com/moritzbrantner/rust-packages/issues/108",
             },
         )
+        self.assertEqual(len(authority["resolved_boundary_violations"]), 25)
         self.assertEqual(authority["schema_version"], 2)
+
+    def test_boundary_resolutions_are_exact_unique_and_absent_from_baseline(
+        self,
+    ) -> None:
+        authority, _, _, errors = generate()
+        self.assertEqual(errors, [])
+        metadata = cargo_metadata()
+
+        unknown = copy.deepcopy(authority)
+        unknown["resolved_boundary_violations"][0]["source_package"] = (
+            "unknown-package"
+        )
+        self.assertTrue(
+            any(
+                "does not match an immutable Phase A annotation" in error
+                for error in self.validate(unknown, metadata)
+            )
+        )
+
+        duplicate = copy.deepcopy(authority)
+        duplicate["resolved_boundary_violations"].append(
+            copy.deepcopy(duplicate["resolved_boundary_violations"][0])
+        )
+        self.assertTrue(
+            any(
+                "duplicate boundary resolutions" in error
+                for error in self.validate(duplicate, metadata)
+            )
+        )
+
+        still_baselined = copy.deepcopy(authority)
+        unresolved = load_json(BASELINE_PATH)["violations"][0]
+        still_baselined["resolved_boundary_violations"].append(
+            {
+                "source_package": unresolved["source_package"],
+                "dependency_package": unresolved["dependency_package"],
+                "dependency_kind": unresolved["dependency_kind"],
+                "optional": bool(unresolved.get("optional", False)),
+                "migration_issue": unresolved["migration_issue"],
+                "target_phase": unresolved["target_phase"],
+                "resolved_by_issue": (
+                    "https://github.com/moritzbrantner/rust-packages/issues/109"
+                ),
+            }
+        )
+        self.assertTrue(
+            any(
+                "must be absent from the current baseline" in error
+                for error in self.validate(still_baselined, metadata)
+            )
+        )
 
     def test_projection_uses_package_specific_reviewed_decision(self) -> None:
         authority, _, _, errors = generate()

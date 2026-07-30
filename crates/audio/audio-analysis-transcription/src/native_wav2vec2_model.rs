@@ -3,7 +3,7 @@ use std::path::Path;
 
 use candle_core::{DType, Device, Tensor};
 use candle_nn::{ops, Activation, Conv1d, Conv1dConfig, GroupNorm, LayerNorm, Linear, Module};
-use video_analysis_core::Result;
+use media_core::Result;
 
 use crate::native_wav2vec2::{Wav2Vec2CtcConfig, Wav2Vec2PreprocessorConfig};
 use crate::{model_output_mismatch, unsupported_runtime};
@@ -596,6 +596,6 @@ fn tensor_exists(tensors: &HashMap<String, Tensor>, name: &str) -> bool {
     tensors.contains_key(name)
 }
 
-fn candle_mismatch(error: candle_core::Error) -> video_analysis_core::DetectError {
+fn candle_mismatch(error: candle_core::Error) -> media_core::DetectError {
     model_output_mismatch(format!("wav2vec2 Candle execution failed: {error}"))
 }

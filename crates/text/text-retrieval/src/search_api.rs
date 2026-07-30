@@ -12,7 +12,7 @@ use text_retrieval::{
     HybridConfig, SearchFilter as RetrievalSearchFilter, SearchQuery as RetrievalSearchQuery,
     SearchResult as RetrievalSearchResult,
 };
-use video_analysis_core::{DetectError, Result};
+use text_core::{DetectError, Result};
 
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
 /// Variants describing search mode.

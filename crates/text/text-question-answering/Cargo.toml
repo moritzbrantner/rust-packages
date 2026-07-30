@@ -16,6 +16,7 @@ categories.workspace = true
 name = "text_question_answering"
 
 [dependencies]
+media-core.workspace = true
 runtime-core.workspace = true
 serde.workspace = true
 serde_json.workspace = true
@@ -24,7 +25,6 @@ text-index.workspace = true
 text-lexical.workspace = true
 text-model-runtime.workspace = true
 text-retrieval.workspace = true
-video-analysis-core.workspace = true
 model-runtime = { workspace = true, optional = true }
 
 [features]

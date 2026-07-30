@@ -20,6 +20,7 @@ from repository_split import (
     internal_dependency_edges,
     load_json,
     ownership_records,
+    validate_boundary_resolution_amendments,
     validate_ownership_authority,
     write_json,
 )
@@ -35,6 +36,7 @@ def validate(
     errors: list[str] = []
     if enforce_authority:
         errors.extend(validate_ownership_authority(ownership, root=ROOT))
+        errors.extend(validate_boundary_resolution_amendments(ownership, baseline))
     cargo_packages = {
         package["name"]: package for package in metadata.get("packages", [])
     }

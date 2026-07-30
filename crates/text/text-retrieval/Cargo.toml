@@ -27,7 +27,6 @@ text-model-runtime.workspace = true
 text-transcripts = { workspace = true, optional = true }
 thiserror.workspace = true
 vector-analysis-index.workspace = true
-video-analysis-core.workspace = true
 
 [features]
 default = []
