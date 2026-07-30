@@ -11,6 +11,7 @@ import unittest
 from pathlib import Path
 
 from check_release_plan import extract_release_authorization, load_document, validate_plan
+from repository_split import OWNERSHIP_PATH, load_json
 
 ROOT = Path(__file__).resolve().parents[1]
 FIXTURES = ROOT / "scripts/fixtures/release_plans"
@@ -63,6 +64,7 @@ class ReleasePlanCheckTests(unittest.TestCase):
                     if release_authorization is None
                     else release_authorization
                 ),
+                enforce_authority=False,
             )
         )
 
@@ -79,6 +81,30 @@ class ReleasePlanCheckTests(unittest.TestCase):
     def test_valid_toml_plan_is_accepted(self) -> None:
         plan = load_document(FIXTURES / "valid.toml")
         self.assertEqual(self.errors(plan), "")
+
+    def test_post_baseline_package_is_available_to_release_validation(self) -> None:
+        ownership = copy.deepcopy(self.ownership)
+        post_baseline = ownership["packages"].pop(0)
+        ownership["post_baseline_packages"] = [post_baseline]
+        self.assertEqual(self.errors(self.plan, ownership=ownership), "")
+
+    def test_live_authority_provenance_is_validated_by_release_consumer(self) -> None:
+        ownership = load_json(OWNERSHIP_PATH)
+        ownership["post_baseline_packages"] = [
+            copy.deepcopy(ownership["packages"][0])
+        ]
+        errors = validate_plan(
+            self.plan,
+            ownership,
+            ROOT,
+            "2222222222222222222222222222222222222222",
+            "1111111111111111111111111111111111111111",
+            self.authorization,
+        )
+        self.assertTrue(
+            any("missing provenance" in error for error in errors),
+            errors,
+        )
 
     def test_cycle_is_rejected(self) -> None:
         plan = copy.deepcopy(self.plan)

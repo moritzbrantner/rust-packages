@@ -28,8 +28,8 @@ documentation were read; no consumer is marked verified unless its commands ran.
 
 ## Namespace and registry evidence
 
-- All 347 active Cargo workspace packages use the `moenarch-*` namespace.
-- The registry audit found 43 matching workspace libraries and did not find 304 active package names through the broad search; this is evidence, not proof that every missing name has never existed.
+- At the immutable Phase A audit commit, all 347 active Cargo workspace packages used the `moenarch-*` namespace.
+- At that audit commit, the registry search found 43 matching workspace libraries and did not find 304 active package names; this is historical evidence, not a live claim about post-baseline packages.
 - `moenarch-text-transcripts` is `0.1.1` in source while crates.io reports `0.1.2`.
 - Runtime core, jobs, video core, model runtime, text transcripts, and audio core occur under both historical `moritzbrantner-*` and current `moenarch-*` names in consumer/release material.
 - Repository metadata is mixed and must be corrected only by each package's release-owner issue.

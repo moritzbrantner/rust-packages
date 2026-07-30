@@ -11,18 +11,20 @@ from collections import Counter
 from pathlib import Path
 
 from repository_split import (
+    AUDITED_SOURCE_COMMIT,
     BASELINE_PATH,
     OWNERSHIP_PATH,
     ROOT,
     TARGET_REPOSITORIES,
     cargo_metadata,
     load_json,
+    ownership_records,
+    validate_ownership_authority,
 )
 
 DESTINATION_MATRIX = ROOT / "docs/REPOSITORY_DESTINATION_MATRIX.md"
 CONSUMERS_PATH = ROOT / "docs/repository-split/consumer-audit.json"
 CONSUMER_MATRIX = ROOT / "docs/CONSUMER_RELEASE_MATRIX.md"
-AUDITED_SOURCE_COMMIT = "d032ad2890c1df3c6a5b9eff024562f00d017fce"
 ADAPTER_KINDS = {"CLI", "server", "WASM", "npm wrapper", "app"}
 
 
@@ -45,14 +47,14 @@ def validate_authority(
     bun_facts: dict[str, dict],
     baseline: dict,
 ) -> list[str]:
-    errors: list[str] = []
-    if authority.get("source_commit") != AUDITED_SOURCE_COMMIT:
-        errors.append(
-            f"source_commit must be audited commit {AUDITED_SOURCE_COMMIT}"
-        )
-    records = authority.get("packages")
-    if not isinstance(records, list):
-        return errors + ["packages must be a list"]
+    errors = validate_ownership_authority(authority, root=ROOT)
+    baseline_records = authority.get("packages")
+    if not isinstance(baseline_records, list):
+        return errors
+    post_baseline_records = authority.get("post_baseline_packages")
+    if not isinstance(post_baseline_records, list):
+        return errors
+    records = ownership_records(authority)
     ids = [record.get("id") for record in records]
     duplicate_ids = sorted(item for item, count in Counter(ids).items() if count > 1)
     if duplicate_ids:
@@ -168,7 +170,7 @@ def validate_authority(
 
 
 def destination_markdown(authority: dict) -> str:
-    records = authority["packages"]
+    records = ownership_records(authority)
     cargo_counts = Counter(
         record["target_repository"]
         for record in records
@@ -254,8 +256,8 @@ def consumer_markdown(source: dict) -> str:
             "",
             "## Namespace and registry evidence",
             "",
-            "- All 347 active Cargo workspace packages use the `moenarch-*` namespace.",
-            "- The registry audit found 43 matching workspace libraries and did not find 304 active package names through the broad search; this is evidence, not proof that every missing name has never existed.",
+            "- At the immutable Phase A audit commit, all 347 active Cargo workspace packages used the `moenarch-*` namespace.",
+            "- At that audit commit, the registry search found 43 matching workspace libraries and did not find 304 active package names; this is historical evidence, not a live claim about post-baseline packages.",
             "- `moenarch-text-transcripts` is `0.1.1` in source while crates.io reports `0.1.2`.",
             "- Runtime core, jobs, video core, model runtime, text transcripts, and audio core occur under both historical `moritzbrantner-*` and current `moenarch-*` names in consumer/release material.",
             "- Repository metadata is mixed and must be corrected only by each package's release-owner issue.",
@@ -306,7 +308,7 @@ def main() -> int:
             return 1
         print(
             f"reviewed ownership is valid and matrices are current "
-            f"({len(authority['packages'])} packages)"
+            f"({len(ownership_records(authority))} packages)"
         )
         return 0
     for path, content in expected.items():

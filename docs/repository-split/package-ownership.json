@@ -11262,9 +11262,10 @@
       "wrapped_library": "moenarch-vision-core"
     }
   ],
+  "post_baseline_packages": [],
   "repository": "moritzbrantner/rust-packages",
   "review_issue": "https://github.com/moritzbrantner/rust-packages/issues/107",
-  "schema_version": 1,
+  "schema_version": 2,
   "source_commit": "d032ad2890c1df3c6a5b9eff024562f00d017fce",
   "target_repository_dependencies": {
     "audio-analysis": [

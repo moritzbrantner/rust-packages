@@ -20,6 +20,8 @@ from repository_split import (
     SEMVER_RE,
     find_cycle,
     load_json,
+    ownership_records,
+    validate_ownership_authority,
 )
 
 REQUIRED_LIST_FIELDS = (
@@ -393,8 +395,12 @@ def validate_plan(
     actual_head_sha: str | None = None,
     actual_base_sha: str | None = None,
     release_authorization: dict | None = None,
+    *,
+    enforce_authority: bool = True,
 ) -> list[str]:
     errors: list[str] = []
+    if enforce_authority:
+        errors.extend(validate_ownership_authority(ownership, root=ROOT))
     repository = plan.get("repository")
     raw_packages = plan.get("packages")
     publishes_packages = isinstance(raw_packages, list) and any(
@@ -503,7 +509,7 @@ def validate_plan(
 
     ownership_by_name = {
         record["current_package_name"]: record
-        for record in ownership.get("packages", [])
+        for record in ownership_records(ownership)
         if record.get("ecosystem") == "cargo"
     }
     packages = raw_packages
