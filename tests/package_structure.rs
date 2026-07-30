@@ -193,6 +193,12 @@ fn synthetic_fixtures_are_not_public_package_identifier_inputs() {
 }
 
 #[test]
+fn contract_only_media_core_is_exempt_from_runtime_companions() {
+    assert!(excluded_library_package("moenarch-media-core"));
+    assert!(!excluded_library_package("moenarch-video-analysis-core"));
+}
+
+#[test]
 fn library_crates_have_complete_runtime_surfaces() {
     let root = Path::new(env!("CARGO_MANIFEST_DIR"));
     let mut missing = Vec::new();
@@ -734,6 +740,7 @@ fn excluded_library_package(package_name: &str) -> bool {
     matches!(
         package_name,
         "moenarch-audio-analysis-test-support"
+            | "moenarch-media-core"
             | "moenarch-runtime-core"
             | "moenarch-runtime-onnx"
             | "moenarch-video-analysis-test-support"
