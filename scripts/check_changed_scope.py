@@ -52,6 +52,8 @@ SNAPSHOT_FILES = {
     "docs/PACKAGE_SURFACE_MATRIX.md",
     "docs/CURATED_LANDSCAPE_MATRIX.md",
     "docs/COMFYUI_TYPE_MATRIX.md",
+    "docs/REPOSITORY_DESTINATION_MATRIX.md",
+    "docs/CONSUMER_RELEASE_MATRIX.md",
 }
 PROGRESS_ALL_FILES = {
     "docs/CRATE_PROGRESS_POLICY.md",
@@ -263,6 +265,13 @@ def classify_changed_files(
 
         if path == "scripts/generate_dependency_chart.py":
             snapshot_paths.add("docs/DEPENDENCY_GRAPH.md")
+        elif path == "scripts/generate_repository_split_inventory.py":
+            snapshot_paths.update(
+                {
+                    "docs/REPOSITORY_DESTINATION_MATRIX.md",
+                    "docs/CONSUMER_RELEASE_MATRIX.md",
+                }
+            )
         elif path == "scripts/audit_package_surfaces.py":
             snapshot_paths.add("docs/PACKAGE_SURFACE_MATRIX.md")
 

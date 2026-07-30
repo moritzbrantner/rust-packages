@@ -117,6 +117,15 @@ if [[ "$CHECK_FAST_PROGRESS" == "none" ]]; then
 fi
 
 run_step "check changed-scope classifier tests" python3 scripts/test_check_changed_scope.py
+run_step "check repository split inventory" python3 scripts/generate_repository_split_inventory.py --check
+run_step "test repository split inventory authority" \
+  python3 scripts/test_generate_repository_split_inventory.py
+run_step "test repository boundaries" python3 scripts/test_check_repository_boundaries.py
+run_step "check repository boundaries" python3 scripts/check_repository_boundaries.py --check
+run_step "test release plans" python3 scripts/test_check_release_plan.py
+run_step "check example release plan" \
+  python3 scripts/check_release_plan.py \
+    --check docs/repository-split/release-plan.example.json
 run_step "check generated/local artifacts" scripts/check_generated_artifacts.sh
 if (( ${#snapshot_paths[@]} > 0 )); then
   snapshot_args=()

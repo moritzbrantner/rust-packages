@@ -200,6 +200,23 @@ class CheckChangedScopeTests(unittest.TestCase):
         ).to_json()
         self.assertTrue(scope["ci_plan"]["full_workspace_checks"])
 
+    def test_repository_split_generator_selects_both_generated_matrices(self) -> None:
+        scope = self.classify(["scripts/generate_repository_split_inventory.py"])
+        self.assertEqual(
+            scope["snapshot_paths"],
+            [
+                "docs/CONSUMER_RELEASE_MATRIX.md",
+                "docs/REPOSITORY_DESTINATION_MATRIX.md",
+            ],
+        )
+
+    def test_repository_split_matrix_change_selects_its_snapshot(self) -> None:
+        scope = self.classify(["docs/REPOSITORY_DESTINATION_MATRIX.md"])
+        self.assertEqual(
+            scope["snapshot_paths"],
+            ["docs/REPOSITORY_DESTINATION_MATRIX.md"],
+        )
+
     def classify(
         self,
         paths: list[str],
