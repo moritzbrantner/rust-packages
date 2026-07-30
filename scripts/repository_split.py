@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import json
 import re
 import subprocess
@@ -56,6 +57,13 @@ SEMVER_RE = re.compile(
     r"(?:\+([0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*))?$"
 )
 FULL_SHA_RE = re.compile(r"^[0-9a-f]{40}$")
+AUDITED_SOURCE_COMMIT = "d032ad2890c1df3c6a5b9eff024562f00d017fce"
+PHASE_A_PACKAGES_SHA256 = (
+    "ddfea012979f6ee13483d4c70a9702c29a595e2a4202c3490a8350ee7f78a6bd"
+)
+CREATING_ISSUE_RE = re.compile(
+    r"^https://github\.com/moritzbrantner/rust-packages/issues/[1-9]\d*$"
+)
 
 
 def load_json(path: Path) -> dict:
@@ -69,6 +77,71 @@ def ownership_records(authority: dict) -> list[dict]:
     baseline_records = baseline if isinstance(baseline, list) else []
     post_baseline_records = post_baseline if isinstance(post_baseline, list) else []
     return [*baseline_records, *post_baseline_records]
+
+
+def validate_ownership_authority(
+    authority: dict,
+    *,
+    root: Path = ROOT,
+) -> list[str]:
+    """Validate the immutable Phase A list and every later package's provenance."""
+
+    errors: list[str] = []
+    if authority.get("schema_version") != 2:
+        errors.append("schema_version must be 2")
+    if authority.get("source_commit") != AUDITED_SOURCE_COMMIT:
+        errors.append(
+            f"source_commit must be audited commit {AUDITED_SOURCE_COMMIT}"
+        )
+    baseline_records = authority.get("packages")
+    if not isinstance(baseline_records, list):
+        return errors + ["packages must be a list"]
+    encoded_baseline = json.dumps(
+        baseline_records,
+        sort_keys=True,
+        separators=(",", ":"),
+    ).encode()
+    if hashlib.sha256(encoded_baseline).hexdigest() != PHASE_A_PACKAGES_SHA256:
+        errors.append(
+            "immutable Phase A packages differ from the reviewed baseline"
+        )
+    post_baseline_records = authority.get("post_baseline_packages")
+    if not isinstance(post_baseline_records, list):
+        return errors + ["post_baseline_packages must be a list"]
+    for index, record in enumerate(post_baseline_records):
+        provenance = record.get("provenance") if isinstance(record, dict) else None
+        if not isinstance(provenance, dict):
+            errors.append(f"post-baseline package {index}: missing provenance")
+            continue
+        if set(provenance) != {"introduced_after_commit", "issue"}:
+            errors.append(
+                f"post-baseline package {index}: provenance must contain only "
+                "introduced_after_commit and issue"
+            )
+        commit = provenance.get("introduced_after_commit")
+        if not isinstance(commit, str) or not FULL_SHA_RE.fullmatch(commit):
+            errors.append(
+                f"post-baseline package {index}: introduced_after_commit "
+                "must be an exact full commit"
+            )
+        elif not git_commit_exists(root, commit):
+            errors.append(
+                f"post-baseline package {index}: introduced_after_commit is unavailable"
+            )
+        elif not git_commit_is_ancestor(root, AUDITED_SOURCE_COMMIT, commit):
+            errors.append(
+                f"post-baseline package {index}: introduced_after_commit "
+                "must not predate the Phase A audit"
+            )
+        elif not git_commit_is_ancestor(root, commit):
+            errors.append(
+                f"post-baseline package {index}: introduced_after_commit "
+                "must be an ancestor of HEAD"
+            )
+        issue = provenance.get("issue")
+        if not isinstance(issue, str) or not CREATING_ISSUE_RE.fullmatch(issue):
+            errors.append(f"post-baseline package {index}: invalid creating issue")
+    return errors
 
 
 def git_commit_exists(root: Path, commit: str) -> bool:

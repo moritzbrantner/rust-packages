@@ -10,7 +10,13 @@ import unittest
 from pathlib import Path
 
 from check_repository_boundaries import validate
-from repository_split import TARGET_REPOSITORIES, find_cycle
+from repository_split import (
+    OWNERSHIP_PATH,
+    TARGET_REPOSITORIES,
+    cargo_metadata,
+    find_cycle,
+    load_json,
+)
 
 ROOT = Path(__file__).resolve().parents[1]
 SCRIPT = ROOT / "scripts/check_repository_boundaries.py"
@@ -95,6 +101,7 @@ class RepositoryBoundaryCheckTests(unittest.TestCase):
                 "target_repository_dependencies": target_graph(),
             },
             {"violations": violations},
+            enforce_authority=False,
         )
         return "\n".join(errors), actual, cycles
 
@@ -110,6 +117,21 @@ class RepositoryBoundaryCheckTests(unittest.TestCase):
         self.assertIn("46 normal", completed.stdout)
         self.assertIn("4 dev", completed.stdout)
         self.assertNotIn("BASELINED CYCLE", completed.stdout)
+
+    def test_live_authority_provenance_is_validated_by_boundary_consumer(self) -> None:
+        ownership = load_json(OWNERSHIP_PATH)
+        ownership["post_baseline_packages"] = [
+            copy.deepcopy(ownership["packages"][0])
+        ]
+        errors, _, _ = validate(
+            cargo_metadata(),
+            ownership,
+            {"violations": []},
+        )
+        self.assertTrue(
+            any("missing provenance" in error for error in errors),
+            errors,
+        )
 
     def test_complete_and_unique_ownership_is_required(self) -> None:
         packages = [package("foundation"), package("audio")]

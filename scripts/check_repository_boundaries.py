@@ -13,20 +13,28 @@ from repository_split import (
     ALLOWED_DEPENDENCIES,
     BASELINE_PATH,
     OWNERSHIP_PATH,
+    ROOT,
     TARGET_REPOSITORIES,
     cargo_metadata,
     find_cycle,
     internal_dependency_edges,
     load_json,
     ownership_records,
+    validate_ownership_authority,
     write_json,
 )
 
 
 def validate(
-    metadata: dict, ownership: dict, baseline: dict
+    metadata: dict,
+    ownership: dict,
+    baseline: dict,
+    *,
+    enforce_authority: bool = True,
 ) -> tuple[list[str], list[dict], list[list[str]]]:
     errors: list[str] = []
+    if enforce_authority:
+        errors.extend(validate_ownership_authority(ownership, root=ROOT))
     cargo_packages = {
         package["name"]: package for package in metadata.get("packages", [])
     }

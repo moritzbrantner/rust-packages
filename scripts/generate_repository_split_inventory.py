@@ -11,24 +11,21 @@ from collections import Counter
 from pathlib import Path
 
 from repository_split import (
+    AUDITED_SOURCE_COMMIT,
     BASELINE_PATH,
-    FULL_SHA_RE,
     OWNERSHIP_PATH,
     ROOT,
     TARGET_REPOSITORIES,
     cargo_metadata,
-    git_commit_exists,
-    git_commit_is_ancestor,
     load_json,
     ownership_records,
+    validate_ownership_authority,
 )
 
 DESTINATION_MATRIX = ROOT / "docs/REPOSITORY_DESTINATION_MATRIX.md"
 CONSUMERS_PATH = ROOT / "docs/repository-split/consumer-audit.json"
 CONSUMER_MATRIX = ROOT / "docs/CONSUMER_RELEASE_MATRIX.md"
-AUDITED_SOURCE_COMMIT = "d032ad2890c1df3c6a5b9eff024562f00d017fce"
 ADAPTER_KINDS = {"CLI", "server", "WASM", "npm wrapper", "app"}
-ISSUE_URL_PREFIX = "https://github.com/moritzbrantner/rust-packages/issues/"
 
 
 def bun_manifest_facts(root: Path = ROOT) -> dict[str, dict]:
@@ -50,57 +47,14 @@ def validate_authority(
     bun_facts: dict[str, dict],
     baseline: dict,
 ) -> list[str]:
-    errors: list[str] = []
-    if authority.get("schema_version") != 2:
-        errors.append("schema_version must be 2")
-    if authority.get("source_commit") != AUDITED_SOURCE_COMMIT:
-        errors.append(
-            f"source_commit must be audited commit {AUDITED_SOURCE_COMMIT}"
-        )
+    errors = validate_ownership_authority(authority, root=ROOT)
     baseline_records = authority.get("packages")
     if not isinstance(baseline_records, list):
-        return errors + ["packages must be a list"]
+        return errors
     post_baseline_records = authority.get("post_baseline_packages")
     if not isinstance(post_baseline_records, list):
-        return errors + ["post_baseline_packages must be a list"]
+        return errors
     records = ownership_records(authority)
-    for index, record in enumerate(post_baseline_records):
-        provenance = record.get("provenance")
-        if not isinstance(provenance, dict):
-            errors.append(f"post-baseline package {index}: missing provenance")
-            continue
-        if set(provenance) != {"introduced_after_commit", "issue"}:
-            errors.append(
-                f"post-baseline package {index}: provenance must contain only "
-                "introduced_after_commit and issue"
-            )
-        commit = provenance.get("introduced_after_commit")
-        if not isinstance(commit, str) or not FULL_SHA_RE.fullmatch(commit):
-            errors.append(
-                f"post-baseline package {index}: introduced_after_commit "
-                "must be an exact full commit"
-            )
-        elif not git_commit_exists(ROOT, commit):
-            errors.append(
-                f"post-baseline package {index}: introduced_after_commit is unavailable"
-            )
-        elif not git_commit_is_ancestor(ROOT, AUDITED_SOURCE_COMMIT, commit):
-            errors.append(
-                f"post-baseline package {index}: introduced_after_commit "
-                "must not predate the Phase A audit"
-            )
-        elif not git_commit_is_ancestor(ROOT, commit):
-            errors.append(
-                f"post-baseline package {index}: introduced_after_commit "
-                "must be an ancestor of HEAD"
-            )
-        issue = provenance.get("issue")
-        if (
-            not isinstance(issue, str)
-            or not issue.startswith(ISSUE_URL_PREFIX)
-            or not issue.removeprefix(ISSUE_URL_PREFIX).isdigit()
-        ):
-            errors.append(f"post-baseline package {index}: invalid creating issue")
     ids = [record.get("id") for record in records]
     duplicate_ids = sorted(item for item, count in Counter(ids).items() if count > 1)
     if duplicate_ids:

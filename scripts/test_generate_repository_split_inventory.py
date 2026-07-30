@@ -6,6 +6,7 @@ from __future__ import annotations
 import copy
 import subprocess
 import unittest
+from unittest.mock import patch
 
 from generate_repository_split_inventory import (
     bun_manifest_facts,
@@ -101,6 +102,49 @@ class RepositorySplitInventoryTests(unittest.TestCase):
                 for error in self.validate(duplicate, metadata)
             )
         )
+
+    def test_phase_a_package_array_is_immutable(self) -> None:
+        authority, metadata = self.authority_with_media_package()
+        moved = copy.deepcopy(authority)
+        moved["packages"].append(moved["post_baseline_packages"].pop())
+        self.assertTrue(
+            any(
+                "immutable phase a packages" in error.lower()
+                for error in self.validate(moved, metadata)
+            )
+        )
+
+    def test_creating_issue_must_be_canonical(self) -> None:
+        authority, metadata = self.authority_with_media_package()
+        for suffix in ("0", "0108"):
+            with self.subTest(suffix=suffix):
+                changed = copy.deepcopy(authority)
+                changed["post_baseline_packages"][0]["provenance"]["issue"] = (
+                    "https://github.com/moritzbrantner/rust-packages/issues/"
+                    + suffix
+                )
+                self.assertTrue(
+                    any(
+                        "invalid creating issue" in error
+                        for error in self.validate(changed, metadata)
+                    )
+                )
+
+    def test_future_divergent_provenance_commit_is_rejected(self) -> None:
+        authority, metadata = self.authority_with_media_package()
+        with (
+            patch("repository_split.git_commit_exists", return_value=True),
+            patch(
+                "repository_split.git_commit_is_ancestor",
+                side_effect=[True, False],
+            ),
+        ):
+            self.assertTrue(
+                any(
+                    "must be an ancestor of head" in error.lower()
+                    for error in self.validate(authority, metadata)
+                )
+            )
 
     def authority_with_media_package(self) -> tuple[dict, dict]:
         authority, _, _, errors = generate()
