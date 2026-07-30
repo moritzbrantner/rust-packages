@@ -176,6 +176,23 @@ fn public_package_identifiers_use_active_ownership_prefix() {
 }
 
 #[test]
+fn synthetic_fixtures_are_not_public_package_identifier_inputs() {
+    let root = Path::new(env!("CARGO_MANIFEST_DIR"));
+    let files = tracked_identifier_files(root);
+
+    assert!(
+        files
+            .iter()
+            .all(|path| !path.starts_with(root.join("scripts/fixtures"))),
+        "synthetic test fixtures must not be treated as public packages"
+    );
+    assert!(
+        files.iter().any(|path| path == &root.join("Cargo.toml")),
+        "the real root package manifest must remain covered"
+    );
+}
+
+#[test]
 fn library_crates_have_complete_runtime_surfaces() {
     let root = Path::new(env!("CARGO_MANIFEST_DIR"));
     let mut missing = Vec::new();
@@ -874,6 +891,7 @@ fn collect_identifier_files(dir: &Path, files: &mut Vec<PathBuf>) {
             || file_name == "node_modules"
             || file_name == "pkg"
             || file_name == "dist"
+            || path.ends_with("scripts/fixtures")
         {
             continue;
         }
