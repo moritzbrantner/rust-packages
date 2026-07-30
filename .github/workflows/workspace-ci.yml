@@ -66,9 +66,14 @@ jobs:
       node_version: ""
       install_command: ""
       unit_test_command: >-
+        git fetch --no-tags origin "${GITHUB_BASE_REF:-main}" &&
         scripts/check_generated_artifacts.sh &&
+        scripts/check_generated_snapshots.sh --base "origin/${GITHUB_BASE_REF:-main}" &&
+        python3 scripts/generate_repository_split_inventory.py --check &&
         (test ! -f scripts/test_check_repository_boundaries.py || python3 scripts/test_check_repository_boundaries.py) &&
-        (test ! -f scripts/test_check_release_plan.py || python3 scripts/test_check_release_plan.py)
+        (test ! -f scripts/check_repository_boundaries.py || python3 scripts/check_repository_boundaries.py --check) &&
+        (test ! -f scripts/test_check_release_plan.py || python3 scripts/test_check_release_plan.py) &&
+        (test ! -f scripts/check_release_plan.py || python3 scripts/check_release_plan.py --check docs/repository-split/release-plan.example.json)
       concurrency_group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}-architecture
       timeout_minutes: 20
 
@@ -137,7 +142,7 @@ jobs:
       node_version: ""
       install_command: bun install --frozen-lockfile
       pre_command: rustup target add wasm32-unknown-unknown && cargo install wasm-pack --locked --version 0.14.0
-      build_command: bun run ui:build && bun run web:build
+      build_command: git fetch --no-tags origin "${GITHUB_BASE_REF:-main}" && python3 scripts/run_changed_frontend.py --base "origin/${GITHUB_BASE_REF:-main}" --kind wasm --allow-empty && bun run ui:build && bun run web:build
       e2e_command: bun run ui:test:e2e && bun run web:test:e2e
       install_playwright: true
       cache_cargo: true

@@ -18,7 +18,15 @@ def parse_assignments(values: list[str], *, boolean: bool) -> dict:
         name, raw = value.split("=", 1)
         if not name:
             raise ValueError("assignment name must not be empty")
-        parsed[name] = raw.lower() == "true" if boolean else raw
+        if boolean:
+            normalized = raw.lower()
+            if normalized not in {"true", "false"}:
+                raise ValueError(
+                    f"{name}: expected true or false, got {raw!r}"
+                )
+            parsed[name] = normalized == "true"
+        else:
+            parsed[name] = raw
     return parsed
 
 

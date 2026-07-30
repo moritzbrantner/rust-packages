@@ -19,6 +19,10 @@ spec.loader.exec_module(gate)
 
 
 class CheckCiGateTests(unittest.TestCase):
+    def test_selected_boolean_must_be_canonical(self) -> None:
+        with self.assertRaisesRegex(ValueError, "expected true or false"):
+            gate.parse_assignments(["rust_checks=not-a-boolean"], boolean=True)
+
     def test_selected_success_and_unselected_skip_pass(self) -> None:
         result = gate.evaluate_gate(
             planner_result="success",

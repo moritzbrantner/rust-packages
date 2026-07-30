@@ -71,15 +71,19 @@ scripts/check.sh
 
 ## Pull-request CI
 
-`workspace-ci` always runs a lightweight planner and repository sanity gate.
+When available, `workspace-ci` runs a lightweight planner and repository sanity
+gate as optional hosted information. Exact-head local verification from a clean
+isolated worktree is the authoritative pull-request gate; hosted execution is
+not required for readiness or merge.
 The planner classifies the exact pull-request diff and selects only the affected
 Rust, frontend, WASM, Storybook, browser, architecture, or full-workspace jobs.
 Changed Rust crates include their workspace reverse-dependency closure. Root
 manifests, broad lockfiles, ownership maps, and release-plan inputs select the
-full workspace. A final always-running `ci-gate` is the single stable required
-check: it accepts legitimately unselected jobs but fails closed when a selected
-job is skipped, cancelled, or unsuccessful. Add the `full-ci` label when an
-ordinary change needs the broad path.
+full workspace. A final always-running `ci-gate` summarizes the optional hosted
+jobs: it accepts legitimately unselected jobs but fails closed when a selected
+hosted job is skipped, cancelled, or unsuccessful. It is not a branch-protection
+or merge prerequisite. Add the `full-ci` label when an ordinary hosted run needs
+the broad path.
 
 New commits cancel obsolete ordinary pull-request runs. Release, publication,
 and deployment workflows are deliberately outside that cancellation policy.

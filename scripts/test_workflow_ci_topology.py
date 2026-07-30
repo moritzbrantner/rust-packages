@@ -49,6 +49,38 @@ class WorkflowCiTopologyTests(unittest.TestCase):
         self.assertIn("web:test:e2e", storybook_job)
         self.assertIn("storybook:test:ci", storybook_job)
 
+    def test_browser_validation_coalesces_changed_wasm_builds(self) -> None:
+        workflow = (ROOT / ".github/workflows/workspace-ci.yml").read_text(
+            encoding="utf-8"
+        )
+        browser_job = workflow.split("  browser-e2e-checks:", 1)[1].split(
+            "  full-workspace-checks:", 1
+        )[0]
+        self.assertEqual(browser_job.count("cargo install wasm-pack"), 1)
+        self.assertIn(
+            "scripts/run_changed_frontend.py --base "
+            '"origin/${GITHUB_BASE_REF:-main}" --kind wasm --allow-empty',
+            browser_job,
+        )
+
+    def test_architecture_job_runs_live_validators(self) -> None:
+        workflow = (ROOT / ".github/workflows/workspace-ci.yml").read_text(
+            encoding="utf-8"
+        )
+        architecture_job = workflow.split("  architecture-checks:", 1)[1].split(
+            "  rust-checks:", 1
+        )[0]
+        for command in (
+            'scripts/check_generated_snapshots.sh --base '
+            '"origin/${GITHUB_BASE_REF:-main}"',
+            "scripts/generate_repository_split_inventory.py --check",
+            "scripts/check_repository_boundaries.py --check",
+            "scripts/check_release_plan.py --check "
+            "docs/repository-split/release-plan.example.json",
+        ):
+            with self.subTest(command=command):
+                self.assertIn(command, architecture_job)
+
 
 if __name__ == "__main__":
     unittest.main()

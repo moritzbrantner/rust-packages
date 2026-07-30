@@ -8,6 +8,7 @@ import json
 import os
 import subprocess
 import sys
+import tomllib
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Iterable
@@ -397,7 +398,7 @@ def build_ci_plan(paths: list[str], scope: Scope, *, full_ci: bool) -> dict[str,
         # UI validation coalesces its WASM, browser E2E, and Storybook work so the
         # pinned browser and wasm-pack setup is paid once. Full validation does
         # the same inside the full-workspace job.
-        "wasm_checks": wasm_change and not (full_workspace or ui_change),
+        "wasm_checks": wasm_change and not (full_workspace or ui_change or web_change),
         "storybook_checks": ui_change and not full_workspace,
         "browser_e2e_checks": web_change and not (full_workspace or ui_change),
         "full_workspace_checks": full_workspace,
@@ -478,9 +479,24 @@ def frontend_package_commands(package_dir: str, root: Path) -> set[str]:
             commands.add(f"bun run --cwd {package_dir} typecheck")
     elif package_dir.endswith("-wasm"):
         # A changed WASM surface must compile when it exposes a build script;
-        # tests alone do not prove that the distributable binding still builds.
+        # otherwise compile its Rust binding. Tests alone do not prove that the
+        # distributable binding still builds.
         if "build" in scripts:
             commands.add(f"bun run --cwd {package_dir} build")
+        else:
+            binding_manifest = (
+                root / "crates" / "bindings" / Path(package_dir).name / "Cargo.toml"
+            )
+            if binding_manifest.is_file():
+                manifest = tomllib.loads(
+                    binding_manifest.read_text(encoding="utf-8")
+                )
+                cargo_name = str((manifest.get("package") or {}).get("name") or "")
+                if cargo_name:
+                    commands.add(
+                        f"cargo build --package {cargo_name} "
+                        "--target wasm32-unknown-unknown"
+                    )
         if not scripts or "test" in scripts:
             commands.add(f"bun run --cwd {package_dir} test")
     return commands

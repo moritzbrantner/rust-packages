@@ -155,6 +155,19 @@ class CheckChangedScopeTests(unittest.TestCase):
         self.assertTrue(plan["wasm_checks"])
         self.assertFalse(plan["frontend_checks"])
 
+    def test_wasm_without_package_build_script_builds_binding_crate(self) -> None:
+        scope = self.classify(
+            ["packages/vision-core-wasm/index.js"],
+            package_json_paths=[
+                *self.package_json_paths(),
+                "packages/vision-core-wasm/package.json",
+            ],
+        )
+        self.assertIn(
+            "cargo build --package moenarch-vision-core-wasm --target wasm32-unknown-unknown",
+            scope["frontend_commands"],
+        )
+
     def test_root_manifest_and_release_changes_select_full_workspace(self) -> None:
         root_plan = self.classify(["Cargo.toml"])["ci_plan"]
         release_plan = self.classify(
@@ -175,6 +188,17 @@ class CheckChangedScopeTests(unittest.TestCase):
         self.assertTrue(plan["storybook_checks"])
         self.assertFalse(plan["wasm_checks"])
         self.assertFalse(plan["browser_e2e_checks"])
+
+    def test_web_and_wasm_change_coalesce_heavy_tool_setup(self) -> None:
+        plan = self.classify(
+            [
+                "prototypes/web/video-analysis-web/src/main.tsx",
+                "packages/text-core-wasm/src/index.ts",
+            ]
+        )["ci_plan"]
+        self.assertTrue(plan["browser_e2e_checks"])
+        self.assertFalse(plan["wasm_checks"])
+        self.assertFalse(plan["storybook_checks"])
 
     def test_every_selected_changed_frontend_surface_has_commands(self) -> None:
         fixtures = (
