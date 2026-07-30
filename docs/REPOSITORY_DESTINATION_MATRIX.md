@@ -9,7 +9,7 @@ Source: `docs/repository-split/package-ownership.json` at `d032ad2890c1df3c6a5b9
 | Target repository | Cargo packages |
 | --- | ---: |
 | `moritzbrantner/audio-analysis` | 53 |
-| `moritzbrantner/moenarch-foundation` | 58 |
+| `moritzbrantner/moenarch-foundation` | 59 |
 | `moritzbrantner/nlp-stack` | 52 |
 | `moritzbrantner/rust-packages` | 20 |
 | `moritzbrantner/spatial-analysis` | 56 |
@@ -539,3 +539,4 @@ Source: `docs/repository-split/package-ownership.json` at `d032ad2890c1df3c6a5b9
 | cargo | `moenarch-vision-core-cli` | CLI | `moenarch-vision-core` | `moenarch-vision-core` | `moritzbrantner/visual-analysis` | visual | crates.io |
 | cargo | `moenarch-vision-core-server` | server | `moenarch-vision-core` | `moenarch-vision-core` | `moritzbrantner/visual-analysis` | visual | crates.io |
 | cargo | `moenarch-vision-core-wasm` | WASM | `moenarch-vision-core` | `moenarch-vision-core` | `moritzbrantner/visual-analysis` | visual | crates.io |
+| cargo | `moenarch-media-core` | library | `moenarch-media-core` | — | `moritzbrantner/moenarch-foundation` | foundation | crates.io |

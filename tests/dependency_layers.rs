@@ -83,6 +83,7 @@ fn transport_wrappers_depend_only_on_wrapped_library_and_runtime_core() {
 fn foundation_crates_do_not_depend_on_domain_crates() {
     let graph = MetadataGraph::load();
     let foundation = BTreeSet::from([
+        "moenarch-media-core",
         "moenarch-runtime-core",
         "moenarch-runtime-onnx",
         "moenarch-jobs-core",

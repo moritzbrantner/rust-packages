@@ -16,6 +16,7 @@ MATRIX_PATH = ROOT / "docs" / "PACKAGE_SURFACE_MATRIX.md"
 EXCLUDED_LIBRARY_CRATES = {
     "moritzbrantner-audio-analysis-test-support",
     "moenarch-audio-analysis-test-support",
+    "moenarch-media-core",
     "moritzbrantner-runtime-core",
     "moenarch-runtime-core",
     "moritzbrantner-runtime-onnx",

@@ -22,7 +22,20 @@ class RepositorySplitInventoryTests(unittest.TestCase):
         authority, _, _, errors = generate()
         self.assertEqual(errors, [])
         self.assertEqual(len(authority["packages"]), 520)
-        self.assertEqual(authority["post_baseline_packages"], [])
+        self.assertEqual(
+            [
+                record["id"]
+                for record in authority["post_baseline_packages"]
+            ],
+            ["cargo:moenarch-media-core"],
+        )
+        self.assertEqual(
+            authority["post_baseline_packages"][0]["provenance"],
+            {
+                "introduced_after_commit": "565c18fdd3126ece08e0ed982b6e616d674a5c52",
+                "issue": "https://github.com/moritzbrantner/rust-packages/issues/108",
+            },
+        )
         self.assertEqual(authority["schema_version"], 2)
 
     def test_projection_uses_package_specific_reviewed_decision(self) -> None:

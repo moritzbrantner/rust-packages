@@ -11262,7 +11262,33 @@
       "wrapped_library": "moenarch-vision-core"
     }
   ],
-  "post_baseline_packages": [],
+  "post_baseline_packages": [
+    {
+      "automatic_publish_eligible": true,
+      "contract_owner": "moenarch-media-core",
+      "current_domain": "media",
+      "current_package_name": "moenarch-media-core",
+      "current_published_version": null,
+      "current_release_workflow": "manual docs/RELEASE_CHECKLIST.md",
+      "ecosystem": "cargo",
+      "extraction_phase": "foundation",
+      "id": "cargo:moenarch-media-core",
+      "intended_next_release_owner": "moritzbrantner/moenarch-foundation",
+      "intended_package_name": "moenarch-media-core",
+      "manifest_path": "crates/media/media-core/Cargo.toml",
+      "migration_status": "classified; source remains in rust-packages",
+      "package_kind": "library",
+      "provenance": {
+        "introduced_after_commit": "565c18fdd3126ece08e0ed982b6e616d674a5c52",
+        "issue": "https://github.com/moritzbrantner/rust-packages/issues/108"
+      },
+      "publication_class": "crates.io",
+      "source_version": "0.1.0",
+      "target_repository": "moenarch-foundation",
+      "temporary_boundary_violations": [],
+      "wrapped_library": null
+    }
+  ],
   "repository": "moritzbrantner/rust-packages",
   "review_issue": "https://github.com/moritzbrantner/rust-packages/issues/107",
   "schema_version": 2,

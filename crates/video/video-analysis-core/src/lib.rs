@@ -2,6 +2,8 @@
 
 pub mod runtime;
 pub mod surface;
+pub use media_core::{AnalysisEvent, Timebase, Timestamp};
+
 use std::collections::{BTreeMap, BTreeSet};
 use std::fmt;
 use std::ops::{Add, Sub};
@@ -56,48 +58,6 @@ pub enum DetectError {
 
 /// Type alias for result.
 pub type Result<T> = std::result::Result<T, DetectError>;
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
-/// Data type for timebase.
-pub struct Timebase {
-    /// The num value.
-    pub num: i32,
-    /// The den value.
-    pub den: i32,
-}
-
-impl Timebase {
-    /// Creates a new value.
-    pub const fn new(num: i32, den: i32) -> Self {
-        Self { num, den }
-    }
-
-    /// Returns seconds per tick.
-    pub fn seconds_per_tick(self) -> f64 {
-        self.num as f64 / self.den as f64
-    }
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
-/// Data type for timestamp.
-pub struct Timestamp {
-    /// The PTS value.
-    pub pts: i64,
-    /// The timebase value.
-    pub timebase: Timebase,
-}
-
-impl Timestamp {
-    /// Creates a new value.
-    pub const fn new(pts: i64, timebase: Timebase) -> Self {
-        Self { pts, timebase }
-    }
-
-    /// Returns seconds.
-    pub fn seconds(self) -> f64 {
-        self.pts as f64 * self.timebase.seconds_per_tick()
-    }
-}
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 /// Data type for frame position.
@@ -1634,43 +1594,6 @@ pub struct RealtimeVideoAnalysisResult {
     pub scenes: Vec<SceneAnalysis>,
     /// The frames processed value.
     pub frames_processed: u64,
-}
-
-#[derive(Debug, Clone, PartialEq)]
-/// Data type for analysis event.
-pub struct AnalysisEvent {
-    /// Timestamp associated with this value.
-    pub timestamp: Option<Timestamp>,
-    /// The analyzer value.
-    pub analyzer: String,
-    /// Label assigned to this value.
-    pub label: String,
-    /// Score assigned to this value.
-    pub score: Option<f32>,
-}
-
-impl AnalysisEvent {
-    /// Creates a new value.
-    pub fn new(analyzer: impl Into<String>, label: impl Into<String>) -> Self {
-        Self {
-            timestamp: None,
-            analyzer: analyzer.into(),
-            label: label.into(),
-            score: None,
-        }
-    }
-
-    /// Returns at timestamp.
-    pub fn at_timestamp(mut self, timestamp: Timestamp) -> Self {
-        self.timestamp = Some(timestamp);
-        self
-    }
-
-    /// Returns score.
-    pub fn score(mut self, score: f32) -> Self {
-        self.score = Some(score);
-        self
-    }
 }
 
 #[derive(Debug, Default, Clone, PartialEq)]

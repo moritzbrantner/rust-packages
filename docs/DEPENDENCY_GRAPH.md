@@ -431,6 +431,11 @@ flowchart LR
     crate_moenarch_jobs_core_server["moenarch-jobs-core-server"]:::crate
   end
 
+  subgraph group_media["Media"]
+    direction TB
+    crate_moenarch_media_core["moenarch-media-core"]:::crate
+  end
+
   subgraph group_runtime["Runtime"]
     direction TB
     crate_moenarch_model_runtime["moenarch-model-runtime"]:::crate
@@ -560,6 +565,7 @@ flowchart LR
   crate_moenarch_video_analysis -. dev .-> crate_moenarch_video_analysis_test_support
   crate_moenarch_video_analysis -. optional .-> crate_moenarch_animation_core
   crate_moenarch_video_analysis -. optional .-> crate_moenarch_jobs_core
+  crate_moenarch_video_analysis -. dev .-> crate_moenarch_media_core
   crate_moenarch_video_analysis -. optional .-> crate_moenarch_model_runtime
   crate_moenarch_video_analysis -. optional .-> crate_moenarch_runtime_core
   crate_moenarch_video_analysis -. optional .-> crate_moenarch_runtime_onnx
@@ -1060,6 +1066,7 @@ flowchart LR
   crate_moenarch_video_analysis_cli --> crate_moenarch_jobs_core
   crate_moenarch_video_analysis_cli --> crate_moenarch_model_runtime
   crate_moenarch_video_analysis_core --> crate_moenarch_math_geometry_2d
+  crate_moenarch_video_analysis_core --> crate_moenarch_media_core
   crate_moenarch_video_analysis_core --> crate_moenarch_runtime_core
   crate_moenarch_video_analysis_core_cli --> crate_moenarch_video_analysis_core
   crate_moenarch_video_analysis_core_cli --> crate_moenarch_runtime_core

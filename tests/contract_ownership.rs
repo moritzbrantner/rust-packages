@@ -838,8 +838,9 @@ fn foundation_contract_owner_rules_remain_enforced() {
         ("ModelBundle", "crates/runtime/model-runtime/"),
         ("ModelBundleManifest", "crates/runtime/model-runtime/"),
         ("ModelRuntimeSelection", "crates/runtime/model-runtime/"),
-        ("Timebase", "crates/video/video-analysis-core/"),
-        ("Timestamp", "crates/video/video-analysis-core/"),
+        ("Timebase", "crates/media/media-core/"),
+        ("Timestamp", "crates/media/media-core/"),
+        ("AnalysisEvent", "crates/media/media-core/"),
         ("VideoFrame", "crates/video/video-analysis-core/"),
         ("OwnedVideoFrame", "crates/video/video-analysis-core/"),
         ("BoundingBox", "crates/video/video-analysis-core/"),
@@ -873,6 +874,23 @@ fn foundation_contract_owner_rules_remain_enforced() {
     ] {
         assert_public_contract_owned_by(type_name, owner);
     }
+}
+
+#[test]
+fn video_core_reexports_exact_neutral_media_contract_types() {
+    fn accepts_timebase(_: media_core::Timebase) {}
+    fn accepts_timestamp(_: media_core::Timestamp) {}
+    fn accepts_event(_: media_core::AnalysisEvent) {}
+
+    accepts_timebase(video_analysis_core::Timebase::new(1, 1_000));
+    accepts_timestamp(video_analysis_core::Timestamp::new(
+        125,
+        video_analysis_core::Timebase::new(1, 1_000),
+    ));
+    accepts_event(video_analysis_core::AnalysisEvent::new(
+        "fixture",
+        "neutral-contract",
+    ));
 }
 
 #[test]
