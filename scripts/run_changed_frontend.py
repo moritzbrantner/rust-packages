@@ -24,6 +24,11 @@ def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--base", default="origin/main")
     parser.add_argument("--kind", choices=["application", "wasm"], required=True)
+    parser.add_argument(
+        "--allow-empty",
+        action="store_true",
+        help="succeed when a coalesced job has no commands for this sub-surface",
+    )
     args = parser.parse_args()
     output = subprocess.check_output(
         [sys.executable, "scripts/check_changed_scope.py", "--base", args.base],
@@ -32,6 +37,8 @@ def main() -> None:
     )
     commands = selected_commands(json.loads(output), args.kind)
     if not commands:
+        if args.allow_empty:
+            return
         raise SystemExit(f"planner selected {args.kind} checks but produced no commands")
     for command in commands:
         subprocess.run(shlex.split(command), cwd=ROOT, check=True)

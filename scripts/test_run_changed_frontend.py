@@ -24,7 +24,8 @@ class RunChangedFrontendTests(unittest.TestCase):
             "frontend_commands": [
                 "bun run ui:typecheck",
                 "bun run web:test:unit",
-                "bun run text-wasm:test:all",
+                "bun run --cwd packages/text-core-wasm build",
+                "bun run --cwd packages/text-core-wasm test",
             ]
         }
         self.assertEqual(
@@ -33,7 +34,10 @@ class RunChangedFrontendTests(unittest.TestCase):
         )
         self.assertEqual(
             runner.selected_commands(scope, "wasm"),
-            ["bun run text-wasm:test:all"],
+            [
+                "bun run --cwd packages/text-core-wasm build",
+                "bun run --cwd packages/text-core-wasm test",
+            ],
         )
 
     def test_selected_commands_are_static_argument_vectors(self) -> None:

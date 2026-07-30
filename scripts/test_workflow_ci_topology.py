@@ -32,6 +32,22 @@ class WorkflowCiTopologyTests(unittest.TestCase):
         )
         self.assertNotIn("cancel-in-progress:", workflow)
         self.assertNotIn("\nconcurrency:", workflow)
+        self.assertEqual(workflow.count("install_playwright: true"), 1)
+        self.assertIn("storybook:test:ci", workflow)
+
+    def test_ui_validation_shares_one_browser_and_wasm_setup(self) -> None:
+        workflow = (ROOT / ".github/workflows/workspace-ci.yml").read_text(
+            encoding="utf-8"
+        )
+        storybook_job = workflow.split("  storybook-checks:", 1)[1].split(
+            "  browser-e2e-checks:", 1
+        )[0]
+        self.assertIn("e2e-validation.yml", storybook_job)
+        self.assertEqual(storybook_job.count("install_playwright: true"), 1)
+        self.assertEqual(storybook_job.count("cargo install wasm-pack"), 1)
+        self.assertIn("ui:test:e2e", storybook_job)
+        self.assertIn("web:test:e2e", storybook_job)
+        self.assertIn("storybook:test:ci", storybook_job)
 
 
 if __name__ == "__main__":

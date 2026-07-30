@@ -212,6 +212,15 @@ def classify_changed_files(
             if package:
                 rust_packages.add(package.name)
                 rust_reasons.append(f"{path} maps to {package.name}")
+                if package.manifest_dir.startswith("crates/bindings/"):
+                    package_dir = f"packages/{Path(package.manifest_dir).name}"
+                    if f"{package_dir}/package.json" in package_json_set:
+                        frontend_commands.update(
+                            frontend_package_commands(package_dir, root)
+                        )
+                        frontend_reasons.append(
+                            f"{path} maps to the {package_dir} WASM package"
+                        )
                 surface = surface_package_for_path(path, packages)
                 if surface:
                     progress_packages.add(surface.name)
@@ -234,14 +243,8 @@ def classify_changed_files(
             frontend_reasons.append(f"{path} affects prototypes/web/video-analysis-web")
         elif path.startswith("packages/"):
             package_dir = frontend_package_dir(path, package_json_set)
-            if package_dir and package_dir.startswith("packages/text-") and package_dir.endswith("-wasm"):
-                frontend_commands.add("bun run text-wasm:test:all")
-                frontend_reasons.append(f"{path} affects a text WASM package")
-            elif package_dir and package_dir.startswith("packages/text-") and package_dir.endswith("-app"):
-                frontend_commands.add("bun run text-app:typecheck")
-                frontend_reasons.append(f"{path} affects a text app package")
-            elif package_dir and package_dir.endswith("-wasm"):
-                frontend_commands.add(f"bun run --cwd {package_dir} test")
+            if package_dir and package_dir.endswith(("-app", "-wasm")):
+                frontend_commands.update(frontend_package_commands(package_dir, root))
                 frontend_reasons.append(f"{path} affects {package_dir}")
 
         if path in PROGRESS_ALL_FILES or any(path.startswith(prefix) for prefix in PROGRESS_ALL_PREFIXES):
@@ -382,9 +385,12 @@ def build_ci_plan(paths: list[str], scope: Scope, *, full_ci: bool) -> dict[str,
         "architecture_checks": architecture,
         "rust_checks": scope.rust_scope != "none" and not full_workspace,
         "frontend_checks": application_frontend_change and not full_workspace,
-        "wasm_checks": wasm_change and not full_workspace,
-        "storybook_checks": ui_change or full_workspace,
-        "browser_e2e_checks": (ui_change or web_change or full_ci) and not full_workspace,
+        # UI validation coalesces its WASM, browser E2E, and Storybook work so the
+        # pinned browser and wasm-pack setup is paid once. Full validation does
+        # the same inside the full-workspace job.
+        "wasm_checks": wasm_change and not (full_workspace or ui_change),
+        "storybook_checks": ui_change and not full_workspace,
+        "browser_e2e_checks": web_change and not (full_workspace or ui_change),
         "full_workspace_checks": full_workspace,
     }
 
@@ -448,6 +454,29 @@ def frontend_package_dir(path: str, package_json_paths: set[str]) -> str | None:
     return package_dir if f"{package_dir}/package.json" in package_json_paths else None
 
 
+def frontend_package_commands(package_dir: str, root: Path) -> set[str]:
+    package_json = root / package_dir / "package.json"
+    scripts: set[str] = set()
+    if package_json.is_file():
+        payload = json.loads(package_json.read_text(encoding="utf-8"))
+        scripts = set((payload.get("scripts") or {}).keys())
+
+    commands: set[str] = set()
+    if package_dir.endswith("-app"):
+        # App packages consistently expose typecheck. Keep the fallback for
+        # deleted paths and fixture roots where package.json is unavailable.
+        if not scripts or "typecheck" in scripts:
+            commands.add(f"bun run --cwd {package_dir} typecheck")
+    elif package_dir.endswith("-wasm"):
+        # A changed WASM surface must compile when it exposes a build script;
+        # tests alone do not prove that the distributable binding still builds.
+        if "build" in scripts:
+            commands.add(f"bun run --cwd {package_dir} build")
+        if not scripts or "test" in scripts:
+            commands.add(f"bun run --cwd {package_dir} test")
+    return commands
+
+
 def root_package_name(packages: list[CargoPackage]) -> str:
     root_package = next((package for package in packages if package.manifest_dir == "."), None)
     return root_package.name if root_package else "moenarch-video-analysis"
@@ -485,8 +514,6 @@ def order_frontend_commands(commands: Iterable[str]) -> list[str]:
         "bun run web:typecheck",
         "bun run web:test:unit",
         "bun run web:test:api",
-        "bun run text-wasm:test:all",
-        "bun run text-app:typecheck",
     ]
     command_set = set(commands)
     ordered = [command for command in preferred if command in command_set]

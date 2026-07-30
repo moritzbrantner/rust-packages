@@ -49,20 +49,50 @@ class CheckChangedScopeTests(unittest.TestCase):
     def test_wasm_binding_change_maps_to_rust_and_bun_package(self) -> None:
         scope = self.classify(["crates/bindings/text-core-wasm/src/lib.rs"])
         self.assertEqual(scope["rust_packages"], ["moenarch-text-core-wasm"])
-        self.assertEqual(scope["frontend_scope"], "none")
+        self.assertEqual(scope["frontend_scope"], "changed")
+        self.assertEqual(
+            scope["frontend_commands"],
+            [
+                "bun run --cwd packages/text-core-wasm build",
+                "bun run --cwd packages/text-core-wasm test",
+            ],
+        )
         self.assertEqual(scope["progress_packages"], ["moenarch-text-core"])
 
     def test_wasm_package_change_runs_matching_bun_test(self) -> None:
         scope = self.classify(["packages/text-core-wasm/tests/package.test.ts"])
         self.assertEqual(scope["frontend_scope"], "changed")
-        self.assertEqual(scope["frontend_commands"], ["bun run text-wasm:test:all"])
+        self.assertEqual(
+            scope["frontend_commands"],
+            [
+                "bun run --cwd packages/text-core-wasm build",
+                "bun run --cwd packages/text-core-wasm test",
+            ],
+        )
         self.assertEqual(scope["progress_packages"], ["moenarch-text-core"])
 
     def test_text_app_change_runs_text_app_typecheck(self) -> None:
         scope = self.classify(["packages/text-core-app/src/App.tsx"])
         self.assertEqual(scope["frontend_scope"], "changed")
-        self.assertEqual(scope["frontend_commands"], ["bun run text-app:typecheck"])
+        self.assertEqual(
+            scope["frontend_commands"],
+            ["bun run --cwd packages/text-core-app typecheck"],
+        )
         self.assertEqual(scope["progress_packages"], ["moenarch-text-core"])
+
+    def test_non_text_app_change_has_an_executable_typecheck(self) -> None:
+        scope = self.classify(
+            ["packages/audio-analysis-core-app/src/App.tsx"],
+            package_json_paths=[
+                *self.package_json_paths(),
+                "packages/audio-analysis-core-app/package.json",
+            ],
+        )
+        self.assertEqual(
+            scope["frontend_commands"],
+            ["bun run --cwd packages/audio-analysis-core-app typecheck"],
+        )
+        self.assertTrue(scope["ci_plan"]["frontend_checks"])
 
     def test_root_cargo_toml_selects_workspace(self) -> None:
         scope = self.classify(["Cargo.toml"])
@@ -117,7 +147,8 @@ class CheckChangedScopeTests(unittest.TestCase):
         plan = self.classify(["packages/video-analysis-ui/src/core/index.tsx"])["ci_plan"]
         self.assertTrue(plan["frontend_checks"])
         self.assertTrue(plan["storybook_checks"])
-        self.assertTrue(plan["browser_e2e_checks"])
+        # The Storybook job also runs UI and web E2E with one Playwright setup.
+        self.assertFalse(plan["browser_e2e_checks"])
 
     def test_wasm_ci_plan_is_separate_from_application_frontend(self) -> None:
         plan = self.classify(["packages/text-core-wasm/tests/package.test.ts"])["ci_plan"]
@@ -131,8 +162,34 @@ class CheckChangedScopeTests(unittest.TestCase):
         )["ci_plan"]
         for plan in (root_plan, release_plan):
             self.assertTrue(plan["full_workspace_checks"])
-            self.assertTrue(plan["storybook_checks"])
+            self.assertFalse(plan["storybook_checks"])
             self.assertFalse(plan["browser_e2e_checks"])
+
+    def test_ui_and_wasm_change_coalesce_heavy_tool_setup(self) -> None:
+        plan = self.classify(
+            [
+                "packages/video-analysis-ui/src/core/index.tsx",
+                "packages/text-core-wasm/src/index.ts",
+            ]
+        )["ci_plan"]
+        self.assertTrue(plan["storybook_checks"])
+        self.assertFalse(plan["wasm_checks"])
+        self.assertFalse(plan["browser_e2e_checks"])
+
+    def test_every_selected_changed_frontend_surface_has_commands(self) -> None:
+        fixtures = (
+            ["crates/bindings/text-core-wasm/src/lib.rs"],
+            ["packages/text-core-wasm/src/index.ts"],
+            ["packages/text-core-app/src/App.tsx"],
+            ["packages/video-analysis-ui/src/core/index.tsx"],
+            ["prototypes/web/video-analysis-web/src/main.tsx"],
+        )
+        for paths in fixtures:
+            with self.subTest(paths=paths):
+                scope = self.classify(paths)
+                plan = scope["ci_plan"]
+                if plan["frontend_checks"] or plan["wasm_checks"]:
+                    self.assertTrue(scope["frontend_commands"])
 
     def test_explicit_full_ci_selects_full_workspace(self) -> None:
         scope = scope_mod.classify_changed_files(
@@ -143,11 +200,16 @@ class CheckChangedScopeTests(unittest.TestCase):
         ).to_json()
         self.assertTrue(scope["ci_plan"]["full_workspace_checks"])
 
-    def classify(self, paths: list[str]) -> dict:
+    def classify(
+        self,
+        paths: list[str],
+        *,
+        package_json_paths: list[str] | None = None,
+    ) -> dict:
         return scope_mod.classify_changed_files(
             changed_files=paths,
             packages=self.packages(),
-            package_json_paths=self.package_json_paths(),
+            package_json_paths=package_json_paths or self.package_json_paths(),
         ).to_json()
 
     def packages(self) -> list:

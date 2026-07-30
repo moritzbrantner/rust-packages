@@ -91,9 +91,12 @@ The pinned reusable workflows cache Cargo registry, Git, and target data using
 the runner OS and `Cargo.lock` hash; changing the lockfile invalidates the exact
 cache key, while the OS restore prefix can still reuse downloads safely.
 `wasm-pack` remains pinned to `0.14.0`, and Playwright installs the browser
-version locked by the workspace dependencies. The job graph avoids installing
-either tool in an unselected job and does not share caches or credentials with
-unmanaged runners. No self-hosted runner is assumed by this configuration.
+version locked by the workspace dependencies. A UI change coalesces changed
+WASM builds, UI and web browser E2E, and Storybook into one browser job; the
+full-workspace path does the same. This prevents simultaneous selected jobs from
+independently installing the same pinned browser or `wasm-pack`. The job graph
+does not share caches or credentials with unmanaged runners. No self-hosted
+runner is assumed by this configuration.
 
 ## Local Build Cache
 
