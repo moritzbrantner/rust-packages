@@ -73,6 +73,9 @@ creating incomplete public libraries or temporary path/Git dependencies.
 - #108 is coordinated from `rust-packages`; naming the nonexistent foundation
   repository as its accessible owner created a cycle because #110 cannot create
   that repository until #108 and #109 complete.
+- #146 precedes #108 because the immutable Phase A ownership authority needs an
+  append-only post-baseline provenance schema before a new Cargo package can be
+  added without falsifying the Phase A audit commit.
 - #112 follows #109. Both touch `text-transcripts`, audio adapters, the root
   manifest, and the root lockfile, so they are not safe parallel slices.
 - #123 owns only `native-whisperx`; #144 owns the later `subtitle-merger`
@@ -86,8 +89,8 @@ creating incomplete public libraries or temporary path/Git dependencies.
 With current issue state, the deterministic longest path is:
 
 ```text
-#108 → #109 → #110 → #136 → #111 → #113 → #114 → #118
-     → #119 → #120 → #121 → #129 → #134
+#146 → #108 → #109 → #110 → #136 → #111 → #113 → #114
+     → #118 → #119 → #120 → #121 → #129 → #134
 ```
 
 The path is based on unresolved dependencies, not the total issue count. Wave 2
@@ -98,19 +101,20 @@ release path.
 
 After #107 completed, the three initially evaluated groups were:
 
-- #108: neutral media contracts in `rust-packages`, now active;
+- #108: neutral media contracts in `rust-packages`, now dependency-blocked by
+  the active non-overlapping authority-schema prerequisite #146;
 - #117: scene-ownership analysis in non-overlapping decision documents,
   currently human-blocked;
-- #135: geo release-environment policy in `geo-analysis`, currently
-  human-blocked.
+- #135: the former hosted release-environment policy in `geo-analysis`, now
+  closed as superseded by authoritative local Cargo publication.
 
-Their owning repositories, write scopes, and exclusive resources are disjoint.
-That makes them potential parallel groups only after each issue is independently
-dependency-ready, its human blocker is cleared, and the repository has a
-current passing exact-head local verification receipt. Missing or stale local
-evidence permits at most one new worker; repeated reproducible local failures,
-blocking review findings, or merge conflicts permit none. GitHub Actions state
-is not a scheduling input.
+#146 and #117 have disjoint write scopes and exclusive resources, but #117
+remains human-blocked. A slice becomes a parallel candidate only after it is
+independently dependency-ready, any human blocker is cleared, and the repository
+has a current passing exact-head local verification receipt. Missing or stale
+local evidence permits at most one new worker; repeated reproducible local
+failures, blocking review findings, or merge conflicts permit none. GitHub
+Actions state is not a scheduling input.
 
 Later safe candidates are consumer migrations in distinct repositories after
 their exact release blockers complete. Transcript purification and removal of
