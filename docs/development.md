@@ -69,6 +69,39 @@ For the full local baseline with external-tool checks, use:
 scripts/check.sh
 ```
 
+## Pull-request CI
+
+When available, `workspace-ci` runs a lightweight planner and repository sanity
+gate as optional hosted information. Exact-head local verification from a clean
+isolated worktree is the authoritative pull-request gate; hosted execution is
+not required for readiness or merge.
+The planner classifies the exact pull-request diff and selects only the affected
+Rust, frontend, WASM, Storybook, browser, architecture, or full-workspace jobs.
+Changed Rust crates include their workspace reverse-dependency closure. Root
+manifests, broad lockfiles, ownership maps, and release-plan inputs select the
+full workspace. A final always-running `ci-gate` summarizes the optional hosted
+jobs: it accepts legitimately unselected jobs but fails closed when a selected
+hosted job is skipped, cancelled, or unsuccessful. It is not a branch-protection
+or merge prerequisite. Add the `full-ci` label when an ordinary hosted run needs
+the broad path.
+
+New commits cancel obsolete ordinary pull-request runs. Release, publication,
+and deployment workflows are deliberately outside that cancellation policy.
+The weekly `full-workspace-ci` keeps broad Rust, frontend/WASM, Storybook,
+browser, generated-inventory, and package checks off the critical path of
+unrelated pull requests.
+
+The pinned reusable workflows cache Cargo registry, Git, and target data using
+the runner OS and `Cargo.lock` hash; changing the lockfile invalidates the exact
+cache key, while the OS restore prefix can still reuse downloads safely.
+`wasm-pack` remains pinned to `0.14.0`, and Playwright installs the browser
+version locked by the workspace dependencies. A UI change coalesces changed
+WASM builds, UI and web browser E2E, and Storybook into one browser job; the
+full-workspace path does the same. This prevents simultaneous selected jobs from
+independently installing the same pinned browser or `wasm-pack`. The job graph
+does not share caches or credentials with unmanaged runners. No self-hosted
+runner is assumed by this configuration.
+
 ## Local Build Cache
 
 Cargo and package build outputs are local artifacts. If the checkout looks large,

@@ -10,8 +10,17 @@ fi
 cd "$ROOT_DIR"
 
 only_paths=()
+base_ref=""
 while [[ $# -gt 0 ]]; do
   case "$1" in
+    --base)
+      if [[ -z "${2:-}" ]]; then
+        echo "error: --base requires a git revision" >&2
+        exit 2
+      fi
+      base_ref="$2"
+      shift 2
+      ;;
     --only)
       if [[ -z "${2:-}" ]]; then
         echo "error: --only requires a snapshot path" >&2
@@ -26,6 +35,27 @@ while [[ $# -gt 0 ]]; do
       ;;
   esac
 done
+
+if [[ -n "$base_ref" ]]; then
+  scope_file="$(mktemp -t generated-snapshot-scope.XXXXXX.json)"
+  trap 'rm -f "$scope_file"' EXIT
+  python3 scripts/check_changed_scope.py --base "$base_ref" > "$scope_file"
+  mapfile -t scoped_paths < <(
+    python3 - "$scope_file" <<'PY'
+import json
+import sys
+
+with open(sys.argv[1], encoding="utf-8") as handle:
+    for path in json.load(handle).get("snapshot_paths") or []:
+        print(path)
+PY
+  )
+  only_paths+=("${scoped_paths[@]}")
+  if (( ${#only_paths[@]} == 0 )); then
+    echo "generated snapshots: none affected"
+    exit 0
+  fi
+fi
 
 should_check_path() {
   local path="$1"

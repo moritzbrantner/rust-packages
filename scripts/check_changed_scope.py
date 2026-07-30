@@ -8,6 +8,7 @@ import json
 import os
 import subprocess
 import sys
+import tomllib
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Iterable
@@ -24,6 +25,27 @@ FRONTEND_WORKSPACE_FILES = {
     "package.json",
     "bun.lock",
 }
+FULL_WORKSPACE_FILES = {
+    "Cargo.toml",
+    "Cargo.lock",
+    ".cargo/config.toml",
+    "package.json",
+    "bun.lock",
+    "docs/repository-split/package-ownership.json",
+    "docs/repository-split/dependency-boundary-baseline.json",
+}
+FULL_WORKSPACE_PREFIXES = (
+    "scripts/fixtures/release_plans/",
+)
+RELEASE_PLAN_MARKERS = (
+    "release-plan",
+    "release_plan",
+)
+ARCHITECTURE_PREFIXES = (
+    ".github/workflows/",
+    "scripts/",
+    "docs/repository-split/",
+)
 SNAPSHOT_FILES = {
     "docs/CRATE_PROGRESS_LEDGER.md",
     "docs/CRATE_INVENTORY.md",
@@ -66,6 +88,7 @@ class CargoPackage:
     name: str
     manifest_dir: str
     manifest_path: str
+    dependencies: tuple[str, ...] = ()
 
     @property
     def base(self) -> str:
@@ -96,6 +119,7 @@ class Scope:
     frontend_reasons: list[str] | None = None
     progress_reasons: list[str] | None = None
     snapshot_paths: list[str] | None = None
+    ci_plan: dict[str, bool] | None = None
 
     def to_json(self) -> dict:
         return {
@@ -114,6 +138,7 @@ class Scope:
             "frontend_reasons": self.frontend_reasons or [],
             "progress_reasons": self.progress_reasons or [],
             "snapshot_paths": self.snapshot_paths or [],
+            "ci_plan": self.ci_plan or {},
         }
 
 
@@ -124,6 +149,8 @@ def main() -> int:
         "--paths-file",
         help="read changed paths from a file instead of git; use - for stdin",
     )
+    parser.add_argument("--full-ci", action="store_true")
+    parser.add_argument("--github-output")
     args = parser.parse_args()
 
     root = ROOT
@@ -139,8 +166,12 @@ def main() -> int:
         package_json_paths=package_json_paths,
         base_ref=args.base,
         root=root,
+        full_ci=args.full_ci,
     )
-    print(json.dumps(scope.to_json(), indent=2, sort_keys=True))
+    payload = scope.to_json()
+    if args.github_output:
+        write_github_outputs(Path(args.github_output), payload)
+    print(json.dumps(payload, indent=2, sort_keys=True))
     return 0
 
 
@@ -151,6 +182,7 @@ def classify_changed_files(
     package_json_paths: Iterable[str],
     base_ref: str = "origin/main",
     root: Path = ROOT,
+    full_ci: bool = False,
 ) -> Scope:
     paths = sorted(set(normalize_path(path) for path in changed_files if normalize_path(path)))
     package_json_set = set(package_json_paths)
@@ -183,6 +215,15 @@ def classify_changed_files(
             if package:
                 rust_packages.add(package.name)
                 rust_reasons.append(f"{path} maps to {package.name}")
+                if package.manifest_dir.startswith("crates/bindings/"):
+                    package_dir = f"packages/{Path(package.manifest_dir).name}"
+                    if f"{package_dir}/package.json" in package_json_set:
+                        frontend_commands.update(
+                            frontend_package_commands(package_dir, root)
+                        )
+                        frontend_reasons.append(
+                            f"{path} maps to the {package_dir} WASM package"
+                        )
                 surface = surface_package_for_path(path, packages)
                 if surface:
                     progress_packages.add(surface.name)
@@ -205,14 +246,8 @@ def classify_changed_files(
             frontend_reasons.append(f"{path} affects prototypes/web/video-analysis-web")
         elif path.startswith("packages/"):
             package_dir = frontend_package_dir(path, package_json_set)
-            if package_dir and package_dir.startswith("packages/text-") and package_dir.endswith("-wasm"):
-                frontend_commands.add("bun run text-wasm:test:all")
-                frontend_reasons.append(f"{path} affects a text WASM package")
-            elif package_dir and package_dir.startswith("packages/text-") and package_dir.endswith("-app"):
-                frontend_commands.add("bun run text-app:typecheck")
-                frontend_reasons.append(f"{path} affects a text app package")
-            elif package_dir and package_dir.endswith("-wasm"):
-                frontend_commands.add(f"bun run --cwd {package_dir} test")
+            if package_dir and package_dir.endswith(("-app", "-wasm")):
+                frontend_commands.update(frontend_package_commands(package_dir, root))
                 frontend_reasons.append(f"{path} affects {package_dir}")
 
         if path in PROGRESS_ALL_FILES or any(path.startswith(prefix) for prefix in PROGRESS_ALL_PREFIXES):
@@ -262,6 +297,9 @@ def classify_changed_files(
     scope.frontend_reasons = dedupe(frontend_reasons)
     scope.progress_reasons = dedupe(progress_reasons)
     scope.snapshot_paths = sorted(snapshot_paths)
+    if scope.rust_scope == "changed":
+        scope.rust_packages = reverse_dependency_closure(rust_packages, packages)
+    scope.ci_plan = build_ci_plan(paths, scope, full_ci=full_ci)
     return scope
 
 
@@ -276,6 +314,15 @@ def cargo_packages(root: Path) -> list[CargoPackage]:
                 name=package["name"],
                 manifest_dir=manifest_dir.relative_to(root).as_posix(),
                 manifest_path=manifest_path.relative_to(root).as_posix(),
+                dependencies=tuple(
+                    sorted(
+                        {
+                            str(dependency.get("name") or "")
+                            for dependency in package.get("dependencies") or []
+                            if dependency.get("name")
+                        }
+                    )
+                ),
             )
         )
     packages.sort(key=lambda package: len(package.manifest_dir), reverse=True)
@@ -294,6 +341,86 @@ def git_changed_paths(root: Path, base: str) -> list[str]:
         output = git_output(root, command)
         paths.update(line.strip() for line in output.splitlines() if line.strip())
     return sorted(paths)
+
+
+def reverse_dependency_closure(
+    changed_packages: set[str],
+    packages: list[CargoPackage],
+) -> list[str]:
+    selected = set(changed_packages)
+    while True:
+        dependents = {
+            package.name
+            for package in packages
+            if package.name not in selected
+            and any(dependency in selected for dependency in package.dependencies)
+        }
+        if not dependents:
+            return sorted(selected)
+        selected.update(dependents)
+
+
+def build_ci_plan(paths: list[str], scope: Scope, *, full_ci: bool) -> dict[str, bool]:
+    release_change = any(
+        marker in path.lower() for path in paths for marker in RELEASE_PLAN_MARKERS
+    )
+    ownership_change = any(
+        path in FULL_WORKSPACE_FILES
+        or any(path.startswith(prefix) for prefix in FULL_WORKSPACE_PREFIXES)
+        for path in paths
+    )
+    full_workspace = full_ci or release_change or ownership_change
+    ui_change = any(path.startswith("packages/video-analysis-ui/") for path in paths)
+    web_change = any(path.startswith("prototypes/web/video-analysis-web/") for path in paths)
+    wasm_change = any(
+        (
+            path.startswith("packages/")
+            and "-wasm/" in path
+        )
+        or path.startswith("crates/bindings/")
+        for path in paths
+    )
+    application_frontend_change = any(
+        (path.startswith("packages/") and "-app/" in path)
+        or path.startswith("packages/video-analysis-ui/")
+        or path.startswith("prototypes/web/")
+        for path in paths
+    )
+    architecture = any(
+        path in FULL_WORKSPACE_FILES
+        or any(path.startswith(prefix) for prefix in ARCHITECTURE_PREFIXES)
+        for path in paths
+    )
+    return {
+        "architecture_checks": architecture,
+        "rust_checks": scope.rust_scope != "none" and not full_workspace,
+        "frontend_checks": application_frontend_change and not full_workspace,
+        # UI validation coalesces its WASM, browser E2E, and Storybook work so the
+        # pinned browser and wasm-pack setup is paid once. Full validation does
+        # the same inside the full-workspace job.
+        "wasm_checks": wasm_change and not (full_workspace or ui_change or web_change),
+        "storybook_checks": ui_change and not full_workspace,
+        "browser_e2e_checks": web_change and not (full_workspace or ui_change),
+        "full_workspace_checks": full_workspace,
+    }
+
+
+def write_github_outputs(path: Path, payload: dict) -> None:
+    plan = payload.get("ci_plan") or {}
+    lines = [
+        f"{name}={'true' if enabled else 'false'}"
+        for name, enabled in sorted(plan.items())
+    ]
+    lines.extend(
+        [
+            "rust_scope=" + str(payload.get("rust_scope") or "none"),
+            "rust_packages_json=" + json.dumps(payload.get("rust_packages") or [], separators=(",", ":")),
+            "frontend_commands_json="
+            + json.dumps(payload.get("frontend_commands") or [], separators=(",", ":")),
+        ]
+    )
+    with path.open("a", encoding="utf-8") as handle:
+        handle.write("\n".join(lines) + "\n")
 
 
 def package_for_path(path: str, packages: list[CargoPackage]) -> CargoPackage | None:
@@ -337,6 +464,44 @@ def frontend_package_dir(path: str, package_json_paths: set[str]) -> str | None:
     return package_dir if f"{package_dir}/package.json" in package_json_paths else None
 
 
+def frontend_package_commands(package_dir: str, root: Path) -> set[str]:
+    package_json = root / package_dir / "package.json"
+    scripts: set[str] = set()
+    if package_json.is_file():
+        payload = json.loads(package_json.read_text(encoding="utf-8"))
+        scripts = set((payload.get("scripts") or {}).keys())
+
+    commands: set[str] = set()
+    if package_dir.endswith("-app"):
+        # App packages consistently expose typecheck. Keep the fallback for
+        # deleted paths and fixture roots where package.json is unavailable.
+        if not scripts or "typecheck" in scripts:
+            commands.add(f"bun run --cwd {package_dir} typecheck")
+    elif package_dir.endswith("-wasm"):
+        # A changed WASM surface must compile when it exposes a build script;
+        # otherwise compile its Rust binding. Tests alone do not prove that the
+        # distributable binding still builds.
+        if "build" in scripts:
+            commands.add(f"bun run --cwd {package_dir} build")
+        else:
+            binding_manifest = (
+                root / "crates" / "bindings" / Path(package_dir).name / "Cargo.toml"
+            )
+            if binding_manifest.is_file():
+                manifest = tomllib.loads(
+                    binding_manifest.read_text(encoding="utf-8")
+                )
+                cargo_name = str((manifest.get("package") or {}).get("name") or "")
+                if cargo_name:
+                    commands.add(
+                        f"cargo build --package {cargo_name} "
+                        "--target wasm32-unknown-unknown"
+                    )
+        if not scripts or "test" in scripts:
+            commands.add(f"bun run --cwd {package_dir} test")
+    return commands
+
+
 def root_package_name(packages: list[CargoPackage]) -> str:
     root_package = next((package for package in packages if package.manifest_dir == "."), None)
     return root_package.name if root_package else "moenarch-video-analysis"
@@ -374,8 +539,6 @@ def order_frontend_commands(commands: Iterable[str]) -> list[str]:
         "bun run web:typecheck",
         "bun run web:test:unit",
         "bun run web:test:api",
-        "bun run text-wasm:test:all",
-        "bun run text-app:typecheck",
     ]
     command_set = set(commands)
     ordered = [command for command in preferred if command in command_set]
