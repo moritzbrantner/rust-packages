@@ -1,5 +1,10 @@
 # Post-Pilot Extraction Playbook
 
+> **Superseded guidance:** ADR 0012 supersedes this playbook's rejection of
+> primary media-family capability repositories. Its clean-copy provenance,
+> signpost, namespace, independent-build, and source-removal gates remain
+> applicable.
+
 Use this playbook after the geo/map pilot when deciding whether another package
 family should leave `rust-packages`. It records what the pilot proved, the
 minimum extraction sequence, and the checks that should happen before a future

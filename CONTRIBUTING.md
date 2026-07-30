@@ -1,5 +1,26 @@
 # Contributing
 
+## Repository split checks
+
+Changes to manifests, ownership, capability boundaries, or release tooling must
+keep these narrow checks green:
+
+```bash
+python3 scripts/generate_repository_split_inventory.py --check
+python3 scripts/test_generate_repository_split_inventory.py
+python3 scripts/test_check_repository_boundaries.py
+python3 scripts/check_repository_boundaries.py --check
+python3 scripts/test_check_release_plan.py
+python3 scripts/check_release_plan.py --check docs/repository-split/release-plan.example.json
+```
+
+Edit `docs/repository-split/package-ownership.json` directly for a reviewed
+classification decision, then regenerate its destination matrices:
+
+```bash
+python3 scripts/generate_repository_split_inventory.py
+```
+
 ## Verification Levels
 
 - Fast local baseline: `scripts/check-fast.sh` (no browser e2e, production web
