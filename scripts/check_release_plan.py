@@ -48,22 +48,32 @@ def load_document(path: Path) -> dict:
 
 
 def extract_release_authorization(issue_body: str) -> dict:
+    authorizations: list[dict] = []
     for match in AUTHORIZATION_BLOCK_RE.finditer(issue_body):
         try:
             value = json.loads(match.group("payload"))
         except json.JSONDecodeError:
+            if "release_authorization" in match.group("payload"):
+                raise ValueError("release_authorization JSON is malformed")
             continue
         if not isinstance(value, dict):
             continue
-        authorization = value.get("release_authorization", value)
-        if (
-            isinstance(authorization, dict)
-            and authorization.get("authorization") == "publish"
-        ):
-            return authorization
-    raise ValueError(
-        "release issue is missing a fenced JSON release_authorization object"
-    )
+        if "release_authorization" not in value:
+            continue
+        authorization = value["release_authorization"]
+        if not isinstance(authorization, dict):
+            raise ValueError("release_authorization must be a JSON object")
+        authorizations.append(authorization)
+    if not authorizations:
+        raise ValueError(
+            "release issue is missing a fenced JSON release_authorization object"
+        )
+    if len(authorizations) != 1:
+        raise ValueError("release issue has multiple release_authorization objects")
+    authorization = authorizations[0]
+    if authorization.get("authorization") != "publish":
+        raise ValueError("release_authorization does not authorize publication")
+    return authorization
 
 
 def fetch_release_authorization(issue_url: str) -> dict:
@@ -452,14 +462,34 @@ def validate_plan(
             errors.append("fetched release issue URL does not match the plan")
         if release_authorization.get("_issue_state") != "OPEN":
             errors.append("release issue must be open while publication is authorized")
-        authorized_packages = sorted(
-            (
-                package.get("name"),
-                package.get("version"),
+        authorization_packages = release_authorization.get("packages")
+        authorized_packages: list[tuple[str, str]] = []
+        if not isinstance(authorization_packages, list) or not authorization_packages:
+            errors.append(
+                "live release-issue authorization packages must be a non-empty list"
             )
-            for package in release_authorization.get("packages", [])
-            if isinstance(package, dict)
-        )
+        elif any(
+            not isinstance(package, dict)
+            or set(package) != {"name", "version"}
+            or not isinstance(package.get("name"), str)
+            or not package.get("name")
+            or not isinstance(package.get("version"), str)
+            or not SEMVER_RE.fullmatch(package.get("version", ""))
+            for package in authorization_packages
+        ):
+            errors.append(
+                "live release-issue authorization packages must contain only "
+                "exact name/version objects"
+            )
+        else:
+            authorized_packages = sorted(
+                (package["name"], package["version"])
+                for package in authorization_packages
+            )
+            if len(set(authorized_packages)) != len(authorized_packages):
+                errors.append(
+                    "live release-issue authorization packages must be unique"
+                )
         planned_packages = sorted(
             (package.get("name"), package.get("new_version"))
             for package in raw_packages

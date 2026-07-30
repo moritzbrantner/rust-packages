@@ -340,6 +340,45 @@ remote = {{ {git_spec} }}
         self.assertEqual(parsed["authorization"], "publish")
         with self.assertRaises(ValueError):
             extract_release_authorization("Please publish everything.")
+        with self.assertRaises(ValueError):
+            extract_release_authorization(
+                "```json\n"
+                + json.dumps(
+                    {
+                        "authorization": "publish",
+                        "repository": self.plan["repository"],
+                    }
+                )
+                + "\n```"
+            )
+
+    def test_multiple_live_authorization_blocks_are_rejected(self) -> None:
+        block = (
+            "```json\n"
+            + json.dumps({"release_authorization": self.authorization})
+            + "\n```"
+        )
+        with self.assertRaisesRegex(ValueError, "multiple"):
+            extract_release_authorization(block + "\n" + block)
+
+    def test_malformed_authorization_package_entries_are_rejected(self) -> None:
+        for malformed in (
+            [*self.authorization["packages"], "ignored"],
+            [
+                *self.authorization["packages"],
+                {"name": "extra", "version": "1.0.0", "ignored": True},
+            ],
+        ):
+            with self.subTest(malformed=malformed):
+                authorization = copy.deepcopy(self.authorization)
+                authorization["packages"] = malformed
+                self.assertIn(
+                    "authorization packages must contain only exact name/version objects",
+                    self.errors(
+                        self.plan,
+                        release_authorization=authorization,
+                    ),
+                )
 
     def test_manifest_must_match_reviewed_path_and_package_name(self) -> None:
         plan = copy.deepcopy(self.plan)
