@@ -104,17 +104,18 @@ After #107 completed, the three initially evaluated groups were:
 - #108: neutral media contracts in `rust-packages`, now dependency-blocked by
   the active non-overlapping authority-schema prerequisite #146;
 - #117: scene-ownership analysis in non-overlapping decision documents,
-  currently human-blocked;
+  dependency-ready after #107 closed;
 - #135: the former hosted release-environment policy in `geo-analysis`, now
   closed as superseded by authoritative local Cargo publication.
 
-#146 and #117 have disjoint write scopes and exclusive resources, but #117
-remains human-blocked. A slice becomes a parallel candidate only after it is
-independently dependency-ready, any human blocker is cleared, and the repository
-has a current passing exact-head local verification receipt. Missing or stale
-local evidence permits at most one new worker; repeated reproducible local
-failures, blocking review findings, or merge conflicts permit none. GitHub
-Actions state is not a scheduling input.
+#146 and #117 have disjoint write scopes and share no exclusive resource.
+#117 is part of the runnable frontier, but the current one-worker policy leaves
+it queued while #146 is active. A slice becomes a parallel candidate only after
+it is independently dependency-ready, any human blocker is cleared, and the
+repository has a current passing exact-head local verification receipt. Missing
+or stale local evidence permits at most one new worker; repeated reproducible
+local failures, blocking review findings, or merge conflicts permit none.
+GitHub Actions state is not a scheduling input.
 
 Later safe candidates are consumer migrations in distinct repositories after
 their exact release blockers complete. Transcript purification and removal of
