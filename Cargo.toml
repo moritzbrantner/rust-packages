@@ -22,6 +22,7 @@ members = [
     "crates/data/*",
     "crates/image/*",
     "crates/jobs/*",
+    "crates/media/*",
     "crates/math/*",
     "crates/runtime/runtime-core",
     "crates/runtime/runtime-onnx",
@@ -93,6 +94,7 @@ dense-data = { package = "moenarch-dense-data", version = "0.1.0", path = "crate
 numbers-core = { package = "moenarch-numbers-core", version = "0.1.0", path = "crates/data/numbers-core" }
 tensor-data = { package = "moenarch-tensor-data", version = "0.1.0", path = "crates/data/tensor-data" }
 jobs-core = { package = "moenarch-jobs-core", version = "0.1.1", path = "crates/jobs/jobs-core" }
+media-core = { package = "moenarch-media-core", version = "0.1.0", path = "crates/media/media-core" }
 model-runtime = { package = "moenarch-model-runtime", version = "0.1.0", path = "crates/runtime/model-runtime" }
 runtime-core = { package = "moenarch-runtime-core", version = "0.2.0", path = "crates/runtime/runtime-core" }
 runtime-onnx = { package = "moenarch-runtime-onnx", version = "0.1.0", path = "crates/runtime/runtime-onnx" }
@@ -432,6 +434,7 @@ serde_json.workspace = true
 
 [dev-dependencies]
 tempfile.workspace = true
+media-core.workspace = true
 comfyui-data.workspace = true
 comfyui-latents.workspace = true
 comfyui-models.workspace = true

@@ -20,6 +20,22 @@ spec.loader.exec_module(audit)
 
 
 class PackageSurfaceAuditTests(unittest.TestCase):
+    def test_contract_only_media_core_is_exempt_from_companion_surfaces(self) -> None:
+        metadata = {
+            "packages": [
+                {
+                    "name": "moenarch-media-core",
+                    "manifest_path": str(
+                        ROOT / "crates/media/media-core/Cargo.toml"
+                    ),
+                    "targets": [{"kind": ["lib"]}],
+                }
+            ]
+        }
+
+        with mock.patch.object(audit, "run_json", return_value=metadata):
+            self.assertEqual(audit.library_packages(None), [])
+
     def test_transcription_required_resource_example_is_not_executed_offline(
         self,
     ) -> None:

@@ -3568,6 +3568,10 @@ dependencies = [
 ]
 
 [[package]]
+name = "moenarch-media-core"
+version = "0.1.0"
+
+[[package]]
 name = "moenarch-model-runtime"
 version = "0.1.0"
 dependencies = [
@@ -4686,6 +4690,7 @@ dependencies = [
  "moenarch-math-signal-core",
  "moenarch-math-sparse-data",
  "moenarch-math-statistics",
+ "moenarch-media-core",
  "moenarch-model-runtime",
  "moenarch-numbers-core",
  "moenarch-runtime-core",
@@ -4798,6 +4803,7 @@ name = "moenarch-video-analysis-core"
 version = "0.1.3"
 dependencies = [
  "moenarch-math-geometry-2d",
+ "moenarch-media-core",
  "moenarch-runtime-core",
  "num-rational",
  "num-traits",
