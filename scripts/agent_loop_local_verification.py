@@ -9,7 +9,7 @@ SCRIPT = (
     / "skills"
     / "moenarch-agent-loop"
     / "scripts"
-    / "agent_loop_context.py"
+    / "agent_loop_local_verification.py"
 )
 
 if not SCRIPT.is_file():
