@@ -5,11 +5,11 @@ use std::collections::BTreeMap;
 
 use data_inversion_core::{Generated, InversionMethod};
 use text_core::OwnedTextDocument;
+use text_core::Result;
 use text_generation::{
     synthesize_from_terms, MarkovChain, MarkovInputMode, TermPrompt, TextSynthesisOptions,
 };
 use text_linguistics::LinguisticAnalysis;
-use video_analysis_core::Result;
 
 pub trait LinguisticMarkovTraining {
     fn train_analysis(&mut self, analysis: &LinguisticAnalysis, mode: MarkovInputMode);

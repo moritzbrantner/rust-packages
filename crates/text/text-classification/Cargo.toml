@@ -22,7 +22,6 @@ serde_json.workspace = true
 text-core.workspace = true
 text-lexical.workspace = true
 text-model-runtime.workspace = true
-video-analysis-core.workspace = true
 model-runtime = { workspace = true, optional = true }
 
 [features]

@@ -1,10 +1,10 @@
+use text_core::Result;
 use text_core::{detailed_text_stats, TextDocument};
 use text_embeddings::{HashedTextEmbedder, TextEmbeddingConfig};
 use text_lexical::{
     keywords, token_shingle_similarity, Bm25Corpus, Bm25Options, CorpusOptions, KeywordOptions,
     TfIdfCorpus,
 };
-use video_analysis_core::Result;
 
 use crate::document::{classification_section, embedding_section};
 use crate::{

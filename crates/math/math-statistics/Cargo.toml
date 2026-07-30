@@ -16,12 +16,12 @@ categories.workspace = true
 name = "math_statistics"
 
 [dependencies]
+media-core.workspace = true
 runtime-core.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 math-linear.workspace = true
 numbers-core.workspace = true
-video-analysis-core.workspace = true
 
 [dev-dependencies]
 criterion.workspace = true

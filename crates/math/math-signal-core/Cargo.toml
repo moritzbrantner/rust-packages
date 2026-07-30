@@ -16,11 +16,11 @@ categories.workspace = true
 name = "math_signal_core"
 
 [dependencies]
+media-core.workspace = true
 runtime-core.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 numbers-core.workspace = true
-video-analysis-core.workspace = true
 
 [dev-dependencies]
 criterion.workspace = true

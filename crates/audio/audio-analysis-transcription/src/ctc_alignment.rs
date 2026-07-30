@@ -1,6 +1,6 @@
 use std::path::{Path, PathBuf};
 
-use video_analysis_core::Result;
+use media_core::Result;
 
 use crate::native_audio::validate_loaded_audio;
 use crate::{
@@ -200,7 +200,7 @@ fn missing_alignment_model_error(
     model_id: &str,
     options: &AlignmentOptions,
     required: &[&str],
-) -> video_analysis_core::DetectError {
+) -> media_core::DetectError {
     setup_error(format!(
         "failed to resolve alignment model `{model_id}`; required files: {}; --model-dir={}; cache-only={}",
         required.join(", "),
@@ -218,7 +218,7 @@ fn missing_alignment_model_error_with_source(
     options: &AlignmentOptions,
     required: &[&str],
     source: impl std::fmt::Display,
-) -> video_analysis_core::DetectError {
+) -> media_core::DetectError {
     setup_error(format!(
         "failed to resolve alignment model `{model_id}`; required files: {}; --model-dir={}; cache-only={}: {source}",
         required.join(", "),

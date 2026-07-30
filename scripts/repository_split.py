@@ -7,6 +7,7 @@ import hashlib
 import json
 import re
 import subprocess
+from collections import Counter
 from pathlib import Path
 from typing import Iterable
 
@@ -79,6 +80,121 @@ def ownership_records(authority: dict) -> list[dict]:
     return [*baseline_records, *post_baseline_records]
 
 
+def boundary_violation_key(
+    source_package: object,
+    violation: dict,
+) -> tuple[object, object, object, bool, object, object]:
+    """Return the exact identity shared by annotations, baselines, and resolutions."""
+
+    return (
+        source_package,
+        violation.get("dependency_package"),
+        violation.get("dependency_kind"),
+        bool(violation.get("optional", False)),
+        violation.get("migration_issue"),
+        violation.get("target_phase"),
+    )
+
+
+def boundary_resolution_keys(authority: dict) -> set[tuple]:
+    """Return well-shaped resolution identities for current projections."""
+
+    amendments = authority.get("resolved_boundary_violations")
+    if not isinstance(amendments, list):
+        return set()
+    return {
+        boundary_violation_key(amendment.get("source_package"), amendment)
+        for amendment in amendments
+        if isinstance(amendment, dict)
+    }
+
+
+def validate_boundary_resolution_amendments(
+    authority: dict,
+    baseline: dict | None = None,
+) -> list[str]:
+    """Validate append-only resolutions without mutating Phase A records."""
+
+    errors: list[str] = []
+    amendments = authority.get("resolved_boundary_violations")
+    if not isinstance(amendments, list):
+        return ["resolved_boundary_violations must be a list"]
+
+    immutable_keys = {
+        boundary_violation_key(record.get("current_package_name"), violation)
+        for record in authority.get("packages", [])
+        if isinstance(record, dict)
+        for violation in record.get("temporary_boundary_violations", [])
+        if isinstance(violation, dict)
+    }
+    amendment_keys: list[tuple] = []
+    required_fields = {
+        "source_package",
+        "dependency_package",
+        "dependency_kind",
+        "optional",
+        "migration_issue",
+        "target_phase",
+        "resolved_by_issue",
+    }
+    for index, amendment in enumerate(amendments):
+        if not isinstance(amendment, dict):
+            errors.append(f"boundary resolution {index}: must be an object")
+            continue
+        if set(amendment) != required_fields:
+            errors.append(
+                f"boundary resolution {index}: fields must be "
+                + ", ".join(sorted(required_fields))
+            )
+        key = boundary_violation_key(amendment.get("source_package"), amendment)
+        amendment_keys.append(key)
+        if key not in immutable_keys:
+            errors.append(
+                f"boundary resolution {index}: does not match an immutable Phase A annotation"
+            )
+        if amendment.get("dependency_kind") not in {"normal", "build", "dev"}:
+            errors.append(f"boundary resolution {index}: invalid dependency kind")
+        if not isinstance(amendment.get("optional"), bool):
+            errors.append(f"boundary resolution {index}: optional must be a boolean")
+        resolved_by_issue = amendment.get("resolved_by_issue")
+        if not isinstance(resolved_by_issue, str) or not CREATING_ISSUE_RE.fullmatch(
+            resolved_by_issue
+        ):
+            errors.append(f"boundary resolution {index}: invalid resolution issue")
+
+    duplicates = sorted(
+        (
+            key
+            for key, count in Counter(amendment_keys).items()
+            if count > 1
+        ),
+        key=repr,
+    )
+    if duplicates:
+        errors.append(f"duplicate boundary resolutions: {duplicates}")
+
+    if baseline is not None:
+        baseline_keys = {
+            boundary_violation_key(entry.get("source_package"), entry)
+            for entry in baseline.get("violations", [])
+            if isinstance(entry, dict)
+        }
+        still_baselined = sorted(
+            set(amendment_keys) & baseline_keys,
+            key=repr,
+        )
+        if still_baselined:
+            errors.append(
+                "resolved boundary violations must be absent from the current baseline: "
+                + ", ".join(
+                    f"{source}->{dependency}({kind} "
+                    f"{'optional' if optional else 'required'})"
+                    for source, dependency, kind, optional, _, _ in still_baselined
+                )
+            )
+    return errors
+
+
 def validate_ownership_authority(
     authority: dict,
     *,
@@ -105,6 +221,7 @@ def validate_ownership_authority(
         errors.append(
             "immutable Phase A packages differ from the reviewed baseline"
         )
+    errors.extend(validate_boundary_resolution_amendments(authority))
     post_baseline_records = authority.get("post_baseline_packages")
     if not isinstance(post_baseline_records, list):
         return errors + ["post_baseline_packages must be a list"]

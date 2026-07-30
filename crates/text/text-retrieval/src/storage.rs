@@ -409,7 +409,7 @@ mod tests {
     }
 
     impl TextEmbeddingBackend for NamedEmbedder {
-        fn embed_text(&self, _text: &str) -> video_analysis_core::Result<DenseVector> {
+        fn embed_text(&self, _text: &str) -> text_core::Result<DenseVector> {
             DenseVector::new(vec![1.0; self.dimensions])
         }
 

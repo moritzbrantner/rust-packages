@@ -10,7 +10,7 @@ Corpus indexing, TF-IDF, and BM25 utilities for `video-analysis`.
 
 ```rust,no_run
 use text_lexical::{Bm25Corpus, Bm25Options, CorpusOptions, TfIdfCorpus};
-use video_analysis_core::OwnedTextSegment;
+use text_core::OwnedTextSegment;
 
 let tfidf = TfIdfCorpus::from_texts(
     ["multimodal analysis with rust", "scene graphs and video reports"],
@@ -33,7 +33,7 @@ for segment in [
 }
 
 assert_eq!(subtitle_corpus.documents()[0].id, "subs:0");
-# Ok::<(), video_analysis_core::DetectError>(())
+# Ok::<(), text_core::DetectError>(())
 ```
 
 ## Related crates

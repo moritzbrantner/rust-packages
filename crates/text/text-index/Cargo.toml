@@ -24,7 +24,6 @@ text-embeddings.workspace = true
 text-lexical.workspace = true
 thiserror.workspace = true
 vector-analysis-index.workspace = true
-video-analysis-core.workspace = true
 rusqlite = { workspace = true, optional = true, features = ["bundled"] }
 
 [features]

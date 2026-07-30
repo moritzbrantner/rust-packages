@@ -1,6 +1,6 @@
 use std::path::{Path, PathBuf};
 
-use video_analysis_core::Result;
+use media_core::Result;
 
 use crate::setup_error;
 

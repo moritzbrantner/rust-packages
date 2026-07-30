@@ -8,9 +8,9 @@ mod svd;
 pub use f64_matrix::{F64ColumnView, F64Matrix, F64MatrixView, F64RowView};
 pub use svd::{PseudoinverseOptions, ReconstructionDiagnostics, SvdDecomposition, SvdOptions};
 
+use media_core::{DetectError, Result};
 use tensor_data::{F32Tensor, F32TensorView, TensorShape};
 use vector_analysis_core::{cosine_similarity, dot, l2_norm, DenseVector};
-use video_analysis_core::{DetectError, Result};
 
 fn invalid_argument(message: impl Into<String>) -> DetectError {
     DetectError::InvalidArgument(message.into())

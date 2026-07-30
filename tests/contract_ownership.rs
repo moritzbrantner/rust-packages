@@ -841,6 +841,9 @@ fn foundation_contract_owner_rules_remain_enforced() {
         ("Timebase", "crates/media/media-core/"),
         ("Timestamp", "crates/media/media-core/"),
         ("AnalysisEvent", "crates/media/media-core/"),
+        ("PixelFormat", "crates/media/media-core/"),
+        ("AudioSampleFormat", "crates/media/media-core/"),
+        ("DetectError", "crates/media/media-core/"),
         ("VideoFrame", "crates/video/video-analysis-core/"),
         ("OwnedVideoFrame", "crates/video/video-analysis-core/"),
         ("BoundingBox", "crates/video/video-analysis-core/"),
@@ -852,6 +855,11 @@ fn foundation_contract_owner_rules_remain_enforced() {
         ("AudioFeatureSeries", "crates/audio/audio-analysis-core/"),
         ("TextDocumentContract", "crates/text/text-core/"),
         ("TextSegmentContract", "crates/text/text-core/"),
+        ("TextSegment", "crates/text/text-core/"),
+        ("OwnedTextSegment", "crates/text/text-core/"),
+        ("TextPipeline", "crates/text/text-core/"),
+        ("TextAnalysis", "crates/text/text-core/"),
+        ("TextAnalysisResult", "crates/text/text-core/"),
         ("TranscriptSegmentContract", "crates/text/text-transcripts/"),
         ("TranscriptionContract", "crates/text/text-transcripts/"),
         ("TensorShape", "crates/data/tensor-data/"),
@@ -881,6 +889,10 @@ fn video_core_reexports_exact_neutral_media_contract_types() {
     fn accepts_timebase(_: media_core::Timebase) {}
     fn accepts_timestamp(_: media_core::Timestamp) {}
     fn accepts_event(_: media_core::AnalysisEvent) {}
+    fn accepts_pixel_format(_: media_core::PixelFormat) {}
+    fn accepts_audio_sample_format(_: media_core::AudioSampleFormat) {}
+    fn accepts_error(_: media_core::DetectError) {}
+    fn accepts_result(_: media_core::Result<()>) {}
 
     accepts_timebase(video_analysis_core::Timebase::new(1, 1_000));
     accepts_timestamp(video_analysis_core::Timestamp::new(
@@ -891,6 +903,40 @@ fn video_core_reexports_exact_neutral_media_contract_types() {
         "fixture",
         "neutral-contract",
     ));
+    accepts_pixel_format(video_analysis_core::PixelFormat::Rgb24);
+    accepts_audio_sample_format(video_analysis_core::AudioSampleFormat::F32);
+    accepts_error(video_analysis_core::DetectError::InvalidArgument(
+        "identity".into(),
+    ));
+    accepts_result(Ok(()));
+}
+
+#[test]
+fn video_core_reexports_exact_text_contract_types() {
+    fn accepts_segment(_: text_core::TextSegment<'_>) {}
+    fn accepts_owned_segment(_: text_core::OwnedTextSegment) {}
+    fn accepts_analysis(_: text_core::TextAnalysis) {}
+    fn accepts_analysis_result(_: text_core::TextAnalysisResult) {}
+    fn accepts_builder(_: text_core::TextPipelineBuilder) {}
+
+    accepts_segment(video_analysis_core::TextSegment {
+        segment_index: 7,
+        timestamp: None,
+        text: "identity",
+        language: Some("en"),
+        is_final: true,
+    });
+    accepts_owned_segment(video_analysis_core::OwnedTextSegment::new(7, "identity"));
+    accepts_analysis(video_analysis_core::TextAnalysis {
+        segment_index: 7,
+        events: Vec::new(),
+        segments_processed: 1,
+    });
+    accepts_analysis_result(video_analysis_core::TextAnalysisResult {
+        events: Vec::new(),
+        segments_processed: 1,
+    });
+    accepts_builder(video_analysis_core::TextPipeline::builder());
 }
 
 #[test]

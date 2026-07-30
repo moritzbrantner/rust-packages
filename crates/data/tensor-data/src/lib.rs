@@ -3,9 +3,9 @@
 pub mod surface;
 use std::collections::BTreeMap;
 
+use media_core::{DetectError, Result};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
-use video_analysis_core::{DetectError, Result};
 
 fn invalid_argument(message: impl Into<String>) -> DetectError {
     DetectError::InvalidArgument(message.into())

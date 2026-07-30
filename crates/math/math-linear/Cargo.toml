@@ -23,13 +23,13 @@ nalgebra-backend = ["dep:nalgebra"]
 
 [dependencies]
 faer = { workspace = true, optional = true }
+media-core.workspace = true
 nalgebra = { workspace = true, optional = true }
 runtime-core.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 tensor-data.workspace = true
 vector-analysis-core.workspace = true
-video-analysis-core.workspace = true
 
 [dev-dependencies]
 criterion.workspace = true

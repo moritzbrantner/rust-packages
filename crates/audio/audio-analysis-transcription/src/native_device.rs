@@ -1,4 +1,4 @@
-use video_analysis_core::Result;
+use media_core::Result;
 
 use crate::{invalid_request, setup_error, NativeDevicePreference};
 

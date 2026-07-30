@@ -2,8 +2,8 @@
 
 pub mod surface;
 use math_linear::{F32Matrix, F32MatrixView, MatrixShape};
+use media_core::{DetectError, Result};
 use vector_analysis_core::DenseVector;
-use video_analysis_core::{DetectError, Result};
 
 fn invalid_argument(message: impl Into<String>) -> DetectError {
     DetectError::InvalidArgument(message.into())

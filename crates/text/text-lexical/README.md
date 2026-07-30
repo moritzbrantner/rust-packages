@@ -41,7 +41,7 @@ let similarity = token_shingle_similarity(
 )?;
 
 let _ = (keywords, similarity);
-# Ok::<(), video_analysis_core::DetectError>(())
+# Ok::<(), text_core::DetectError>(())
 ```
 
 ## Corpus APIs
@@ -107,4 +107,4 @@ let _ = (segment, tfidf.search("cargo", 5)?, bm25.search("cargo", 5)?, snapshot_
 
 - `text-core`
 - `text-embeddings`
-- `video-analysis-core`
+- `media-core`

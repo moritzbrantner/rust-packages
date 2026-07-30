@@ -570,7 +570,7 @@ flowchart LR
   crate_moenarch_video_analysis -. optional .-> crate_moenarch_runtime_core
   crate_moenarch_video_analysis -. optional .-> crate_moenarch_runtime_onnx
   crate_moenarch_video_analysis -. optional .-> crate_moenarch_vision_core
-  crate_moenarch_data_inversion_core --> crate_moenarch_video_analysis_core
+  crate_moenarch_data_inversion_core --> crate_moenarch_media_core
   crate_moenarch_data_inversion_core --> crate_moenarch_runtime_core
   crate_moenarch_data_inversion_core_cli --> crate_moenarch_data_inversion_core
   crate_moenarch_data_inversion_core_cli --> crate_moenarch_runtime_core
@@ -579,30 +579,31 @@ flowchart LR
   crate_moenarch_dense_data --> crate_moenarch_numbers_core
   crate_moenarch_dense_data --> crate_moenarch_math_linear
   crate_moenarch_dense_data --> crate_moenarch_math_statistics
-  crate_moenarch_dense_data --> crate_moenarch_video_analysis_core
+  crate_moenarch_dense_data --> crate_moenarch_media_core
   crate_moenarch_dense_data --> crate_moenarch_runtime_core
   crate_moenarch_dense_data_cli --> crate_moenarch_dense_data
   crate_moenarch_dense_data_cli --> crate_moenarch_runtime_core
   crate_moenarch_dense_data_server --> crate_moenarch_dense_data
   crate_moenarch_dense_data_server --> crate_moenarch_runtime_core
-  crate_moenarch_graph_analysis_core --> crate_moenarch_video_analysis_core
+  crate_moenarch_graph_analysis_core --> crate_moenarch_media_core
   crate_moenarch_graph_analysis_core --> crate_moenarch_runtime_core
   crate_moenarch_graph_analysis_core_cli --> crate_moenarch_graph_analysis_core
   crate_moenarch_graph_analysis_core_cli --> crate_moenarch_runtime_core
   crate_moenarch_graph_analysis_core_server --> crate_moenarch_graph_analysis_core
   crate_moenarch_graph_analysis_core_server --> crate_moenarch_runtime_core
-  crate_moenarch_numbers_core --> crate_moenarch_video_analysis_core
+  crate_moenarch_numbers_core --> crate_moenarch_media_core
   crate_moenarch_numbers_core --> crate_moenarch_runtime_core
   crate_moenarch_numbers_core_cli --> crate_moenarch_numbers_core
   crate_moenarch_numbers_core_cli --> crate_moenarch_runtime_core
   crate_moenarch_numbers_core_server --> crate_moenarch_numbers_core
   crate_moenarch_numbers_core_server --> crate_moenarch_runtime_core
-  crate_moenarch_tensor_data --> crate_moenarch_video_analysis_core
+  crate_moenarch_tensor_data --> crate_moenarch_media_core
   crate_moenarch_tensor_data --> crate_moenarch_runtime_core
   crate_moenarch_tensor_data_cli --> crate_moenarch_tensor_data
   crate_moenarch_tensor_data_cli --> crate_moenarch_runtime_core
   crate_moenarch_tensor_data_server --> crate_moenarch_tensor_data
   crate_moenarch_tensor_data_server --> crate_moenarch_runtime_core
+  crate_moenarch_math_geometry_2d --> crate_moenarch_media_core
   crate_moenarch_math_geometry_2d --> crate_moenarch_runtime_core
   crate_moenarch_math_geometry_2d_cli --> crate_moenarch_math_geometry_2d
   crate_moenarch_math_geometry_2d_cli --> crate_moenarch_runtime_core
@@ -610,14 +611,14 @@ flowchart LR
   crate_moenarch_math_geometry_2d_server --> crate_moenarch_runtime_core
   crate_moenarch_math_linear --> crate_moenarch_tensor_data
   crate_moenarch_math_linear --> crate_moenarch_vector_analysis_core
-  crate_moenarch_math_linear --> crate_moenarch_video_analysis_core
+  crate_moenarch_math_linear --> crate_moenarch_media_core
   crate_moenarch_math_linear --> crate_moenarch_runtime_core
   crate_moenarch_math_linear_cli --> crate_moenarch_math_linear
   crate_moenarch_math_linear_cli --> crate_moenarch_runtime_core
   crate_moenarch_math_linear_server --> crate_moenarch_math_linear
   crate_moenarch_math_linear_server --> crate_moenarch_runtime_core
   crate_moenarch_math_signal_core --> crate_moenarch_numbers_core
-  crate_moenarch_math_signal_core --> crate_moenarch_video_analysis_core
+  crate_moenarch_math_signal_core --> crate_moenarch_media_core
   crate_moenarch_math_signal_core --> crate_moenarch_runtime_core
   crate_moenarch_math_signal_core_cli --> crate_moenarch_math_signal_core
   crate_moenarch_math_signal_core_cli --> crate_moenarch_runtime_core
@@ -626,7 +627,7 @@ flowchart LR
   crate_moenarch_math_sparse_data --> crate_moenarch_numbers_core
   crate_moenarch_math_sparse_data --> crate_moenarch_math_linear
   crate_moenarch_math_sparse_data --> crate_moenarch_vector_analysis_core
-  crate_moenarch_math_sparse_data --> crate_moenarch_video_analysis_core
+  crate_moenarch_math_sparse_data --> crate_moenarch_media_core
   crate_moenarch_math_sparse_data --> crate_moenarch_runtime_core
   crate_moenarch_math_sparse_data_cli --> crate_moenarch_math_sparse_data
   crate_moenarch_math_sparse_data_cli --> crate_moenarch_runtime_core
@@ -634,7 +635,7 @@ flowchart LR
   crate_moenarch_math_sparse_data_server --> crate_moenarch_runtime_core
   crate_moenarch_math_statistics --> crate_moenarch_numbers_core
   crate_moenarch_math_statistics --> crate_moenarch_math_linear
-  crate_moenarch_math_statistics --> crate_moenarch_video_analysis_core
+  crate_moenarch_math_statistics --> crate_moenarch_media_core
   crate_moenarch_math_statistics --> crate_moenarch_runtime_core
   crate_moenarch_math_statistics_cli --> crate_moenarch_math_statistics
   crate_moenarch_math_statistics_cli --> crate_moenarch_runtime_core
@@ -698,8 +699,8 @@ flowchart LR
   crate_moenarch_audio_analysis_rhythm_server --> crate_moenarch_audio_analysis_rhythm
   crate_moenarch_audio_analysis_rhythm_server --> crate_moenarch_runtime_core
   crate_moenarch_audio_analysis_separation --> crate_moenarch_audio_analysis_recognition
-  crate_moenarch_audio_analysis_separation --> crate_moenarch_video_analysis_core
   crate_moenarch_audio_analysis_separation -. optional .-> crate_moenarch_jobs_core
+  crate_moenarch_audio_analysis_separation --> crate_moenarch_media_core
   crate_moenarch_audio_analysis_separation --> crate_moenarch_runtime_core
   crate_moenarch_audio_analysis_separation_cli --> crate_moenarch_audio_analysis_separation
   crate_moenarch_audio_analysis_separation_cli --> crate_moenarch_runtime_core
@@ -729,8 +730,8 @@ flowchart LR
   crate_moenarch_audio_analysis_transcription --> crate_moenarch_audio_analysis_speakers
   crate_moenarch_audio_analysis_transcription -. optional .-> crate_moenarch_text_model_runtime
   crate_moenarch_audio_analysis_transcription --> crate_moenarch_text_transcripts
-  crate_moenarch_audio_analysis_transcription --> crate_moenarch_video_analysis_core
   crate_moenarch_audio_analysis_transcription -. dev .-> crate_moenarch_video_analysis_ffmpeg
+  crate_moenarch_audio_analysis_transcription --> crate_moenarch_media_core
   crate_moenarch_audio_analysis_transcription -. optional .-> crate_moenarch_model_runtime
   crate_moenarch_audio_analysis_transcription --> crate_moenarch_runtime_core
   crate_moenarch_audio_analysis_transcription -. optional .-> crate_moenarch_runtime_onnx
@@ -877,7 +878,6 @@ flowchart LR
   crate_moenarch_text_analysis --> crate_moenarch_text_linguistics
   crate_moenarch_text_analysis --> crate_moenarch_text_retrieval
   crate_moenarch_text_analysis -. optional .-> crate_moenarch_text_transcripts
-  crate_moenarch_text_analysis --> crate_moenarch_video_analysis_core
   crate_moenarch_text_analysis -. optional .-> crate_moenarch_model_runtime
   crate_moenarch_text_analysis --> crate_moenarch_runtime_core
   crate_moenarch_text_analysis_cli --> crate_moenarch_text_analysis
@@ -888,15 +888,14 @@ flowchart LR
   crate_moenarch_text_classification --> crate_moenarch_text_core
   crate_moenarch_text_classification --> crate_moenarch_text_lexical
   crate_moenarch_text_classification --> crate_moenarch_text_model_runtime
-  crate_moenarch_text_classification --> crate_moenarch_video_analysis_core
   crate_moenarch_text_classification -. optional .-> crate_moenarch_model_runtime
   crate_moenarch_text_classification --> crate_moenarch_runtime_core
   crate_moenarch_text_classification_cli --> crate_moenarch_text_classification
   crate_moenarch_text_classification_cli --> crate_moenarch_runtime_core
   crate_moenarch_text_classification_server --> crate_moenarch_text_classification
   crate_moenarch_text_classification_server --> crate_moenarch_runtime_core
-  crate_moenarch_text_core --> crate_moenarch_video_analysis_core
   crate_moenarch_text_core --> crate_moenarch_jobs_core
+  crate_moenarch_text_core --> crate_moenarch_media_core
   crate_moenarch_text_core --> crate_moenarch_runtime_core
   crate_moenarch_text_core_cli --> crate_moenarch_text_core
   crate_moenarch_text_core_cli --> crate_moenarch_runtime_core
@@ -908,7 +907,6 @@ flowchart LR
   crate_moenarch_text_embeddings --> crate_moenarch_text_model_runtime
   crate_moenarch_text_embeddings --> crate_moenarch_vector_analysis_core
   crate_moenarch_text_embeddings --> crate_moenarch_vector_analysis_index
-  crate_moenarch_text_embeddings --> crate_moenarch_video_analysis_core
   crate_moenarch_text_embeddings -. optional .-> crate_moenarch_model_runtime
   crate_moenarch_text_embeddings --> crate_moenarch_runtime_core
   crate_moenarch_text_embeddings --> crate_moenarch_runtime_onnx
@@ -919,7 +917,6 @@ flowchart LR
   crate_moenarch_text_embeddings_server --> crate_moenarch_runtime_core
   crate_moenarch_text_generation --> crate_moenarch_data_inversion_core
   crate_moenarch_text_generation --> crate_moenarch_text_core
-  crate_moenarch_text_generation --> crate_moenarch_video_analysis_core
   crate_moenarch_text_generation --> crate_moenarch_runtime_core
   crate_moenarch_text_generation_cli --> crate_moenarch_text_generation
   crate_moenarch_text_generation_cli --> crate_moenarch_runtime_core
@@ -927,7 +924,6 @@ flowchart LR
   crate_moenarch_text_generation_linguistics --> crate_moenarch_text_core
   crate_moenarch_text_generation_linguistics --> crate_moenarch_text_generation
   crate_moenarch_text_generation_linguistics --> crate_moenarch_text_linguistics
-  crate_moenarch_text_generation_linguistics --> crate_moenarch_video_analysis_core
   crate_moenarch_text_generation_linguistics --> crate_moenarch_runtime_core
   crate_moenarch_text_generation_linguistics_cli --> crate_moenarch_text_generation_linguistics
   crate_moenarch_text_generation_linguistics_cli --> crate_moenarch_runtime_core
@@ -939,7 +935,6 @@ flowchart LR
   crate_moenarch_text_index --> crate_moenarch_text_embeddings
   crate_moenarch_text_index --> crate_moenarch_text_lexical
   crate_moenarch_text_index --> crate_moenarch_vector_analysis_index
-  crate_moenarch_text_index --> crate_moenarch_video_analysis_core
   crate_moenarch_text_index --> crate_moenarch_runtime_core
   crate_moenarch_text_index_cli --> crate_moenarch_text_index
   crate_moenarch_text_index_cli --> crate_moenarch_runtime_core
@@ -947,7 +942,6 @@ flowchart LR
   crate_moenarch_text_index_server --> crate_moenarch_runtime_core
   crate_moenarch_text_lexical --> crate_moenarch_math_sparse_data
   crate_moenarch_text_lexical --> crate_moenarch_text_core
-  crate_moenarch_text_lexical --> crate_moenarch_video_analysis_core
   crate_moenarch_text_lexical --> crate_moenarch_runtime_core
   crate_moenarch_text_lexical_cli --> crate_moenarch_text_lexical
   crate_moenarch_text_lexical_cli --> crate_moenarch_runtime_core
@@ -957,7 +951,6 @@ flowchart LR
   crate_moenarch_text_linguistics --> crate_moenarch_text_lexical
   crate_moenarch_text_linguistics --> crate_moenarch_text_model_runtime
   crate_moenarch_text_linguistics -. optional .-> crate_moenarch_text_transcripts
-  crate_moenarch_text_linguistics --> crate_moenarch_video_analysis_core
   crate_moenarch_text_linguistics -. optional .-> crate_moenarch_jobs_core
   crate_moenarch_text_linguistics -. optional .-> crate_moenarch_model_runtime
   crate_moenarch_text_linguistics --> crate_moenarch_runtime_core
@@ -966,8 +959,8 @@ flowchart LR
   crate_moenarch_text_linguistics_server --> crate_moenarch_text_linguistics
   crate_moenarch_text_linguistics_server --> crate_moenarch_text_model_runtime
   crate_moenarch_text_linguistics_server --> crate_moenarch_runtime_core
-  crate_moenarch_text_model_runtime --> crate_moenarch_video_analysis_core
   crate_moenarch_text_model_runtime -. optional .-> crate_moenarch_jobs_core
+  crate_moenarch_text_model_runtime --> crate_moenarch_media_core
   crate_moenarch_text_model_runtime -. optional .-> crate_moenarch_model_runtime
   crate_moenarch_text_model_runtime --> crate_moenarch_runtime_core
   crate_moenarch_text_model_runtime --> crate_moenarch_runtime_onnx
@@ -980,7 +973,7 @@ flowchart LR
   crate_moenarch_text_question_answering --> crate_moenarch_text_lexical
   crate_moenarch_text_question_answering --> crate_moenarch_text_model_runtime
   crate_moenarch_text_question_answering --> crate_moenarch_text_retrieval
-  crate_moenarch_text_question_answering --> crate_moenarch_video_analysis_core
+  crate_moenarch_text_question_answering --> crate_moenarch_media_core
   crate_moenarch_text_question_answering -. optional .-> crate_moenarch_model_runtime
   crate_moenarch_text_question_answering --> crate_moenarch_runtime_core
   crate_moenarch_text_question_answering -. dev .-> crate_moenarch_runtime_onnx
@@ -995,7 +988,6 @@ flowchart LR
   crate_moenarch_text_retrieval --> crate_moenarch_text_model_runtime
   crate_moenarch_text_retrieval -. optional .-> crate_moenarch_text_transcripts
   crate_moenarch_text_retrieval --> crate_moenarch_vector_analysis_index
-  crate_moenarch_text_retrieval --> crate_moenarch_video_analysis_core
   crate_moenarch_text_retrieval --> crate_moenarch_runtime_core
   crate_moenarch_text_retrieval_cli --> crate_moenarch_text_retrieval
   crate_moenarch_text_retrieval_cli --> crate_moenarch_runtime_core
@@ -1010,14 +1002,14 @@ flowchart LR
   crate_moenarch_text_transcripts_cli --> crate_moenarch_runtime_core
   crate_moenarch_text_transcripts_server --> crate_moenarch_text_transcripts
   crate_moenarch_text_transcripts_server --> crate_moenarch_runtime_core
-  crate_moenarch_vector_analysis_core --> crate_moenarch_video_analysis_core
+  crate_moenarch_vector_analysis_core --> crate_moenarch_media_core
   crate_moenarch_vector_analysis_core --> crate_moenarch_runtime_core
   crate_moenarch_vector_analysis_core_cli --> crate_moenarch_vector_analysis_core
   crate_moenarch_vector_analysis_core_cli --> crate_moenarch_runtime_core
   crate_moenarch_vector_analysis_core_server --> crate_moenarch_vector_analysis_core
   crate_moenarch_vector_analysis_core_server --> crate_moenarch_runtime_core
   crate_moenarch_vector_analysis_index --> crate_moenarch_vector_analysis_core
-  crate_moenarch_vector_analysis_index --> crate_moenarch_video_analysis_core
+  crate_moenarch_vector_analysis_index --> crate_moenarch_media_core
   crate_moenarch_vector_analysis_index --> crate_moenarch_runtime_core
   crate_moenarch_vector_analysis_index_cli --> crate_moenarch_vector_analysis_index
   crate_moenarch_vector_analysis_index_cli --> crate_moenarch_runtime_core
@@ -1066,6 +1058,7 @@ flowchart LR
   crate_moenarch_video_analysis_cli --> crate_moenarch_jobs_core
   crate_moenarch_video_analysis_cli --> crate_moenarch_model_runtime
   crate_moenarch_video_analysis_core --> crate_moenarch_math_geometry_2d
+  crate_moenarch_video_analysis_core --> crate_moenarch_text_core
   crate_moenarch_video_analysis_core --> crate_moenarch_media_core
   crate_moenarch_video_analysis_core --> crate_moenarch_runtime_core
   crate_moenarch_video_analysis_core_cli --> crate_moenarch_video_analysis_core

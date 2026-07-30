@@ -1,7 +1,7 @@
 use std::collections::{BTreeMap, BTreeSet};
 
+use text_core::Result;
 use text_core::{Sentence, TextSpan, Token, TokenKind};
-use video_analysis_core::Result;
 
 use crate::local_models::{RawPrediction, SequenceLabeler};
 use crate::syntax::sentence_token_ranges;

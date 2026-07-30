@@ -27,7 +27,6 @@ text-embeddings.workspace = true
 text-index.workspace = true
 text-retrieval.workspace = true
 text-transcripts = { workspace = true, optional = true }
-video-analysis-core.workspace = true
 model-runtime = { workspace = true, optional = true }
 [features]
 default = []

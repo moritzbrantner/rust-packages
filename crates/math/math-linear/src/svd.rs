@@ -1,5 +1,5 @@
 use crate::{invalid_argument, F32Matrix, F64Matrix, F64MatrixView, MatrixShape};
-use video_analysis_core::{DetectError, Result};
+use media_core::{DetectError, Result};
 
 const DEFAULT_SVD_SWEEPS: usize = 64;
 

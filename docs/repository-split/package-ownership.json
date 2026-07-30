@@ -11289,6 +11289,233 @@
       "wrapped_library": null
     }
   ],
+  "resolved_boundary_violations": [
+    {
+      "dependency_kind": "normal",
+      "dependency_package": "moenarch-video-analysis-core",
+      "migration_issue": "https://github.com/moritzbrantner/rust-packages/issues/109",
+      "optional": false,
+      "resolved_by_issue": "https://github.com/moritzbrantner/rust-packages/issues/109",
+      "source_package": "moenarch-audio-analysis-separation",
+      "target_phase": "foundation"
+    },
+    {
+      "dependency_kind": "normal",
+      "dependency_package": "moenarch-video-analysis-core",
+      "migration_issue": "https://github.com/moritzbrantner/rust-packages/issues/109",
+      "optional": false,
+      "resolved_by_issue": "https://github.com/moritzbrantner/rust-packages/issues/109",
+      "source_package": "moenarch-audio-analysis-transcription",
+      "target_phase": "foundation"
+    },
+    {
+      "dependency_kind": "normal",
+      "dependency_package": "moenarch-video-analysis-core",
+      "migration_issue": "https://github.com/moritzbrantner/rust-packages/issues/109",
+      "optional": false,
+      "resolved_by_issue": "https://github.com/moritzbrantner/rust-packages/issues/109",
+      "source_package": "moenarch-data-inversion-core",
+      "target_phase": "foundation"
+    },
+    {
+      "dependency_kind": "normal",
+      "dependency_package": "moenarch-video-analysis-core",
+      "migration_issue": "https://github.com/moritzbrantner/rust-packages/issues/109",
+      "optional": false,
+      "resolved_by_issue": "https://github.com/moritzbrantner/rust-packages/issues/109",
+      "source_package": "moenarch-dense-data",
+      "target_phase": "foundation"
+    },
+    {
+      "dependency_kind": "normal",
+      "dependency_package": "moenarch-video-analysis-core",
+      "migration_issue": "https://github.com/moritzbrantner/rust-packages/issues/109",
+      "optional": false,
+      "resolved_by_issue": "https://github.com/moritzbrantner/rust-packages/issues/109",
+      "source_package": "moenarch-graph-analysis-core",
+      "target_phase": "foundation"
+    },
+    {
+      "dependency_kind": "normal",
+      "dependency_package": "moenarch-video-analysis-core",
+      "migration_issue": "https://github.com/moritzbrantner/rust-packages/issues/109",
+      "optional": false,
+      "resolved_by_issue": "https://github.com/moritzbrantner/rust-packages/issues/109",
+      "source_package": "moenarch-math-linear",
+      "target_phase": "foundation"
+    },
+    {
+      "dependency_kind": "normal",
+      "dependency_package": "moenarch-video-analysis-core",
+      "migration_issue": "https://github.com/moritzbrantner/rust-packages/issues/109",
+      "optional": false,
+      "resolved_by_issue": "https://github.com/moritzbrantner/rust-packages/issues/109",
+      "source_package": "moenarch-math-signal-core",
+      "target_phase": "foundation"
+    },
+    {
+      "dependency_kind": "normal",
+      "dependency_package": "moenarch-video-analysis-core",
+      "migration_issue": "https://github.com/moritzbrantner/rust-packages/issues/109",
+      "optional": false,
+      "resolved_by_issue": "https://github.com/moritzbrantner/rust-packages/issues/109",
+      "source_package": "moenarch-math-sparse-data",
+      "target_phase": "foundation"
+    },
+    {
+      "dependency_kind": "normal",
+      "dependency_package": "moenarch-video-analysis-core",
+      "migration_issue": "https://github.com/moritzbrantner/rust-packages/issues/109",
+      "optional": false,
+      "resolved_by_issue": "https://github.com/moritzbrantner/rust-packages/issues/109",
+      "source_package": "moenarch-math-statistics",
+      "target_phase": "foundation"
+    },
+    {
+      "dependency_kind": "normal",
+      "dependency_package": "moenarch-video-analysis-core",
+      "migration_issue": "https://github.com/moritzbrantner/rust-packages/issues/109",
+      "optional": false,
+      "resolved_by_issue": "https://github.com/moritzbrantner/rust-packages/issues/109",
+      "source_package": "moenarch-numbers-core",
+      "target_phase": "foundation"
+    },
+    {
+      "dependency_kind": "normal",
+      "dependency_package": "moenarch-video-analysis-core",
+      "migration_issue": "https://github.com/moritzbrantner/rust-packages/issues/109",
+      "optional": false,
+      "resolved_by_issue": "https://github.com/moritzbrantner/rust-packages/issues/109",
+      "source_package": "moenarch-tensor-data",
+      "target_phase": "foundation"
+    },
+    {
+      "dependency_kind": "normal",
+      "dependency_package": "moenarch-video-analysis-core",
+      "migration_issue": "https://github.com/moritzbrantner/rust-packages/issues/109",
+      "optional": false,
+      "resolved_by_issue": "https://github.com/moritzbrantner/rust-packages/issues/109",
+      "source_package": "moenarch-text-analysis",
+      "target_phase": "foundation"
+    },
+    {
+      "dependency_kind": "normal",
+      "dependency_package": "moenarch-video-analysis-core",
+      "migration_issue": "https://github.com/moritzbrantner/rust-packages/issues/109",
+      "optional": false,
+      "resolved_by_issue": "https://github.com/moritzbrantner/rust-packages/issues/109",
+      "source_package": "moenarch-text-classification",
+      "target_phase": "foundation"
+    },
+    {
+      "dependency_kind": "normal",
+      "dependency_package": "moenarch-video-analysis-core",
+      "migration_issue": "https://github.com/moritzbrantner/rust-packages/issues/109",
+      "optional": false,
+      "resolved_by_issue": "https://github.com/moritzbrantner/rust-packages/issues/109",
+      "source_package": "moenarch-text-core",
+      "target_phase": "foundation"
+    },
+    {
+      "dependency_kind": "normal",
+      "dependency_package": "moenarch-video-analysis-core",
+      "migration_issue": "https://github.com/moritzbrantner/rust-packages/issues/109",
+      "optional": false,
+      "resolved_by_issue": "https://github.com/moritzbrantner/rust-packages/issues/109",
+      "source_package": "moenarch-text-embeddings",
+      "target_phase": "foundation"
+    },
+    {
+      "dependency_kind": "normal",
+      "dependency_package": "moenarch-video-analysis-core",
+      "migration_issue": "https://github.com/moritzbrantner/rust-packages/issues/109",
+      "optional": false,
+      "resolved_by_issue": "https://github.com/moritzbrantner/rust-packages/issues/109",
+      "source_package": "moenarch-text-generation",
+      "target_phase": "foundation"
+    },
+    {
+      "dependency_kind": "normal",
+      "dependency_package": "moenarch-video-analysis-core",
+      "migration_issue": "https://github.com/moritzbrantner/rust-packages/issues/109",
+      "optional": false,
+      "resolved_by_issue": "https://github.com/moritzbrantner/rust-packages/issues/109",
+      "source_package": "moenarch-text-generation-linguistics",
+      "target_phase": "foundation"
+    },
+    {
+      "dependency_kind": "normal",
+      "dependency_package": "moenarch-video-analysis-core",
+      "migration_issue": "https://github.com/moritzbrantner/rust-packages/issues/109",
+      "optional": false,
+      "resolved_by_issue": "https://github.com/moritzbrantner/rust-packages/issues/109",
+      "source_package": "moenarch-text-index",
+      "target_phase": "foundation"
+    },
+    {
+      "dependency_kind": "normal",
+      "dependency_package": "moenarch-video-analysis-core",
+      "migration_issue": "https://github.com/moritzbrantner/rust-packages/issues/109",
+      "optional": false,
+      "resolved_by_issue": "https://github.com/moritzbrantner/rust-packages/issues/109",
+      "source_package": "moenarch-text-lexical",
+      "target_phase": "foundation"
+    },
+    {
+      "dependency_kind": "normal",
+      "dependency_package": "moenarch-video-analysis-core",
+      "migration_issue": "https://github.com/moritzbrantner/rust-packages/issues/109",
+      "optional": false,
+      "resolved_by_issue": "https://github.com/moritzbrantner/rust-packages/issues/109",
+      "source_package": "moenarch-text-linguistics",
+      "target_phase": "foundation"
+    },
+    {
+      "dependency_kind": "normal",
+      "dependency_package": "moenarch-video-analysis-core",
+      "migration_issue": "https://github.com/moritzbrantner/rust-packages/issues/109",
+      "optional": false,
+      "resolved_by_issue": "https://github.com/moritzbrantner/rust-packages/issues/109",
+      "source_package": "moenarch-text-model-runtime",
+      "target_phase": "foundation"
+    },
+    {
+      "dependency_kind": "normal",
+      "dependency_package": "moenarch-video-analysis-core",
+      "migration_issue": "https://github.com/moritzbrantner/rust-packages/issues/109",
+      "optional": false,
+      "resolved_by_issue": "https://github.com/moritzbrantner/rust-packages/issues/109",
+      "source_package": "moenarch-text-question-answering",
+      "target_phase": "foundation"
+    },
+    {
+      "dependency_kind": "normal",
+      "dependency_package": "moenarch-video-analysis-core",
+      "migration_issue": "https://github.com/moritzbrantner/rust-packages/issues/109",
+      "optional": false,
+      "resolved_by_issue": "https://github.com/moritzbrantner/rust-packages/issues/109",
+      "source_package": "moenarch-text-retrieval",
+      "target_phase": "foundation"
+    },
+    {
+      "dependency_kind": "normal",
+      "dependency_package": "moenarch-video-analysis-core",
+      "migration_issue": "https://github.com/moritzbrantner/rust-packages/issues/109",
+      "optional": false,
+      "resolved_by_issue": "https://github.com/moritzbrantner/rust-packages/issues/109",
+      "source_package": "moenarch-vector-analysis-core",
+      "target_phase": "foundation"
+    },
+    {
+      "dependency_kind": "normal",
+      "dependency_package": "moenarch-video-analysis-core",
+      "migration_issue": "https://github.com/moritzbrantner/rust-packages/issues/109",
+      "optional": false,
+      "resolved_by_issue": "https://github.com/moritzbrantner/rust-packages/issues/109",
+      "source_package": "moenarch-vector-analysis-index",
+      "target_phase": "foundation"
+    }
+  ],
   "repository": "moritzbrantner/rust-packages",
   "review_issue": "https://github.com/moritzbrantner/rust-packages/issues/107",
   "schema_version": 2,

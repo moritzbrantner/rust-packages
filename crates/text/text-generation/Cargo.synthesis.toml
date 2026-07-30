@@ -16,4 +16,3 @@ categories.workspace = true
 data-inversion-core.workspace = true
 text-core.workspace = true
 text-linguistics.workspace = true
-video-analysis-core.workspace = true

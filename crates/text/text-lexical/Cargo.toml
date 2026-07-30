@@ -21,7 +21,6 @@ serde_json.workspace = true
 math-sparse-data.workspace = true
 serde.workspace = true
 text-core.workspace = true
-video-analysis-core.workspace = true
 
 [dev-dependencies]
 criterion.workspace = true

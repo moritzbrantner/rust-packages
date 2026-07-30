@@ -32,6 +32,12 @@ impl std::fmt::Display for GeometryError {
 
 impl std::error::Error for GeometryError {}
 
+impl From<GeometryError> for media_core::DetectError {
+    fn from(value: GeometryError) -> Self {
+        Self::InvalidArgument(value.to_string())
+    }
+}
+
 /// Result type for 2D geometry operations.
 pub type Result<T> = std::result::Result<T, GeometryError>;
 

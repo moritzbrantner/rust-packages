@@ -2,7 +2,13 @@
 
 pub mod runtime;
 pub mod surface;
-pub use media_core::{AnalysisEvent, Timebase, Timestamp};
+pub use media_core::{
+    AnalysisEvent, AudioSampleFormat, DetectError, PixelFormat, Result, Timebase, Timestamp,
+};
+pub use text_core::{
+    OwnedTextSegment, TextAnalysis, TextAnalysisResult, TextAnalyzer, TextPipeline,
+    TextPipelineBuilder, TextSegment,
+};
 
 use std::collections::{BTreeMap, BTreeSet};
 use std::fmt;
@@ -10,54 +16,6 @@ use std::ops::{Add, Sub};
 
 use num_rational::Rational64;
 use num_traits::ToPrimitive;
-use thiserror::Error;
-
-#[derive(Debug, Error)]
-/// Variants describing detect error.
-pub enum DetectError {
-    #[error("unsupported pixel format: {0:?}")]
-    /// The unsupported pixel format variant.
-    UnsupportedPixelFormat(PixelFormat),
-    #[error("unsupported audio sample format: {0:?}")]
-    /// The unsupported audio sample format variant.
-    UnsupportedAudioSampleFormat(AudioSampleFormat),
-    #[error("invalid frame buffer: expected at least {expected} bytes, got {actual}")]
-    /// The invalid frame buffer variant.
-    InvalidFrameBuffer {
-        /// Expected value for this error.
-        expected: usize,
-        /// Actual value that triggered this error.
-        actual: usize,
-    },
-    #[error("invalid dimensions: {width}x{height}")]
-    /// The invalid dimensions variant.
-    InvalidDimensions {
-        /// Width in pixels.
-        width: u32,
-        /// Height in pixels.
-        height: u32,
-    },
-    #[error("invalid audio format: sample_rate={sample_rate}, channels={channels}")]
-    /// The invalid audio format variant.
-    InvalidAudioFormat {
-        /// Sample rate in hertz.
-        sample_rate: u32,
-        /// Number of audio channels.
-        channels: u16,
-    },
-    #[error("video source error: {0}")]
-    /// The source variant.
-    Source(String),
-    #[error("invalid argument: {0}")]
-    /// The invalid argument variant.
-    InvalidArgument(String),
-    #[error("I/O error: {0}")]
-    /// The I/O variant.
-    Io(#[from] std::io::Error),
-}
-
-/// Type alias for result.
-pub type Result<T> = std::result::Result<T, DetectError>;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 /// Data type for frame position.
@@ -278,15 +236,6 @@ impl fmt::Display for FrameTimecode {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.write_str(&self.timecode(3))
     }
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-/// Variants describing pixel format.
-pub enum PixelFormat {
-    /// The rgb24 variant.
-    Rgb24,
-    /// The bgr24 variant.
-    Bgr24,
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -1089,19 +1038,6 @@ impl OwnedVideoFrame {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-/// Variants describing audio sample format.
-pub enum AudioSampleFormat {
-    /// The u8 variant.
-    U8,
-    /// The i16 variant.
-    I16,
-    /// The i32 variant.
-    I32,
-    /// The f32 variant.
-    F32,
-}
-
 #[derive(Debug, Clone, PartialEq)]
 /// Variants describing audio buffer.
 pub enum AudioBuffer {
@@ -1255,78 +1191,6 @@ impl OwnedAudioFrame {
     }
 }
 
-#[derive(Debug, Clone, Copy)]
-/// Data type for text segment.
-pub struct TextSegment<'a> {
-    /// The segment index value.
-    pub segment_index: u64,
-    /// Timestamp associated with this value.
-    pub timestamp: Option<Timestamp>,
-    /// Text content for this value.
-    pub text: &'a str,
-    /// Language tag for this value.
-    pub language: Option<&'a str>,
-    /// The is final value.
-    pub is_final: bool,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-/// Data type for owned text segment.
-pub struct OwnedTextSegment {
-    /// The segment index value.
-    pub segment_index: u64,
-    /// Timestamp associated with this value.
-    pub timestamp: Option<Timestamp>,
-    /// Text content for this value.
-    pub text: String,
-    /// Language tag for this value.
-    pub language: Option<String>,
-    /// The is final value.
-    pub is_final: bool,
-}
-
-impl OwnedTextSegment {
-    /// Creates a new value.
-    pub fn new(segment_index: u64, text: impl Into<String>) -> Self {
-        Self {
-            segment_index,
-            timestamp: None,
-            text: text.into(),
-            language: None,
-            is_final: true,
-        }
-    }
-
-    /// Returns timestamp.
-    pub fn timestamp(mut self, timestamp: Timestamp) -> Self {
-        self.timestamp = Some(timestamp);
-        self
-    }
-
-    /// Returns language.
-    pub fn language(mut self, language: impl Into<String>) -> Self {
-        self.language = Some(language.into());
-        self
-    }
-
-    /// Returns finality.
-    pub fn finality(mut self, is_final: bool) -> Self {
-        self.is_final = is_final;
-        self
-    }
-
-    /// Borrows this value as a segment.
-    pub fn as_segment(&self) -> TextSegment<'_> {
-        TextSegment {
-            segment_index: self.segment_index,
-            timestamp: self.timestamp,
-            text: &self.text,
-            language: self.language.as_deref(),
-            is_final: self.is_final,
-        }
-    }
-}
-
 #[derive(Debug, Default, Clone, PartialEq)]
 /// Data type for detection result.
 pub struct DetectionResult {
@@ -1399,12 +1263,6 @@ impl TryFrom<math_geometry_2d::RectU32> for BoundingBox {
     fn try_from(value: math_geometry_2d::RectU32) -> std::result::Result<Self, Self::Error> {
         value.validate()?;
         Self::new(value.x, value.y, value.width, value.height)
-    }
-}
-
-impl From<math_geometry_2d::GeometryError> for DetectError {
-    fn from(value: math_geometry_2d::GeometryError) -> Self {
-        Self::InvalidArgument(value.to_string())
     }
 }
 
@@ -1614,26 +1472,6 @@ pub struct AudioAnalysis {
     pub events: Vec<AnalysisEvent>,
     /// The frames processed value.
     pub frames_processed: u64,
-}
-
-#[derive(Debug, Default, Clone, PartialEq)]
-/// Data type for text analysis result.
-pub struct TextAnalysisResult {
-    /// The events value.
-    pub events: Vec<AnalysisEvent>,
-    /// The segments processed value.
-    pub segments_processed: u64,
-}
-
-#[derive(Debug, Clone, PartialEq)]
-/// Data type for text analysis.
-pub struct TextAnalysis {
-    /// The segment index value.
-    pub segment_index: u64,
-    /// The events value.
-    pub events: Vec<AnalysisEvent>,
-    /// The segments processed value.
-    pub segments_processed: u64,
 }
 
 /// Data type for scene pipeline.
@@ -2447,125 +2285,6 @@ impl AudioPipelineBuilder {
         Ok(AudioPipeline {
             analyzers: self.analyzers,
             state: AudioPipelineState::default(),
-        })
-    }
-}
-
-/// Trait for text analyzer implementations.
-pub trait TextAnalyzer {
-    /// Returns name.
-    fn name(&self) -> &str;
-
-    /// Returns process segment.
-    fn process_segment(&mut self, segment: &TextSegment<'_>) -> Result<Vec<AnalysisEvent>>;
-
-    /// Returns finish.
-    fn finish(&mut self, _last_segment_index: Option<u64>) -> Result<Vec<AnalysisEvent>> {
-        Ok(Vec::new())
-    }
-}
-
-/// Data type for text pipeline.
-pub struct TextPipeline {
-    analyzers: Vec<Box<dyn TextAnalyzer>>,
-    state: TextPipelineState,
-}
-
-#[derive(Debug, Default, Clone)]
-struct TextPipelineState {
-    events: Vec<AnalysisEvent>,
-    last_segment_index: Option<u64>,
-    segments_processed: u64,
-    finished: bool,
-}
-
-impl TextPipeline {
-    /// Returns builder.
-    pub fn builder() -> TextPipelineBuilder {
-        TextPipelineBuilder::default()
-    }
-
-    /// Returns process segment.
-    pub fn process_segment(&mut self, segment: OwnedTextSegment) -> Result<TextAnalysis> {
-        if self.state.finished {
-            return Err(DetectError::InvalidArgument(
-                "cannot process text segments after finish_analysis; call reset first".to_string(),
-            ));
-        }
-        let segment_ref = segment.as_segment();
-        self.state.last_segment_index = Some(segment_ref.segment_index);
-
-        let mut events = Vec::new();
-        for analyzer in &mut self.analyzers {
-            let mut new_events = analyzer.process_segment(&segment_ref)?;
-            events.append(&mut new_events);
-        }
-        self.state.events.extend(events.iter().cloned());
-        self.state.segments_processed += 1;
-
-        Ok(TextAnalysis {
-            segment_index: segment_ref.segment_index,
-            events,
-            segments_processed: self.state.segments_processed,
-        })
-    }
-
-    /// Returns finish analysis.
-    pub fn finish_analysis(&mut self) -> Result<TextAnalysisResult> {
-        if !self.state.finished {
-            let mut events = Vec::new();
-            for analyzer in &mut self.analyzers {
-                let mut new_events = analyzer.finish(self.state.last_segment_index)?;
-                events.append(&mut new_events);
-            }
-            self.state.events.extend(events);
-            self.state.finished = true;
-        }
-        Ok(TextAnalysisResult {
-            events: self.state.events.clone(),
-            segments_processed: self.state.segments_processed,
-        })
-    }
-
-    /// Returns reset.
-    pub fn reset(&mut self) {
-        self.state = TextPipelineState::default();
-    }
-
-    /// Returns events.
-    pub fn events(&self) -> &[AnalysisEvent] {
-        &self.state.events
-    }
-
-    /// Returns segments processed.
-    pub fn segments_processed(&self) -> u64 {
-        self.state.segments_processed
-    }
-}
-
-#[derive(Default)]
-/// Data type for text pipeline builder.
-pub struct TextPipelineBuilder {
-    analyzers: Vec<Box<dyn TextAnalyzer>>,
-}
-
-impl TextPipelineBuilder {
-    /// Returns analyzer.
-    pub fn analyzer<A: TextAnalyzer + 'static>(mut self, analyzer: A) -> Self {
-        self.analyzers.push(Box::new(analyzer));
-        self
-    }
-
-    /// Returns build.
-    pub fn build(self) -> Result<TextPipeline> {
-        if self.analyzers.is_empty() {
-            return Err(DetectError::InvalidArgument(
-                "at least one text analyzer is required".to_string(),
-            ));
-        }
-        Ok(TextPipeline {
-            analyzers: self.analyzers,
-            state: TextPipelineState::default(),
         })
     }
 }

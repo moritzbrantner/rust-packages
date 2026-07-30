@@ -26,12 +26,12 @@ use std::path::{Path, PathBuf};
 use std::process::{Child, Command, Output, Stdio};
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
+use media_core::{DetectError, Result};
 use serde::{Deserialize, Serialize};
 use text_transcripts::{
     normalize_transcription_contract, TranscriptCharContract, TranscriptWordContract,
     TranscriptionContract,
 };
-use video_analysis_core::{DetectError, Result};
 
 const CANDLE_WHISPER_AUTOREGRESSIVE_KV_CACHE_EXECUTION: &str =
     "candle-whisper-autoregressive-kv-cache";
@@ -2652,7 +2652,7 @@ pub fn run_transcription_pipeline_with_observer(
 
 fn ensure_pipeline_active(observer: &dyn TranscriptionPipelineObserver) -> Result<()> {
     if observer.cancellation_requested() {
-        return Err(video_analysis_core::DetectError::InvalidArgument(
+        return Err(media_core::DetectError::InvalidArgument(
             "transcription cancelled at a safe workflow boundary".to_string(),
         ));
     }

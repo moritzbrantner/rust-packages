@@ -16,12 +16,12 @@ categories.workspace = true
 name = "audio_analysis_separation"
 
 [dependencies]
+media-core.workspace = true
 runtime-core.workspace = true
 serde_json.workspace = true
 audio-analysis-recognition.workspace = true
 jobs-core = { workspace = true, optional = true }
 serde.workspace = true
-video-analysis-core.workspace = true
 
 [features]
 default = []

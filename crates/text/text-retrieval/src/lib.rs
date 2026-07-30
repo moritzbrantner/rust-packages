@@ -11,6 +11,7 @@ use text_core::{
     TextDocumentContract, TextProcessingOptions, TextProvenance, TextSegmentContract,
     TextSourceRef, TextSpan, TokenKind,
 };
+use text_core::{DetectError, Result as CoreResult};
 use text_embeddings::{EmbeddingModelInfo, TextEmbedderBackend};
 use text_index::{
     ChunkingStrategy as IndexChunkingStrategy, IndexBuildOptions, IndexDocument,
@@ -22,7 +23,6 @@ use vector_analysis_index::{
     SerializableVectorRecord, VectorRecord, VectorRecordMetadata, VectorSearchFilter,
     VectorSearchIndex,
 };
-use video_analysis_core::{DetectError, Result as CoreResult};
 
 pub use storage::*;
 
@@ -1594,7 +1594,7 @@ mod tests {
     }
 
     impl TextEmbeddingBackend for FlaggedEmbedder {
-        fn embed_text(&self, text: &str) -> video_analysis_core::Result<DenseVector> {
+        fn embed_text(&self, text: &str) -> text_core::Result<DenseVector> {
             if self.panic_on_embed.get() {
                 panic!("query embedding should have been skipped");
             }
@@ -1617,11 +1617,7 @@ mod tests {
     struct FakeReranker;
 
     impl TextReranker for FakeReranker {
-        fn rerank(
-            &mut self,
-            _query: &str,
-            documents: &[String],
-        ) -> video_analysis_core::Result<Vec<f32>> {
+        fn rerank(&mut self, _query: &str, documents: &[String]) -> text_core::Result<Vec<f32>> {
             Ok(documents
                 .iter()
                 .map(|document| {
@@ -1737,10 +1733,8 @@ mod tests {
         let mut segment = TextSegmentContract::new(7, "hello retrieval");
         segment.stream_id = Some("subs".to_string());
         segment.language = Some("en".to_string());
-        segment.timestamp = Some(
-            video_analysis_core::Timestamp::new(1250, video_analysis_core::Timebase::new(1, 1000))
-                .into(),
-        );
+        segment.timestamp =
+            Some(text_core::Timestamp::new(1250, text_core::Timebase::new(1, 1000)).into());
         segment.duration_seconds = Some(1.25);
         segment
             .attributes

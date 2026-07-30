@@ -1,6 +1,6 @@
 use std::path::Path;
 
-use video_analysis_core::{DetectError, Result};
+use media_core::{DetectError, Result};
 
 use crate::{
     invalid_request, normalize_samples_source, resample_linear, LoadedAudio, TranscriptionSource,

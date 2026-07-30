@@ -93,4 +93,4 @@ exercise native and browser paths respectively.
 - `text-core`
 - `text-transcripts` for SRT, WebVTT, Whisper JSON, and plain transcript parsing
 - `text-lexical` for TF-IDF and BM25 corpus indexing from text inputs
-- `video-analysis-core`
+- `media-core`
