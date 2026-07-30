@@ -6,8 +6,8 @@ This plan was derived on 2026-07-30 from:
 
 - `cargo metadata --format-version 1 --no-deps` at
   `d032ad2890c1df3c6a5b9eff024562f00d017fce`;
-- the reviewed package ownership map on pull request #137 at
-  `00d0d65e2163dbe8f851c7762629b6ce67cd72b0`;
+- the reviewed package ownership map merged from pull request #137 at
+  `ff2c3161392c9644b631aad20e4761b690982f88`;
 - the current bodies, comments, labels, and states of PRD #106 and its open
   child issues.
 
@@ -39,8 +39,8 @@ unblock the NLP and audio package families:
 - `moenarch-vector-analysis-index`
 
 The new neutral `moenarch-media-core` contract is bootstrapped separately by
-#136 before wave 1. This keeps its one-time crates.io bootstrap and later OIDC
-binding explicit instead of hiding it inside a multi-package release.
+#136 before wave 1. This keeps its one-time crates.io bootstrap authorization
+explicit instead of hiding it inside a multi-package release.
 
 `moenarch-runtime-onnx` remains in wave 1 even though it is a heavy optional
 runtime. Current Cargo metadata places it in both the NLP and audio transitive
@@ -86,8 +86,8 @@ creating incomplete public libraries or temporary path/Git dependencies.
 With current issue state, the deterministic longest path is:
 
 ```text
-#107 → #108 → #109 → #110 → #136 → #111 → #113 → #114
-     → #118 → #119 → #120 → #121 → #129 → #134
+#108 → #109 → #110 → #136 → #111 → #113 → #114 → #118
+     → #119 → #120 → #121 → #129 → #134
 ```
 
 The path is based on unresolved dependencies, not the total issue count. Wave 2
@@ -96,14 +96,21 @@ release path.
 
 ## Concurrency frontier after Phase A
 
-After #107 completes and only under a green CI policy:
+After #107 completed, the three initially evaluated groups were:
 
-- #108: neutral media contracts in `rust-packages`;
-- #117: scene-ownership analysis in non-overlapping decision documents;
-- #135: geo release-environment policy in `geo-analysis`.
+- #108: neutral media contracts in `rust-packages`, now active;
+- #117: scene-ownership analysis in non-overlapping decision documents,
+  currently human-blocked;
+- #135: geo release-environment policy in `geo-analysis`, currently
+  human-blocked.
 
 Their owning repositories, write scopes, and exclusive resources are disjoint.
-Under amber CI, the scheduler must still admit at most one new worker.
+That makes them potential parallel groups only after each issue is independently
+dependency-ready, its human blocker is cleared, and the repository has a
+current passing exact-head local verification receipt. Missing or stale local
+evidence permits at most one new worker; repeated reproducible local failures,
+blocking review findings, or merge conflicts permit none. GitHub Actions state
+is not a scheduling input.
 
 Later safe candidates are consumer migrations in distinct repositories after
 their exact release blockers complete. Transcript purification and removal of
@@ -113,8 +120,11 @@ current write scopes overlap.
 ## Publication safety
 
 All publication waves remain bound to an exact release issue and checked-in
-manifest. Local fallback may provide exact-head implementation evidence but may
-not publish. crates.io publication requires the authorized GitHub Actions
-environment, trusted OIDC binding, immutable release head, required gates, and
-registry verification. Published versions are never overwritten or
-automatically yanked.
+manifest. An agent may publish locally with Cargo when the exact package and
+version are authorized, the release checkout is clean and matches the exact
+release commit, all required local package and consumer checks pass, the exact
+registry version is absent, package contents have been inspected, and an
+existing Cargo credential is available without being printed or copied.
+Packages are published in dependency order and verified on crates.io after each
+publication. GitHub Actions and OIDC remain optional publication mechanisms.
+Published versions are never overwritten or automatically yanked.
