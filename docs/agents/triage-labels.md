@@ -14,15 +14,24 @@ The five canonical triage roles map exactly to these labels:
 | Ready for human | `ready-for-human` | Requires human implementation |
 | Won't fix | `wontfix` | This will not be worked on |
 
-## Additional Workflow Labels
+## Routing Label
 
 | Label | Meaning |
 | --- | --- |
 | `prd` | Product requirements document ready for workflow routing |
-| `agent-loop:claimed` | Claimed by the agent-loop master |
-| `agent-loop:in-progress` | Work is active in an agent-loop worker |
+
+The `prd` label classifies planning issues; it is not operational state.
+
+## Agent Loop Operational Labels
+
+The complete operational label set is:
+
+| Label | Meaning |
+| --- | --- |
+| `ready-for-agent` | Fully specified and available for the agent loop |
+| `agent-loop:active` | Work is active in the agent loop |
 | `agent-loop:blocked` | Blocked on human input or external access |
 | `agent-loop:ready-to-merge` | Worker reports the PR is ready to merge |
-| `agent-loop:merged` | Associated PR has been merged |
-| `agent-loop:done` | Agent-loop work is complete |
-| `agent-loop:failed` | Automation failed and needs review |
+
+Closed issues and merged pull requests record completion through native GitHub
+state. Operational labels describe only transient queue state.
