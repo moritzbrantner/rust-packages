@@ -25,12 +25,12 @@ For non-trivial work, act as a coordinator:
 
 1. Inspect the repository and current git state.
 2. Identify the smallest safe scope.
-3. Decide whether subagents are useful.
-4. Plan before editing.
-5. Use one implementation path.
-6. Run the narrowest meaningful checks.
-7. Repair failures within the repair budget.
-8. Summarize changed files, checks, risks, and follow-up PRs.
+3. Plan before editing.
+4. Use one implementation path.
+5. Run the narrowest meaningful checks.
+6. Repair relevant failures without weakening expected behavior.
+7. Commit every intended change.
+8. Return the compact worker report requested by the context pack.
 
 Always check git state before and after edits:
 
@@ -71,182 +71,40 @@ repo. Domain context starts with `CONTEXT.md` and the ADRs under `docs/adr/`.
 Substantial new work should be planned into GitHub PRD issues instead of
 implemented directly. See `docs/agents/planning-workflow.md`.
 
-## Subagent Policy
+## Agent Loop Contract
 
-Use subagents for independent investigation, comparison, review, or audit work.
-Do not use subagents for many agents editing the same files.
+The complete operational label set is:
 
-### When To Use Subagents
+* `ready-for-agent`
+* `agent-loop:active`
+* `agent-loop:blocked`
+* `agent-loop:ready-to-merge`
 
-Use subagents when the task involves any of these:
+These labels describe transient queue state. Closed issues and merged pull
+requests record completion through native GitHub state.
 
-* multiple crates or package surfaces
-* dependency conflicts or feature-flag questions
-* public API design or crate boundary decisions
-* benchmark/reference implementation comparison
-* UI plus Rust integration
-* release-readiness, preflight, or broad audit work
-* applying the Crate Surface Audit Protocol
-* reviewing a large or risky diff
-* deciding how to split a change into PRs
+Every implementation slice must begin with canonical YAML frontmatter:
 
-Do not use subagents for small, obvious, one-file fixes.
-
-### Subagent Roles
-
-Use these roles conceptually, or map them to custom `.codex/agents/*.toml`
-agents if available.
-
-#### `repo-explorer`
-
-Read-only. Use for repository mapping.
-
-Responsibilities:
-
-* map relevant files, crates, packages, tests, scripts, and docs
-* identify ownership boundaries
-* find existing patterns before new code is written
-* report exact file paths and symbols
-* avoid proposing edits unless asked
-
-#### `crate-surface-auditor`
-
-Read-only unless explicitly promoted to worker by the coordinator.
-
-Responsibilities:
-
-* apply `docs/CRATE_SURFACE_AUDIT_PROTOCOL.md`
-* verify public crate operations
-* identify missing tests, examples, docs, and UI paths
-* distinguish primary workflows from debug/inspection helpers
-* recommend the smallest complete crate-surface improvement
-
-When the user says:
-
-```text
-Apply the Crate Surface Audit Protocol to <crate-name>
+```yaml
+---
+parent: 106
+blocked_by:
+  - 154
+scope:
+  - crates/example/**
+---
 ```
 
-follow `docs/CRATE_SURFACE_AUDIT_PROTOCOL.md` exactly.
+Keep `blocked_by` present as an empty list when there are no blockers. Treat
+`scope` as the worker's write boundary.
 
-Audit one crate at a time. Verify every package-surface operation. Make the
-primary workflow the default UI path. Move inspection/debug helpers into a Debug
-operation tab. Update tests and docs.
+Before merge, verify the exact pull-request head in an isolated checkout by
+running the ordered `[verification]` commands from `.agent-loop.toml`. Readiness
+requires a passing exact-head receipt; hosted checks are informational.
 
-#### `dependency-mapper`
-
-Read-only. Use for dependency/version/features work.
-
-Responsibilities:
-
-* inspect `Cargo.toml`, workspace dependencies, feature flags, and lockfile impact
-* identify public exposure of dependency types
-* find duplicate dependency versions and incompatibilities
-* recommend adapter, replacement, feature-gating, or reimplementation options
-* avoid dependency additions unless clearly justified
-
-#### `test-planner`
-
-Read-only. Use before or after implementation when verification is unclear.
-
-Responsibilities:
-
-* identify the narrowest meaningful checks
-* map changed surfaces to Rust, TypeScript, UI, WASM, e2e, snapshot, or benchmark checks
-* distinguish required checks from expensive/optional checks
-* recommend fixtures or smoke tests when coverage is missing
-
-#### `rust-reviewer`
-
-Read-only. Use after a diff exists.
-
-Responsibilities:
-
-* review correctness, API stability, error handling, test coverage, feature flags,
-  dependency impact, and performance risks
-* ignore style-only comments unless they affect maintainability or consistency
-* give actionable findings with exact file paths
-* recommend whether the change is ready, needs repair, or should be split
-
-#### `implementation-worker`
-
-The only role that should edit files.
-
-Responsibilities:
-
-* implement the smallest scoped change
-* avoid unrelated refactors
-* preserve public APIs unless the task explicitly requires API changes
-* add or update tests with behavior changes
-* run narrow checks first
-* stop after the repair budget is exhausted
-
-Use only one implementation worker at a time.
-
-### Subagent Coordination Rules
-
-The coordinator must consolidate subagent findings before editing.
-
-Good pattern:
-
-1. Spawn read-only explorers/reviewers for independent areas.
-2. Wait for all results.
-3. Merge findings into one plan.
-4. Assign at most one implementation worker.
-5. Run checks.
-6. Ask one reviewer to inspect the final diff if the change is risky.
-
-Bad pattern:
-
-* multiple workers editing overlapping files
-* subagents making broad speculative rewrites
-* subagents adding dependencies independently
-* reviewers blocking on subjective style comments
-* recursive subagent delegation without a clear reason
-
-### Required Subagent Output
-
-Each subagent should return:
-
-* scope inspected
-* relevant files/symbols
-* findings
-* recommended action
-* risks or unknowns
-* suggested checks
-
-For audit/review work, also return whether the change should be:
-
-* one PR
-* split into multiple PRs
-* blocked until more information is available
-
-## Planning And Repair Loop
-
-For non-trivial work, write a short plan before editing.
-
-Default loop:
-
-1. Explore relevant files.
-2. Plan the smallest safe change.
-3. Edit.
-4. Run narrow checks.
-5. Fix failures.
-6. Rerun checks.
-7. Stop after at most 3 repair cycles.
-8. Handoff with a clear summary.
-
-A repair cycle is one attempt to fix a failed check and rerun it.
-
-If the same failure remains after 3 repair cycles, stop and report:
-
-* failing command
-* relevant error output
-* likely cause
-* files already changed
-* suggested next step
-
-Do not hide failing checks.
+Workers keep all intended changes committed and return only the compact
+`schemaVersion: 2` JSON report requested by the generated context pack. Do not
+paste long diagnostics or command output into that report.
 
 ## Ownership Boundaries
 
@@ -622,42 +480,5 @@ Rules:
 * avoid broad unrelated refactors
 * finish with a crate-specific summary and follow-up list
 
-Use subagents for this when useful:
-
-* `repo-explorer` to map the crate and package surfaces
-* `crate-surface-auditor` to apply the protocol
-* `test-planner` to identify checks
-* `rust-reviewer` to review the final diff
-
-Only one implementation worker should edit files.
-
-## Final Handoff Format
-
-Every non-trivial task should end with:
-
-```text
-Summary:
-- ...
-
-Changed files:
-- ...
-
-Checks run:
-- ...
-
-Results:
-- ...
-
-Risks / unresolved issues:
-- ...
-
-Suggested follow-up:
-- ...
-```
-
-If no files changed, say so explicitly.
-
-If checks were not run, explain why.
-
-If generated files were intentionally not refreshed, say so and give the command
-the user should run.
+Keep one implementation path responsible for edits. Read-only investigation or
+review may be used when it materially reduces risk.
