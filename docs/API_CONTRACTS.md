@@ -262,7 +262,9 @@ For the first enforced boundary, `moritzbrantner-text-core` owns generic text co
 `TextDocumentContract` and `TextSegmentContract`. `moritzbrantner-text-transcripts` owns
 `TranscriptSegmentContract` and `TranscriptionContract` as timed/speaker-aware
 text specializations. Audio transcription surfaces consume and return those
-transcript contracts through `moritzbrantner-audio-analysis-recognition`.
+transcript contracts through `moritzbrantner-audio-analysis-transcription`;
+`moritzbrantner-audio-analysis-recognition` retains deprecated compatibility
+wrappers only.
 Speaker diarization may enrich an existing
 `TranscriptionContract` with speaker labels and scores, but transcript DTOs
 remain owned by `moritzbrantner-text-transcripts`.
