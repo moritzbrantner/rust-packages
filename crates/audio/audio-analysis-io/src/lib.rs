@@ -7,7 +7,7 @@ use std::path::{Path, PathBuf};
 
 pub use audio_analysis_core::ChannelMix;
 use audio_analysis_core::{interleaved_to_mono, AudioClip, OwnedAudioWaveformBatch};
-use video_analysis_core::{OwnedAudioFrame, Result, Timebase, Timestamp};
+use audio_contracts::{OwnedAudioFrame, Result, Timebase, Timestamp};
 /// Re-exports the video analysis FFmpeg API.
 pub use video_analysis_ffmpeg::{
     probe_audio as probe_audio_file, probe_audio_input, AudioMetadata, FfmpegAudioSource,
@@ -69,7 +69,7 @@ pub enum AudioIoError {
     /// FFprobe, FFmpeg startup, or typed stream-selection failure.
     Ffmpeg(FfmpegError),
     /// Failure while consuming decoded audio frames.
-    Decode(video_analysis_core::DetectError),
+    Decode(audio_contracts::DetectError),
 }
 
 impl std::fmt::Display for AudioIoError {
@@ -96,8 +96,8 @@ impl From<FfmpegError> for AudioIoError {
     }
 }
 
-impl From<video_analysis_core::DetectError> for AudioIoError {
-    fn from(error: video_analysis_core::DetectError) -> Self {
+impl From<audio_contracts::DetectError> for AudioIoError {
+    fn from(error: audio_contracts::DetectError) -> Self {
         Self::Decode(error)
     }
 }
@@ -239,14 +239,14 @@ pub fn decode_selected_media_to_mono_f32(
 pub fn probe_audio_input_metadata(input: &AudioInput) -> Result<AudioMetadata> {
     match input {
         AudioInput::File(path) => probe_audio_file(path).map_err(|err| {
-            video_analysis_core::DetectError::Source(format!(
+            audio_contracts::DetectError::Source(format!(
                 "failed to probe audio file `{}`: {err}",
                 path.display()
             ))
         }),
         AudioInput::Input(input) | AudioInput::Live(input) => {
             probe_audio_input(input).map_err(|err| {
-                video_analysis_core::DetectError::Source(format!(
+                audio_contracts::DetectError::Source(format!(
                     "failed to probe audio input `{input}`: {err}"
                 ))
             })
@@ -316,26 +316,26 @@ pub fn decode_audio_to_clip(
 pub fn read_wav_as_clip(path: impl AsRef<Path>) -> Result<AudioClip> {
     let path = path.as_ref();
     let mut reader = hound::WavReader::open(path).map_err(|err| {
-        video_analysis_core::DetectError::Source(format!(
+        audio_contracts::DetectError::Source(format!(
             "failed to open WAV `{}`: {err}",
             path.display()
         ))
     })?;
     let spec = reader.spec();
     if spec.sample_rate == 0 {
-        return Err(video_analysis_core::DetectError::InvalidArgument(
+        return Err(audio_contracts::DetectError::InvalidArgument(
             "WAV sample rate must be positive".to_string(),
         ));
     }
     if spec.channels == 0 {
-        return Err(video_analysis_core::DetectError::InvalidArgument(
+        return Err(audio_contracts::DetectError::InvalidArgument(
             "WAV channel count must be positive".to_string(),
         ));
     }
     let samples = match spec.sample_format {
         hound::SampleFormat::Float => {
             if spec.bits_per_sample != 32 {
-                return Err(video_analysis_core::DetectError::InvalidArgument(format!(
+                return Err(audio_contracts::DetectError::InvalidArgument(format!(
                     "unsupported float WAV bit depth {}; expected 32",
                     spec.bits_per_sample
                 )));
@@ -344,7 +344,7 @@ pub fn read_wav_as_clip(path: impl AsRef<Path>) -> Result<AudioClip> {
                 .samples::<f32>()
                 .map(|sample| {
                     sample.map_err(|err| {
-                        video_analysis_core::DetectError::Source(format!(
+                        audio_contracts::DetectError::Source(format!(
                             "failed to read WAV sample `{}`: {err}",
                             path.display()
                         ))
@@ -374,7 +374,7 @@ fn read_pcm_wav_samples(
             .samples::<i8>()
             .map(|sample| {
                 sample.map(|sample| sample as f32 / 128.0).map_err(|err| {
-                    video_analysis_core::DetectError::Source(format!(
+                    audio_contracts::DetectError::Source(format!(
                         "failed to read WAV sample `{}`: {err}",
                         path.display()
                     ))
@@ -387,7 +387,7 @@ fn read_pcm_wav_samples(
                 sample
                     .map(|sample| sample as f32 / 32_768.0)
                     .map_err(|err| {
-                        video_analysis_core::DetectError::Source(format!(
+                        audio_contracts::DetectError::Source(format!(
                             "failed to read WAV sample `{}`: {err}",
                             path.display()
                         ))
@@ -400,7 +400,7 @@ fn read_pcm_wav_samples(
                 .samples::<i32>()
                 .map(|sample| {
                     sample.map(|sample| sample as f32 / scale).map_err(|err| {
-                        video_analysis_core::DetectError::Source(format!(
+                        audio_contracts::DetectError::Source(format!(
                             "failed to read WAV sample `{}`: {err}",
                             path.display()
                         ))
@@ -408,7 +408,7 @@ fn read_pcm_wav_samples(
                 })
                 .collect()
         }
-        _ => Err(video_analysis_core::DetectError::InvalidArgument(format!(
+        _ => Err(audio_contracts::DetectError::InvalidArgument(format!(
             "unsupported PCM WAV bit depth {bits_per_sample}; expected 1 through 32"
         ))),
     }
@@ -421,7 +421,7 @@ pub fn write_waveform_batch_as_wav(
 ) -> Result<()> {
     let view = batch.as_view()?;
     if view.batch_size() != 1 {
-        return Err(video_analysis_core::DetectError::InvalidArgument(
+        return Err(audio_contracts::DetectError::InvalidArgument(
             "waveform WAV export requires a batch size of 1".to_string(),
         ));
     }
@@ -436,7 +436,7 @@ pub fn write_waveform_batch_as_wav(
         sample_format: hound::SampleFormat::Float,
     };
     let mut writer = hound::WavWriter::create(path, spec).map_err(|err| {
-        video_analysis_core::DetectError::Source(format!(
+        audio_contracts::DetectError::Source(format!(
             "failed to create WAV `{}`: {err}",
             path.display()
         ))
@@ -445,7 +445,7 @@ pub fn write_waveform_batch_as_wav(
         for channel_index in 0..view.channel_count() {
             let sample = view.waveform(0, channel_index)?[time_index];
             writer.write_sample(sample).map_err(|err| {
-                video_analysis_core::DetectError::Source(format!(
+                audio_contracts::DetectError::Source(format!(
                     "failed to write WAV sample `{}`: {err}",
                     path.display()
                 ))
@@ -453,7 +453,7 @@ pub fn write_waveform_batch_as_wav(
         }
     }
     writer.finalize().map_err(|err| {
-        video_analysis_core::DetectError::Source(format!(
+        audio_contracts::DetectError::Source(format!(
             "failed to finalize WAV `{}`: {err}",
             path.display()
         ))
@@ -474,21 +474,21 @@ pub fn write_clip_as_wav(path: impl AsRef<Path>, clip: &AudioClip) -> Result<()>
         sample_format: hound::SampleFormat::Float,
     };
     let mut writer = hound::WavWriter::create(path, spec).map_err(|err| {
-        video_analysis_core::DetectError::Source(format!(
+        audio_contracts::DetectError::Source(format!(
             "failed to create WAV `{}`: {err}",
             path.display()
         ))
     })?;
     for sample in &clip.samples {
         writer.write_sample(*sample).map_err(|err| {
-            video_analysis_core::DetectError::Source(format!(
+            audio_contracts::DetectError::Source(format!(
                 "failed to write WAV sample `{}`: {err}",
                 path.display()
             ))
         })?;
     }
     writer.finalize().map_err(|err| {
-        video_analysis_core::DetectError::Source(format!(
+        audio_contracts::DetectError::Source(format!(
             "failed to finalize WAV `{}`: {err}",
             path.display()
         ))
@@ -499,8 +499,8 @@ pub fn write_clip_as_wav(path: impl AsRef<Path>, clip: &AudioClip) -> Result<()>
 #[cfg(test)]
 mod tests {
     use super::*;
+    use audio_contracts::{AudioBuffer, Timebase, Timestamp};
     use tempfile::tempdir;
-    use video_analysis_core::{AudioBuffer, Timebase, Timestamp};
 
     #[test]
     fn recorded_options_map_to_ffmpeg_recorded_mode() {

@@ -1,7 +1,7 @@
 use audio_analysis_core::ChannelMix;
 use audio_analysis_processing::{AudioProcessor, BiquadKind, BiquadSpec, NoiseGateSpec};
+use audio_contracts::{AudioBuffer, OwnedAudioFrame, Timebase, Timestamp};
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
-use video_analysis_core::{AudioBuffer, OwnedAudioFrame, Timebase, Timestamp};
 
 fn sine(freq_hz: f32, sample_rate: u32, seconds: f32) -> Vec<f32> {
     let samples = (sample_rate as f32 * seconds) as usize;
@@ -18,7 +18,7 @@ fn owned_f32_frame(
     sample_rate: u32,
     channels: u16,
     samples: Vec<f32>,
-) -> video_analysis_core::Result<OwnedAudioFrame> {
+) -> audio_contracts::Result<OwnedAudioFrame> {
     OwnedAudioFrame::new(timestamp, sample_rate, channels, AudioBuffer::F32(samples))
 }
 

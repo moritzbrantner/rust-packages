@@ -11,12 +11,10 @@ use audio_analysis_core::{
     StreamingFrameConfig, WindowFunction,
 };
 use audio_analysis_fourier::{FourierTransform, Spectrum};
+use audio_contracts::{AnalysisEvent, AudioAnalyzer, AudioFrame, DetectError, Result, Timestamp};
 use model_runtime::ModelSpec;
 use serde::Deserialize;
 pub use text_transcripts::{TranscriptSegmentContract, TranscriptionContract};
-use video_analysis_core::{
-    AnalysisEvent, AudioAnalyzer, AudioFrame, DetectError, Result, Timestamp,
-};
 
 #[allow(deprecated)]
 pub use transcription::{
@@ -1701,7 +1699,7 @@ fn normalize_prediction_label(label: &str) -> String {
 #[allow(deprecated)]
 mod tests {
     use super::*;
-    use video_analysis_core::{AudioBuffer, OwnedAudioFrame, Timebase};
+    use audio_contracts::{AudioBuffer, OwnedAudioFrame, Timebase};
 
     #[test]
     fn task_classification_uses_imported_predictions() {

@@ -40,9 +40,11 @@ Foundation contract owners for the first steering wave are:
 | Runtime surface DTOs and curated landscape metadata shape | `moritzbrantner-runtime-core` |
 | Jobs and artifacts | `moritzbrantner-jobs-core` |
 | Model specs, bundles, and model lifecycle | `moritzbrantner-model-runtime` |
-| Media samples, timestamps, observations, bounding boxes, analyzers | `moritzbrantner-video-analysis-core` |
+| Neutral media time, sample formats, events, and errors | `moenarch-media-core` |
+| Video frames, observations, bounding boxes, analyzers, and pipelines | `moritzbrantner-video-analysis-core` |
 | Images | `moritzbrantner-image-analysis-core` |
-| Audio frames and features | `moritzbrantner-audio-analysis-core` |
+| Audio buffers, frames, analyzers, and pipelines | `moenarch-audio-contracts` |
+| Audio features and analysis utilities | `moritzbrantner-audio-analysis-core` |
 | Generic and speaker-conditioned TTS requests, Reference Voice Prompts, provider selection, inference options, and PCM synthesis output | `moritzbrantner-audio-generation-tts` |
 | Text documents and text segments | `moritzbrantner-text-core` |
 | Durable text indexes, chunks, semantic facets, and index queries | `moritzbrantner-text-index` |
@@ -299,18 +301,19 @@ Runtime and external integration crates use a shared feature policy:
 | `moritzbrantner-math-signal-core` | Shared signal-domain math | `moritzbrantner-video-analysis-core`, `moritzbrantner-numbers-core` | Sample-rate/resampling descriptors, windows, frame strides, interpolation, signal level summaries, FIR kernels/application, peak normalization, and biquad design helpers | Audio crates and future time-series/video transform workflows |
 | `moritzbrantner-math-sparse-data` | Shared sparse vector and matrix contracts | `moritzbrantner-video-analysis-core`, `moritzbrantner-vector-analysis-core`, `moritzbrantner-numbers-core`, `moritzbrantner-math-linear` | Sparse vectors, vector norms/add/scale/hadamard/prune/top-k, COO/CSR matrices, transpose, row/column nnz and sums, matrix summaries, row normalization, matrix-vector and matrix-matrix dense products, sparse similarities, dense bridges | Text corpus/semantic crates and future retrieval/index workflows |
 | `moritzbrantner-math-statistics` | Shared scalar, pairwise, rolling, multivariate, and matrix statistics | `moritzbrantner-video-analysis-core`, `moritzbrantner-numbers-core`, `moritzbrantner-math-linear` | Series summaries, sample/population variance, changes, pairwise covariance/correlation, ranks/Spearman correlation, simple and OLS regression, OLS diagnostics, ridge regression, row-wise covariance/correlation matrices, rolling windows, z-scores, tail risk, drawdown, running covariance, covariance matrices, f64-default package normalizers, centered-SVD PCA, weighted observations | Dense-data, feature extraction, and analytics workflows |
-| `moritzbrantner-audio-analysis-core` | Shared audio analysis utilities | `moritzbrantner-video-analysis-core`, `moritzbrantner-tensor-data`, `moritzbrantner-math-signal-core` | Normalized sample conversion, mono mixing, shared window functions, frame iteration, streaming frame windows, feature-series contracts, level helpers, waveform batch contracts | Audio analysis crates and applications |
-| `moritzbrantner-audio-analysis-fourier` | Frequency-domain audio analysis | `moritzbrantner-audio-analysis-core`, `moritzbrantner-video-analysis-core` | FFT spectra, STFT spectrograms, spectral features, mel-style band summaries, dominant-frequency analyzer | Applications and audio pipelines |
-| `moritzbrantner-audio-analysis-io` | Audio input convenience facade | `moritzbrantner-audio-analysis-core`, `moritzbrantner-video-analysis-core`, `moritzbrantner-video-analysis-ingest`, `moritzbrantner-video-analysis-ffmpeg`, `hound` | Audio-named input options, FFmpeg source opening helpers, ingest re-exports, waveform batch decoding, pure WAV read/write helpers, WAV/probe plan surfaces | Applications that want audio-specific input APIs |
-| `moritzbrantner-audio-analysis-pitch` | Pitch estimation | `moritzbrantner-audio-analysis-core`, `moritzbrantner-video-analysis-core` | Autocorrelation pitch detector, pitch analyzer events, note projection, chroma and pitch-class summaries | Applications and audio pipelines |
-| `moritzbrantner-audio-analysis-processing` | Realtime-safe audio processing | `moritzbrantner-audio-analysis-core`, `moritzbrantner-math-signal-core`, `moritzbrantner-video-analysis-core`, `moritzbrantner-video-analysis-ingest` | Audio transform trait, processor chains, gain/clip/mono/DC/biquad/noise-gate transforms, processed sources, deterministic loudness-oriented reports | Applications, preprocessing workflows, audio pipelines |
-| `moritzbrantner-audio-analysis-recognition` | Audio similarity and recognition | `moritzbrantner-audio-analysis-core`, `moritzbrantner-audio-analysis-fourier`, `moritzbrantner-video-analysis-core`, `moritzbrantner-text-transcripts` | Spectral embeddings, sample-backed reference libraries, similarity search, recognition analyzer events, and deprecated Rust transcription compatibility wrappers only | Applications, audio pipelines, reference matching workflows |
+| `moenarch-audio-contracts` | Cycle-free audio contracts | `moenarch-media-core` | Typed audio buffers, borrowed and owned frames, analyzer traits, analysis results, and incremental pipeline contracts; exact compatibility re-exports from `moenarch-video-analysis-core` | Audio and visual packages that exchange audio without a capability-repository cycle |
+| `moritzbrantner-audio-analysis-core` | Shared audio analysis utilities | `moenarch-audio-contracts`, `moritzbrantner-tensor-data`, `moritzbrantner-math-signal-core` | Normalized sample conversion, mono mixing, shared window functions, frame iteration, streaming frame windows, feature-series contracts, level helpers, waveform batch contracts | Audio analysis crates and applications |
+| `moritzbrantner-audio-analysis-fourier` | Frequency-domain audio analysis | `moritzbrantner-audio-analysis-core`, `moenarch-audio-contracts` | FFT spectra, STFT spectrograms, spectral features, mel-style band summaries, dominant-frequency analyzer | Applications and audio pipelines |
+| `moritzbrantner-audio-analysis-io` | Audio input convenience facade | `moritzbrantner-audio-analysis-core`, `moenarch-audio-contracts`, `moritzbrantner-video-analysis-ingest`, `moritzbrantner-video-analysis-ffmpeg`, `hound` | Audio-named input options, FFmpeg source opening helpers, ingest re-exports, waveform batch decoding, pure WAV read/write helpers, WAV/probe plan surfaces | Applications that want audio-specific input APIs |
+| `moritzbrantner-audio-analysis-pitch` | Pitch estimation | `moritzbrantner-audio-analysis-core`, `moenarch-audio-contracts` | Autocorrelation pitch detector, pitch analyzer events, note projection, chroma and pitch-class summaries | Applications and audio pipelines |
+| `moritzbrantner-audio-analysis-processing` | Realtime-safe audio processing | `moritzbrantner-audio-analysis-core`, `moritzbrantner-math-signal-core`, `moenarch-audio-contracts`, `moritzbrantner-video-analysis-ingest` | Audio transform trait, processor chains, gain/clip/mono/DC/biquad/noise-gate transforms, processed sources, deterministic loudness-oriented reports | Applications, preprocessing workflows, audio pipelines |
+| `moritzbrantner-audio-analysis-recognition` | Audio similarity and recognition | `moritzbrantner-audio-analysis-core`, `moritzbrantner-audio-analysis-fourier`, `moenarch-audio-contracts`, `moritzbrantner-text-transcripts` | Spectral embeddings, sample-backed reference libraries, similarity search, recognition analyzer events, and deprecated Rust transcription compatibility wrappers only | Applications, audio pipelines, reference matching workflows |
 | `moritzbrantner-audio-analysis-transcription` | Native audio/video transcription orchestration | `moritzbrantner-video-analysis-core`, `moritzbrantner-text-transcripts`, `moritzbrantner-audio-analysis-speakers`, optional `moritzbrantner-model-runtime` | ASR/VAD/alignment provider traits, Candle Whisper CPU/CUDA execution from local bundles with timestamp-token segment timing, projected word timing, and chunk/window fallback timing, WAV native input normalization, energy VAD chunking, deterministic CTC alignment contracts plus local Candle wav2vec2 CTC execution for supported bundles, speaker diarization orchestration adapter, and external WhisperX compatibility import/execution | Real ASR workflows, transcript generation, alignment, diarization, and compatibility comparison |
-| `moritzbrantner-audio-analysis-speakers` | Speaker analysis | `moritzbrantner-audio-analysis-core`, `moritzbrantner-audio-analysis-recognition`, `moritzbrantner-video-analysis-core` | Speaker embeddings, enrollment, thresholded identification, deterministic VAD, heuristic baseline diarization, speaker-owned diarization option/response contracts, and Transcript Speaker Assignment with majority, nearest-start, and strict-contained policies | Speaker-aware audio and transcript workflows |
-| `moritzbrantner-audio-analysis-rhythm` | Rhythm and tempo analysis | `moritzbrantner-audio-analysis-core`, `moritzbrantner-video-analysis-core` | Onset envelope, onset detection, tempo estimates, rhythm analyzer events | Applications and audio pipelines |
+| `moritzbrantner-audio-analysis-speakers` | Speaker analysis | `moritzbrantner-audio-analysis-core`, `moritzbrantner-audio-analysis-recognition`, `moenarch-audio-contracts` | Speaker embeddings, enrollment, thresholded identification, deterministic VAD, heuristic baseline diarization, speaker-owned diarization option/response contracts, and Transcript Speaker Assignment with majority, nearest-start, and strict-contained policies | Speaker-aware audio and transcript workflows |
+| `moritzbrantner-audio-analysis-rhythm` | Rhythm and tempo analysis | `moritzbrantner-audio-analysis-core`, `moenarch-audio-contracts` | Onset envelope, onset detection, tempo estimates, rhythm analyzer events | Applications and audio pipelines |
 | `moritzbrantner-audio-analysis-separation` | Instrument stem separation command wrapper | `moritzbrantner-video-analysis-core` | HTDemucs/Demucs options, command previews, opt-in Demucs execution, expected stem paths and output layouts | Applications and preprocessing workflows |
-| `moritzbrantner-audio-analysis-synthesis` | Deterministic inverse audio generation | `moritzbrantner-data-inversion-core`, `moritzbrantner-video-analysis-core` | Tone specs, tone timelines, pitch/onset event to tone conversion, click-track synthesis, synthesized `OwnedAudioFrame` values | Applications prototyping audio from symbolic or analyzed events |
-| `moritzbrantner-audio-analysis-test-support` | Shared audio fixtures and test helpers | `moritzbrantner-audio-analysis-core`, `moritzbrantner-video-analysis-core` | Synthetic waveform frames, deterministic audio buffers, fixture builders, assertion helpers | Audio crate tests, smoke tests, and package surface checks |
+| `moritzbrantner-audio-analysis-synthesis` | Deterministic inverse audio generation | `moritzbrantner-data-inversion-core`, `moenarch-audio-contracts` | Tone specs, tone timelines, pitch/onset event to tone conversion, click-track synthesis, synthesized `OwnedAudioFrame` values | Applications prototyping audio from symbolic or analyzed events |
+| `moritzbrantner-audio-analysis-test-support` | Shared audio fixtures and test helpers | `moritzbrantner-audio-analysis-core`, `moenarch-audio-contracts` | Synthetic waveform frames, deterministic audio buffers, fixture builders, assertion helpers | Audio crate tests, smoke tests, and package surface checks |
 | `moritzbrantner-image-analysis-core` | Shared image contracts and statistics | `moritzbrantner-video-analysis-core`, `moritzbrantner-tensor-data` | Borrowed/owned image views, image batches, pixel formats, compacting, mean color, luma histograms, mask tensor bridge helpers | Image processing crates, applications, video frame preprocessing |
 | `moritzbrantner-image-analysis-processing` | CPU image processing primitives | `moritzbrantner-image-analysis-core`, `moritzbrantner-math-geometry-2d`, `moritzbrantner-math-linear`, `moritzbrantner-video-analysis-core` | Crop, nearest resize, grayscale, invert, threshold, 3x3 convolution, processor chains, shared `RectU32`/`Kernel2d` bridges | Applications, preprocessing workflows |
 | `moritzbrantner-image-analysis-ocr` | OCR presets and rich text extraction contracts | `moritzbrantner-image-analysis-core`, `moritzbrantner-image-analysis-processing`, `moritzbrantner-video-analysis-core`, `moritzbrantner-model-runtime`, `moritzbrantner-runtime-onnx`, `moritzbrantner-text-core` | Hugging Face OCR presets, opt-in Xenova TrOCR ONNX execution, OCR technique metadata, rich text documents/blocks/lines/tokens, OCR-to-`TextDocumentContract` conversion, image and video-frame OCR backend traits | Applications extracting text from images or sampled video frames |
@@ -447,9 +450,12 @@ and future enrichment packages should emit these core records.
 
 ## Audio Analysis Contracts
 
-The `audio-analysis-*` crates build on the canonical `AudioFrame`,
-`AudioBuffer`, `AudioAnalyzer`, and `AnalysisEvent` contracts from
-`moritzbrantner-video-analysis-core`.
+`moenarch-audio-contracts` is the cycle-free canonical owner of `AudioFrame`,
+`OwnedAudioFrame`, `AudioBuffer`, `AudioAnalyzer`, `AudioAnalysis`, and
+`AudioPipeline`. It depends only on `moenarch-media-core`, which remains the
+canonical owner of the shared `AnalysisEvent`, timestamp, sample-format, and
+error contracts. `moenarch-video-analysis-core` re-exports the audio contracts
+for compatibility with exact Rust type identity.
 
 Audio package-surface operations return structured JSON values with `title`,
 `operation`, `message`, `summary`, and `result` fields while preserving their
@@ -1506,19 +1512,20 @@ Allowed internal dependencies:
 
 - `comfyui-data`: `serde`, `serde_json`, `tensor-data`, `thiserror`.
 - `comfyui-models`: `serde`, `thiserror`.
-- `audio-analysis-core` -> `video-analysis-core`.
+- `audio-contracts` -> `media-core`.
+- `audio-analysis-core` -> `audio-contracts`.
 - `audio-analysis-fourier` -> `audio-analysis-core`,
-  `video-analysis-core`.
-- `audio-analysis-io` -> `audio-analysis-core`, `video-analysis-core`,
+  `audio-contracts`.
+- `audio-analysis-io` -> `audio-analysis-core`, `audio-contracts`,
   `video-analysis-ingest`, `video-analysis-ffmpeg`, `hound`.
 - `audio-analysis-pitch` -> `audio-analysis-core`,
-  `video-analysis-core`.
+  `audio-contracts`.
 - `audio-analysis-processing` -> `audio-analysis-core`,
-  `video-analysis-core`, `video-analysis-ingest`.
+  `audio-contracts`, `video-analysis-ingest`.
 - `audio-analysis-recognition` -> `audio-analysis-core`,
-  `audio-analysis-fourier`, `video-analysis-core`.
+  `audio-analysis-fourier`, `audio-contracts`.
 - `audio-analysis-rhythm` -> `audio-analysis-core`,
-  `video-analysis-core`.
+  `audio-contracts`.
 - `audio-analysis-separation` -> `video-analysis-core`.
 - `image-analysis-core` -> `video-analysis-core`.
 - `image-analysis-processing` -> `image-analysis-core`,

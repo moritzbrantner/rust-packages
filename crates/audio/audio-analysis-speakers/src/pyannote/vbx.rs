@@ -2,8 +2,8 @@
 
 use std::collections::BTreeMap;
 
+use audio_contracts::{DetectError, Result};
 use serde::Deserialize;
-use video_analysis_core::{DetectError, Result};
 
 use super::plda::Plda;
 

@@ -19,7 +19,7 @@ name = "audio_analysis_rhythm"
 runtime-core.workspace = true
 serde_json.workspace = true
 audio-analysis-core.workspace = true
-video-analysis-core.workspace = true
+audio-contracts.workspace = true
 
 [dev-dependencies]
 criterion.workspace = true

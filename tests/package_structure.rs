@@ -193,7 +193,8 @@ fn synthetic_fixtures_are_not_public_package_identifier_inputs() {
 }
 
 #[test]
-fn contract_only_media_core_is_exempt_from_runtime_companions() {
+fn contract_only_core_crates_are_exempt_from_runtime_companions() {
+    assert!(excluded_library_package("moenarch-audio-contracts"));
     assert!(excluded_library_package("moenarch-media-core"));
     assert!(!excluded_library_package("moenarch-video-analysis-core"));
 }
@@ -739,7 +740,8 @@ fn wasm_package_dependency_names(surface_name: &str) -> Vec<String> {
 fn excluded_library_package(package_name: &str) -> bool {
     matches!(
         package_name,
-        "moenarch-audio-analysis-test-support"
+        "moenarch-audio-contracts"
+            | "moenarch-audio-analysis-test-support"
             | "moenarch-media-core"
             | "moenarch-runtime-core"
             | "moenarch-runtime-onnx"

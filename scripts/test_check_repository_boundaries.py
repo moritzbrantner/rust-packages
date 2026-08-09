@@ -113,8 +113,8 @@ class RepositoryBoundaryCheckTests(unittest.TestCase):
             text=True,
         )
         self.assertEqual(completed.returncode, 0, completed.stderr)
-        self.assertIn("25 reviewed violations", completed.stdout)
-        self.assertIn("21 normal", completed.stdout)
+        self.assertIn("13 reviewed violations", completed.stdout)
+        self.assertIn("9 normal", completed.stdout)
         self.assertIn("4 dev", completed.stdout)
         self.assertNotIn("BASELINED CYCLE", completed.stdout)
 

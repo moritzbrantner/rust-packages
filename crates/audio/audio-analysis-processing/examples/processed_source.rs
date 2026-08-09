@@ -1,5 +1,5 @@
 use audio_analysis_processing::{AudioProcessor, ProcessedAudioSource};
-use video_analysis_core::{AudioBuffer, OwnedAudioFrame, Timebase, Timestamp};
+use audio_contracts::{AudioBuffer, OwnedAudioFrame, Timebase, Timestamp};
 use video_analysis_ingest::{AudioFrameSource, AudioStreamInfo, MediaSourceInfo, SourceMode};
 
 #[derive(Clone)]
@@ -32,7 +32,7 @@ impl AudioFrameSource for SingleFrameSource {
         &self.info
     }
 
-    fn next_audio_frame(&mut self) -> video_analysis_core::Result<Option<OwnedAudioFrame>> {
+    fn next_audio_frame(&mut self) -> audio_contracts::Result<Option<OwnedAudioFrame>> {
         Ok(self.frame.take())
     }
 }

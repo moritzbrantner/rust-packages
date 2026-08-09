@@ -1,8 +1,8 @@
 use crate::{
     normalized_samples, seconds_to_samples, AudioFormatSpec, InterpolationMode, SampleRate,
 };
+use audio_contracts::{AudioBuffer, DetectError, OwnedAudioFrame, Result, Timestamp};
 use math_signal_core::resample_interleaved;
-use video_analysis_core::{AudioBuffer, DetectError, OwnedAudioFrame, Result, Timestamp};
 
 #[derive(Debug, Clone, PartialEq)]
 /// Owned interleaved f32 clip for whole-buffer editing.
@@ -262,7 +262,7 @@ impl AudioClip {
 mod tests {
     use super::*;
     use crate::samples_to_seconds;
-    use video_analysis_core::{AudioBuffer, Timebase, Timestamp};
+    use audio_contracts::{AudioBuffer, Timebase, Timestamp};
 
     fn clip(samples: Vec<f32>) -> AudioClip {
         AudioClip::new(4, 2, samples).unwrap()

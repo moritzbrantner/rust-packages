@@ -1,11 +1,11 @@
 //! Library-owned runtime surface for `audio-generation-midi`.
 
 use audio_analysis_synthesis::{AudioSynthesisConfig, Waveform};
+use audio_contracts::AudioBuffer;
 use runtime_core::{
     structured_surface_response, OperationId, PackageSurface, RuntimeCapabilities,
     SurfaceOperation, SurfaceRequest, SurfaceResponse,
 };
-use video_analysis_core::AudioBuffer;
 
 use crate::{
     pitch_track_to_midi_notes, MidiNote, MidiNoteEvent, MidiSong, MidiTrack, NoteName,

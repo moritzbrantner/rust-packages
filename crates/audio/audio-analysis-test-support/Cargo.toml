@@ -12,4 +12,4 @@ name = "audio_analysis_test_support"
 runtime-core.workspace = true
 serde_json.workspace = true
 tempfile.workspace = true
-video-analysis-core.workspace = true
+audio-contracts.workspace = true

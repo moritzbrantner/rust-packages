@@ -4,7 +4,7 @@ pub mod surface;
 use std::collections::VecDeque;
 
 use audio_analysis_core::mono_samples;
-use video_analysis_core::{AnalysisEvent, AudioAnalyzer, AudioFrame, DetectError, Result};
+use audio_contracts::{AnalysisEvent, AudioAnalyzer, AudioFrame, DetectError, Result};
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 /// Data type for pitch detector config.
@@ -541,7 +541,7 @@ pub fn frequency_to_note_name(frequency_hz: f32) -> Option<String> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use video_analysis_core::{AudioBuffer, AudioFrame, Timebase, Timestamp};
+    use audio_contracts::{AudioBuffer, AudioFrame, Timebase, Timestamp};
 
     fn white_noise(seed: u64, len: usize) -> Vec<f32> {
         let mut state = seed;

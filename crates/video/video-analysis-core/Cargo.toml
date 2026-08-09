@@ -17,6 +17,7 @@ name = "video_analysis_core"
 
 [dependencies]
 media-core.workspace = true
+audio-contracts.workspace = true
 runtime-core.workspace = true
 math-geometry-2d.workspace = true
 serde.workspace = true

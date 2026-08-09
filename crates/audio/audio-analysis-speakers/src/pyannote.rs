@@ -18,13 +18,13 @@ use std::collections::{BTreeMap, BTreeSet};
 use std::fs;
 use std::path::{Path, PathBuf};
 
+use audio_contracts::{DetectError, Result};
 use runtime_onnx::{
     f32_output_by_name_or_index, first_f32_output, single_f32_input, OnnxDimension, OnnxF32Tensor,
     OnnxIoInfo, OnnxRunner, OnnxSession, OnnxSessionMetadata, OnnxTensorElementType,
 };
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
-use video_analysis_core::{DetectError, Result};
 
 use crate::{
     AudioRuntime, SpeakerAudio, SpeakerDiarizationResponse, SpeakerEmbedding,

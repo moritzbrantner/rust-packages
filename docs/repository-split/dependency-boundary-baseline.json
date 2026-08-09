@@ -4,30 +4,6 @@
   "source_commit": "d032ad2890c1df3c6a5b9eff024562f00d017fce",
   "violations": [
     {
-      "dependency_kind": "normal",
-      "dependency_package": "moenarch-video-analysis-core",
-      "migration_issue": "https://github.com/moritzbrantner/rust-packages/issues/109",
-      "reason": "inappropriate dependency on video-analysis-core remains",
-      "source_package": "moenarch-audio-analysis-core",
-      "target_phase": "foundation"
-    },
-    {
-      "dependency_kind": "normal",
-      "dependency_package": "moenarch-video-analysis-core",
-      "migration_issue": "https://github.com/moritzbrantner/rust-packages/issues/109",
-      "reason": "inappropriate dependency on video-analysis-core remains",
-      "source_package": "moenarch-audio-analysis-fourier",
-      "target_phase": "foundation"
-    },
-    {
-      "dependency_kind": "normal",
-      "dependency_package": "moenarch-video-analysis-core",
-      "migration_issue": "https://github.com/moritzbrantner/rust-packages/issues/109",
-      "reason": "inappropriate dependency on video-analysis-core remains",
-      "source_package": "moenarch-audio-analysis-io",
-      "target_phase": "foundation"
-    },
-    {
       "dependency_kind": "dev",
       "dependency_package": "moenarch-video-analysis-ffmpeg",
       "migration_issue": "https://github.com/moritzbrantner/rust-packages/issues/74",
@@ -53,66 +29,10 @@
     },
     {
       "dependency_kind": "normal",
-      "dependency_package": "moenarch-video-analysis-core",
-      "migration_issue": "https://github.com/moritzbrantner/rust-packages/issues/109",
-      "reason": "inappropriate dependency on video-analysis-core remains",
-      "source_package": "moenarch-audio-analysis-pitch",
-      "target_phase": "foundation"
-    },
-    {
-      "dependency_kind": "normal",
-      "dependency_package": "moenarch-video-analysis-core",
-      "migration_issue": "https://github.com/moritzbrantner/rust-packages/issues/109",
-      "reason": "inappropriate dependency on video-analysis-core remains",
-      "source_package": "moenarch-audio-analysis-processing",
-      "target_phase": "foundation"
-    },
-    {
-      "dependency_kind": "normal",
       "dependency_package": "moenarch-video-analysis-ingest",
       "migration_issue": "https://github.com/moritzbrantner/rust-packages/issues/74",
       "reason": "audio decoding still imports visual media IO",
       "source_package": "moenarch-audio-analysis-processing",
-      "target_phase": "foundation"
-    },
-    {
-      "dependency_kind": "normal",
-      "dependency_package": "moenarch-video-analysis-core",
-      "migration_issue": "https://github.com/moritzbrantner/rust-packages/issues/109",
-      "reason": "inappropriate dependency on video-analysis-core remains",
-      "source_package": "moenarch-audio-analysis-recognition",
-      "target_phase": "foundation"
-    },
-    {
-      "dependency_kind": "normal",
-      "dependency_package": "moenarch-video-analysis-core",
-      "migration_issue": "https://github.com/moritzbrantner/rust-packages/issues/109",
-      "reason": "inappropriate dependency on video-analysis-core remains",
-      "source_package": "moenarch-audio-analysis-rhythm",
-      "target_phase": "foundation"
-    },
-    {
-      "dependency_kind": "normal",
-      "dependency_package": "moenarch-video-analysis-core",
-      "migration_issue": "https://github.com/moritzbrantner/rust-packages/issues/109",
-      "reason": "inappropriate dependency on video-analysis-core remains",
-      "source_package": "moenarch-audio-analysis-speakers",
-      "target_phase": "foundation"
-    },
-    {
-      "dependency_kind": "normal",
-      "dependency_package": "moenarch-video-analysis-core",
-      "migration_issue": "https://github.com/moritzbrantner/rust-packages/issues/109",
-      "reason": "inappropriate dependency on video-analysis-core remains",
-      "source_package": "moenarch-audio-analysis-synthesis",
-      "target_phase": "foundation"
-    },
-    {
-      "dependency_kind": "normal",
-      "dependency_package": "moenarch-video-analysis-core",
-      "migration_issue": "https://github.com/moritzbrantner/rust-packages/issues/109",
-      "reason": "inappropriate dependency on video-analysis-core remains",
-      "source_package": "moenarch-audio-analysis-test-support",
       "target_phase": "foundation"
     },
     {
@@ -121,22 +41,6 @@
       "migration_issue": "https://github.com/moritzbrantner/rust-packages/issues/74",
       "reason": "audio decoding still imports visual media IO",
       "source_package": "moenarch-audio-analysis-transcription",
-      "target_phase": "foundation"
-    },
-    {
-      "dependency_kind": "normal",
-      "dependency_package": "moenarch-video-analysis-core",
-      "migration_issue": "https://github.com/moritzbrantner/rust-packages/issues/109",
-      "reason": "inappropriate dependency on video-analysis-core remains",
-      "source_package": "moenarch-audio-generation-midi",
-      "target_phase": "foundation"
-    },
-    {
-      "dependency_kind": "normal",
-      "dependency_package": "moenarch-video-analysis-core",
-      "migration_issue": "https://github.com/moritzbrantner/rust-packages/issues/109",
-      "reason": "inappropriate dependency on video-analysis-core remains",
-      "source_package": "moenarch-audio-generation-tts",
       "target_phase": "foundation"
     },
     {

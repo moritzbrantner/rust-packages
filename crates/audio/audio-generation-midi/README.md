@@ -23,7 +23,7 @@ let midi_bytes = song.to_midi_bytes()?;
 let audio = song.render(Default::default())?;
 
 let _ = (midi_bytes, audio);
-# Ok::<(), video_analysis_core::DetectError>(())
+# Ok::<(), audio_contracts::DetectError>(())
 ```
 
 ## Package surface

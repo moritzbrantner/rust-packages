@@ -10,8 +10,8 @@ pub use math_signal_core::{
 };
 use std::collections::{BTreeMap, BTreeSet};
 
+use audio_contracts::{AudioBuffer, AudioFrame, DetectError, Result, Timebase, Timestamp};
 use tensor_data::{F32Tensor, F32TensorView};
-use video_analysis_core::{AudioBuffer, AudioFrame, DetectError, Result, Timebase, Timestamp};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 /// Data type for audio format spec.
@@ -336,7 +336,7 @@ impl OwnedAudioWaveformBatch {
     }
 
     /// Builds this value from audio frames.
-    pub fn from_audio_frames(frames: &[video_analysis_core::OwnedAudioFrame]) -> Result<Self> {
+    pub fn from_audio_frames(frames: &[audio_contracts::OwnedAudioFrame]) -> Result<Self> {
         if frames.is_empty() {
             return Err(DetectError::InvalidArgument(
                 "audio waveform batches must contain at least one frame".to_string(),
@@ -907,8 +907,8 @@ fn nearly_equal(left: f32, right: f32) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use audio_contracts::{AudioBuffer, AudioFrame, Timebase, Timestamp};
     use proptest::prelude::*;
-    use video_analysis_core::{AudioBuffer, AudioFrame, Timebase, Timestamp};
 
     fn assert_approx_eq(actual: f32, expected: f32, tolerance: f32) {
         assert!(
@@ -975,14 +975,14 @@ mod tests {
 
     #[test]
     fn batches_existing_audio_frames_into_channel_major_waveforms() {
-        let first = video_analysis_core::OwnedAudioFrame::new(
+        let first = audio_contracts::OwnedAudioFrame::new(
             ts(),
             48_000,
             1,
             AudioBuffer::F32(vec![0.1, 0.2]),
         )
         .unwrap();
-        let second = video_analysis_core::OwnedAudioFrame::new(
+        let second = audio_contracts::OwnedAudioFrame::new(
             ts(),
             48_000,
             1,

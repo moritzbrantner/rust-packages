@@ -12,7 +12,7 @@ use audio_analysis_recognition::{
     AudioEmbeddingExtractor, AudioRuntimeSelection, FallbackPolicy, SpectralAudioEmbedder,
     SpectralEmbeddingConfig, TranscriptSegmentContract, TranscriptionContract,
 };
-use video_analysis_core::{AudioBuffer, AudioFrame, DetectError, Result};
+use audio_contracts::{AudioBuffer, AudioFrame, DetectError, Result};
 
 const SNAPSHOT_VERSION: u32 = 1;
 

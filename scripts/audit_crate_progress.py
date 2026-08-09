@@ -20,6 +20,7 @@ ALLOW_PATH = Path("scripts/crate_progress_regressions.allow")
 EXCLUDED_LIBRARY_CRATES = {
     "moritzbrantner-audio-analysis-test-support",
     "moenarch-audio-analysis-test-support",
+    "moenarch-audio-contracts",
     "moritzbrantner-runtime-core",
     "moenarch-runtime-core",
     "moritzbrantner-runtime-onnx",
