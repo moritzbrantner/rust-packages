@@ -1,4 +1,4 @@
-//! Native whisper.cpp transcription support for text transcripts.
+//! Native whisper.cpp transcription support for the audio adapter.
 
 #[cfg(feature = "native")]
 #[path = "ffi.rs"]
@@ -614,7 +614,7 @@ fn transcribe_impl(
     _progress: &mut ProgressSink<'_>,
 ) -> Result<WhisperCppTranscription> {
     Err(WhisperCppError::Initialization(
-        "text-transcripts was built without the `native` feature".to_string(),
+        "audio-analysis-transcription was built without the `native` feature".to_string(),
     ))
 }
 

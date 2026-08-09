@@ -1,8 +1,10 @@
 use std::collections::BTreeMap;
 
 use serde::{Deserialize, Serialize};
-use text_core::{AsTextSegmentContract, TextSegmentContract, TextSourceRef, TimestampContract};
-use video_analysis_core::{Timebase, Timestamp};
+use text_core::{
+    AsTextSegmentContract, TextSegmentContract, TextSourceRef, Timebase, Timestamp,
+    TimestampContract,
+};
 
 use crate::{TranscriptSegment, TranscriptWord, TranscriptionError, TranscriptionResult};
 

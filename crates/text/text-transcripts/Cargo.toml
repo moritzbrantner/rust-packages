@@ -4,7 +4,7 @@ version = "0.1.1"
 edition.workspace = true
 license.workspace = true
 rust-version.workspace = true
-description = "Transcript parsing and ASR command adapters for video-analysis."
+description = "Transcript document contracts, parsing, and subtitle formatting."
 readme = "README.md"
 repository.workspace = true
 homepage.workspace = true
@@ -17,24 +17,14 @@ name = "text_transcripts"
 
 [dependencies]
 runtime-core.workspace = true
-audio-analysis-core.workspace = true
-hound.workspace = true
 serde.workspace = true
 serde_json.workspace = true
-sha2 = { version = "0.10.9", optional = true }
 text-core.workspace = true
 thiserror.workspace = true
-ureq = { version = "2.12.1", default-features = true, optional = true }
-video-analysis-core.workspace = true
-video-analysis-ingest.workspace = true
 
 [features]
 default = []
 external-tests = []
-native = ["dep:sha2", "dep:ureq"]
-
-[build-dependencies]
-cmake = "0.1.54"
 
 [dev-dependencies]
 tempfile.workspace = true

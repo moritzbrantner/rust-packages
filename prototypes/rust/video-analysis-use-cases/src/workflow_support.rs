@@ -4,9 +4,9 @@ use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
 
+use audio_analysis_transcription::{WhisperCppPhase, WhisperCppProgressEvent};
 use serde::Serialize;
 use serde_json::Value;
-use text_transcripts::{WhisperCppPhase, WhisperCppProgressEvent, WhisperCppTranscriber};
 use video_analysis_core::{DetectError, Result};
 use video_analysis_ffmpeg::extract_wav;
 
@@ -153,7 +153,7 @@ pub(crate) fn transcribe_media(
     let prepared = prepare_transcription_config(config);
     match extract_transcription_wav(media_path, work_dir).and_then(|audio_path| {
         if prepared.engine == TranscriptionEngine::WhisperCpp {
-            run_whisper_cpp_transcriber(&prepared, &audio_path, progress)
+            crate::run_whisper_cpp(&prepared.whisper_cpp, &audio_path, progress)
         } else {
             let command = prepared
                 .command
@@ -251,7 +251,7 @@ fn default_transcriber_message(engine: TranscriptionEngine) -> String {
     }
 }
 
-fn run_transcriber_command(
+pub(crate) fn run_transcriber_command(
     engine: TranscriptionEngine,
     config: &ExternalCommandConfig,
     audio_path: &Path,
@@ -287,35 +287,6 @@ fn run_transcriber_command(
         display_path(&transcript_path)
     ));
     Ok((report, audio_path.to_path_buf()))
-}
-
-fn run_whisper_cpp_transcriber(
-    config: &TranscriptionConfig,
-    audio_path: &Path,
-    progress: &mut dyn FnMut(WhisperCppProgressEvent),
-) -> Result<(TranscriptionReport, PathBuf)> {
-    let mut transcriber = WhisperCppTranscriber::new(config.whisper_cpp.clone());
-    let parsed = transcriber
-        .transcribe_with_progress(audio_path, progress)
-        .map_err(|error| DetectError::Source(error.to_string()))?;
-    Ok((
-        TranscriptionReport {
-            status: "completed".to_string(),
-            text: parsed.text.map(|text| text.trim().to_string()),
-            segments: parsed
-                .segments
-                .into_iter()
-                .map(|segment| TranscriptSegmentReport {
-                    index: segment.index,
-                    start_seconds: segment.start_seconds,
-                    end_seconds: segment.end_seconds,
-                    text: segment.text.trim().to_string(),
-                })
-                .collect(),
-            message: parsed.source,
-        },
-        audio_path.to_path_buf(),
-    ))
 }
 
 fn transcription_engine_label(engine: TranscriptionEngine) -> &'static str {

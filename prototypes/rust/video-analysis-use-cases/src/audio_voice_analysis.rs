@@ -14,8 +14,8 @@ use audio_analysis_rhythm::{
     TempoEstimatorConfig,
 };
 use audio_analysis_separation::{DemucsModel, HtdemucsOptions, HtdemucsSeparator, Stem};
+use audio_analysis_transcription::WhisperCppProgressEvent;
 use serde::{Deserialize, Serialize};
-use text_transcripts::WhisperCppProgressEvent;
 use video_analysis_core::{DetectError, Result};
 
 use crate::workflow_support::{

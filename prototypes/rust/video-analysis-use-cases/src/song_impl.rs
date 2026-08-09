@@ -5,10 +5,10 @@ use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
 
 use audio_analysis_recognition::FingerprintRecord;
+use audio_analysis_transcription::WhisperCppProgressEvent;
 use chrono::Utc;
 use rusqlite::{params, Connection, OptionalExtension};
 use serde::{Deserialize, Serialize};
-use text_transcripts::WhisperCppProgressEvent;
 use video_analysis_core::{DetectError, Result};
 
 use crate::workflow_support::{

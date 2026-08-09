@@ -11317,6 +11317,33 @@
   "resolved_boundary_violations": [
     {
       "dependency_kind": "normal",
+      "dependency_package": "moenarch-audio-analysis-core",
+      "migration_issue": "https://github.com/moritzbrantner/rust-packages/issues/112",
+      "optional": false,
+      "resolved_by_issue": "https://github.com/moritzbrantner/rust-packages/issues/112",
+      "source_package": "moenarch-text-transcripts",
+      "target_phase": "nlp"
+    },
+    {
+      "dependency_kind": "normal",
+      "dependency_package": "moenarch-video-analysis-core",
+      "migration_issue": "https://github.com/moritzbrantner/rust-packages/issues/112",
+      "optional": false,
+      "resolved_by_issue": "https://github.com/moritzbrantner/rust-packages/issues/112",
+      "source_package": "moenarch-text-transcripts",
+      "target_phase": "nlp"
+    },
+    {
+      "dependency_kind": "normal",
+      "dependency_package": "moenarch-video-analysis-ingest",
+      "migration_issue": "https://github.com/moritzbrantner/rust-packages/issues/112",
+      "optional": false,
+      "resolved_by_issue": "https://github.com/moritzbrantner/rust-packages/issues/112",
+      "source_package": "moenarch-text-transcripts",
+      "target_phase": "nlp"
+    },
+    {
+      "dependency_kind": "normal",
       "dependency_package": "moenarch-video-analysis-core",
       "migration_issue": "https://github.com/moritzbrantner/rust-packages/issues/109",
       "optional": false,

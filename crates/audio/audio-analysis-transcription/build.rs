@@ -21,7 +21,7 @@ fn main() {
         });
     if !vendor_dir.join("CMakeLists.txt").is_file() {
         panic!(
-            "text-transcripts native builds require a whisper.cpp source checkout; \
+            "audio-analysis-transcription native builds require a whisper.cpp source checkout; \
              set WHISPER_CPP_SOURCE_DIR or build from this repository with vendor/whisper.cpp present"
         );
     }

@@ -1,13 +1,10 @@
 # text-transcripts
 
-Transcript parsing, ASR command adapters, and native whisper.cpp support for `moritzbrantner-video-analysis`.
+Transcript document contracts, parsing, normalization, and subtitle formatting.
 
 ## Feature flags
 
-- `external-tests`: enables ignored CLI-backed smoke tests
-- `native`: builds whisper.cpp support for offline transcription. Repository
-  builds use `vendor/whisper.cpp`; crates.io builds must set
-  `WHISPER_CPP_SOURCE_DIR` to a local whisper.cpp source checkout.
+- `external-tests`: reserved for downstream format-compatibility smoke tests
 
 ## Stable contract
 
@@ -17,9 +14,9 @@ SRT/WebVTT/plain/Whisper JSON parsing, formatting, conversion to
 
 ## Quality and limits
 
-Default package operations parse and format text only. ASR command adapters and
-native whisper.cpp transcription remain explicit runtime paths and are not
-invoked by default package-surface operations.
+Package operations parse and format text only. Audio decoding, VAD, ASR command
+execution, model resolution/downloads, and speaker-model execution belong to
+the higher-layer `audio-analysis-transcription` adapter.
 
 ## Example
 
@@ -45,18 +42,7 @@ assert!(!transcript.text_or_joined().is_empty());
   available through library, CLI, server, and WASM wrappers.
 - Sample output includes `title`, `message`, `summary`, `result`, and
   operation-specific fields such as `segments`, `text`, `srt`, or `webVtt`.
-- Package-surface operations do not invoke whisper.cpp or external ASR tools;
-  native transcription remains feature-gated.
-
-## Native whisper.cpp
-
-The transcript parsers are loadable in default builds. whisper.cpp catalog and
-model-store validation is available behind `native`; transcription only runs
-when the requested model file is present or an opt-in setup flow downloads it.
-
-```bash
-cargo test -p text-transcripts --features native,external-tests -- --ignored
-```
+- Package-surface operations do not invoke whisper.cpp or external ASR tools.
 
 Browser benchmarks cover parse, normalize, and SRT formatting workflows through
 `bun run text-wasm:bench:all`.
@@ -64,5 +50,4 @@ Browser benchmarks cover parse, normalize, and SRT formatting workflows through
 ## Related crates
 
 - `text-core`
-- `video-analysis-ingest`
-- `video-analysis-use-cases`
+- `audio-analysis-transcription` (higher-layer execution adapter)
