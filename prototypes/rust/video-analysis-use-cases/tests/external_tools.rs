@@ -11,6 +11,83 @@ use video_analysis_use_cases::video_red_cars::{run_video_red_cars, VideoRedCarsR
 use video_analysis_use_cases::{run_youtube_video, YoutubeVideoRequest};
 
 #[test]
+#[ignore = "requires real ffmpeg with flite filter and Whisper CLI"]
+fn real_whisper_cli_transcribes_generated_speech_with_timing() {
+    video_analysis_test_support::require_command("ffmpeg");
+    video_analysis_test_support::require_command("ffprobe");
+    video_analysis_test_support::require_command("whisper");
+
+    let dir = tempfile::tempdir().unwrap();
+    let input = dir.path().join("speech.mkv");
+    let status = std::process::Command::new("ffmpeg")
+        .args([
+            "-y",
+            "-v",
+            "error",
+            "-f",
+            "lavfi",
+            "-i",
+            "color=c=black:s=64x64:d=2:r=5",
+            "-f",
+            "lavfi",
+            "-i",
+            "flite=text=hello from rust testing",
+            "-shortest",
+            "-c:v",
+            "libx264",
+            "-pix_fmt",
+            "yuv420p",
+            "-c:a",
+            "pcm_s16le",
+        ])
+        .arg(&input)
+        .status()
+        .unwrap();
+    assert!(status.success(), "ffmpeg failed to synthesize speech video");
+
+    let report = run_youtube_video(YoutubeVideoRequest {
+        input: Some(input),
+        work_dir: dir.path().join("work"),
+        output: Some(dir.path().join("analysis.json")),
+        transcriber_engine: video_analysis_use_cases::TranscriptionEngine::Whisper,
+        transcriber_command: Some(PathBuf::from("whisper")),
+        transcriber_args: vec![
+            "--model".to_string(),
+            "tiny".to_string(),
+            "--language".to_string(),
+            "en".to_string(),
+        ],
+        max_frames: Some(2),
+        ..YoutubeVideoRequest::default()
+    })
+    .unwrap();
+
+    assert_eq!(
+        report.transcription.status, "completed",
+        "{:?}",
+        report.transcription.message
+    );
+    assert!(!report.transcription.segments.is_empty());
+    assert!(report.transcription.segments.iter().all(|segment| {
+        segment.start_seconds.is_some()
+            && segment.end_seconds.is_some()
+            && segment.start_seconds <= segment.end_seconds
+    }));
+    assert!(report
+        .transcription
+        .segments
+        .windows(2)
+        .all(|pair| pair[0].start_seconds <= pair[1].start_seconds));
+    assert!(!report
+        .transcription
+        .text
+        .as_deref()
+        .unwrap_or_default()
+        .trim()
+        .is_empty());
+}
+
+#[test]
 #[ignore = "requires real yt-dlp network access"]
 fn yt_dlp_can_resolve_default_smoke_test_video() {
     video_analysis_test_support::require_command("yt-dlp");
