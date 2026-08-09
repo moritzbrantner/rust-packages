@@ -2,8 +2,8 @@
 
 use std::{fs, path::Path};
 
+use audio_contracts::{DetectError, Result};
 use serde::Deserialize;
-use video_analysis_core::{DetectError, Result};
 
 #[derive(Debug, Clone, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]

@@ -3,7 +3,7 @@ use audio_analysis_io::{
     decode_audio_to_mono_f32, decode_selected_media_to_mono_f32, open_audio_input,
     AudioFrameSource, AudioInput, AudioInputOptions, AudioIoError, SelectedMediaSource,
 };
-use video_analysis_core::{AudioBuffer, AudioSampleFormat};
+use audio_contracts::{AudioBuffer, AudioSampleFormat};
 use video_analysis_ffmpeg::{
     is_ffmpeg_available, is_ffprobe_available, write_two_audio_stream_test_media,
     AudioStreamSelection, AudioStreamSelectionErrorReason, FfmpegError,

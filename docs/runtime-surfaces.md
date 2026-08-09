@@ -47,8 +47,8 @@ successful operation response should keep `OperationResult<T>` intact:
 
 ## Required Package Surface
 
-Every non-wrapper Rust library crate under `crates/*/*` owns a `surface` module
-and every transport delegates to it:
+Every runtime-capable, non-wrapper Rust library crate under `crates/*/*` owns a
+`surface` module and every transport delegates to it:
 
 ```text
 <crate>::surface::package_surface()
@@ -62,6 +62,15 @@ The required companion surfaces are:
 - `crates/bindings/<crate>-wasm`
 - `packages/<crate>-wasm`
 - `packages/<crate>-app`
+
+Contract-only foundation crates are identity seams for shared DTOs and traits,
+not runtime packages, so they do not own operations or companion surfaces. The
+complete reviewed set is enumerated in
+[`contract-only-foundation-crates.json`](contract-only-foundation-crates.json):
+`moenarch-media-core` and `moenarch-audio-contracts`. This is an exact package
+list, not a naming-pattern or manifest-controlled escape hatch. Adding another
+entry requires an explicit ownership decision and a rationale in that file;
+all other non-wrapper libraries remain covered by the runtime-surface audits.
 
 CLI, HTTP, WASM, and Vite app packages may translate transport concerns, but
 they must not own operation behavior. Library crates own operation metadata,

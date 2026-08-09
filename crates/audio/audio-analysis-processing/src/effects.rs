@@ -1,8 +1,8 @@
 use audio_analysis_core::normalized_samples;
+use audio_contracts::{AudioBuffer, AudioFrame, DetectError, OwnedAudioFrame, Result};
 use math_signal_core::{
     db_to_linear, design_parametric_biquad, BiquadCoefficients, ParametricBiquadDesign, SampleRate,
 };
-use video_analysis_core::{AudioBuffer, AudioFrame, DetectError, OwnedAudioFrame, Result};
 
 use crate::{AudioProcessor, AudioTransform};
 
@@ -1102,7 +1102,7 @@ fn apply_width(samples: &mut [f32], width: f32, channels: usize) {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use video_analysis_core::{AudioBuffer, Timebase, Timestamp};
+    use audio_contracts::{AudioBuffer, Timebase, Timestamp};
 
     fn frame(samples: Vec<f32>, channels: u16) -> OwnedAudioFrame {
         OwnedAudioFrame::new(

@@ -20,7 +20,7 @@ spec.loader.exec_module(audit)
 
 
 class PackageSurfaceAuditTests(unittest.TestCase):
-    def test_contract_only_media_core_is_exempt_from_companion_surfaces(self) -> None:
+    def test_only_enumerated_contract_foundations_are_exempt_from_companion_surfaces(self) -> None:
         metadata = {
             "packages": [
                 {
@@ -29,12 +29,29 @@ class PackageSurfaceAuditTests(unittest.TestCase):
                         ROOT / "crates/media/media-core/Cargo.toml"
                     ),
                     "targets": [{"kind": ["lib"]}],
-                }
+                },
+                {
+                    "name": "moenarch-audio-contracts",
+                    "manifest_path": str(
+                        ROOT / "crates/audio/audio-contracts/Cargo.toml"
+                    ),
+                    "targets": [{"kind": ["lib"]}],
+                },
+                {
+                    "name": "moenarch-video-analysis-core",
+                    "manifest_path": str(
+                        ROOT / "crates/video/video-analysis-core/Cargo.toml"
+                    ),
+                    "targets": [{"kind": ["lib"]}],
+                },
             ]
         }
 
         with mock.patch.object(audit, "run_json", return_value=metadata):
-            self.assertEqual(audit.library_packages(None), [])
+            self.assertEqual(
+                [package.name for package in audit.library_packages(None)],
+                ["moenarch-video-analysis-core"],
+            )
 
     def test_transcription_required_resource_example_is_not_executed_offline(
         self,

@@ -6,7 +6,7 @@ use audio_analysis_speakers::{
     SpeakerLibrary, SpectralSpeakerEmbedder, SpeechSpan, VoiceActivityDetector,
     WindowedSpeakerDiarizer,
 };
-use video_analysis_core::Result;
+use audio_contracts::Result;
 
 #[derive(Debug, Clone)]
 struct SignEmbedder {

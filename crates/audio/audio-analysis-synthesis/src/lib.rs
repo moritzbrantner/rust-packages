@@ -2,10 +2,10 @@
 
 pub mod surface;
 use audio_analysis_recognition::{AudioRuntime, AudioRuntimeSelection};
-use data_inversion_core::{Generated, InformationFidelity, InversionMethod, InversionTrace};
-use video_analysis_core::{
+use audio_contracts::{
     AnalysisEvent, AudioBuffer, DetectError, OwnedAudioFrame, Result, Timebase, Timestamp,
 };
+use data_inversion_core::{Generated, InformationFidelity, InversionMethod, InversionTrace};
 
 /// Request for prompt-based external audio generation.
 #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]

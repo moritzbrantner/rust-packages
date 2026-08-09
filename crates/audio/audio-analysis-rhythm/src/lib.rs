@@ -2,9 +2,7 @@
 
 pub mod surface;
 use audio_analysis_core::{mono_samples, rms, FrameSpec};
-use video_analysis_core::{
-    AnalysisEvent, AudioAnalyzer, AudioFrame, DetectError, Result, Timestamp,
-};
+use audio_contracts::{AnalysisEvent, AudioAnalyzer, AudioFrame, DetectError, Result, Timestamp};
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 /// Data type for onset strength.
@@ -434,7 +432,7 @@ impl AudioAnalyzer for RhythmAnalyzer {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use video_analysis_core::{AudioBuffer, AudioFrame, Timebase};
+    use audio_contracts::{AudioBuffer, AudioFrame, Timebase};
 
     fn click_track(sample_rate: u32, bpm: f32, seconds: f32) -> Vec<f32> {
         let len = (sample_rate as f32 * seconds) as usize;

@@ -1,10 +1,10 @@
 //! Library-owned runtime surface for `audio-analysis-synthesis`.
 
+use audio_contracts::{AnalysisEvent, AudioBuffer, Timebase, Timestamp};
 use runtime_core::{
     structured_surface_response, OperationId, PackageSurface, RuntimeCapabilities,
     SurfaceOperation, SurfaceRequest, SurfaceResponse,
 };
-use video_analysis_core::{AnalysisEvent, AudioBuffer, Timebase, Timestamp};
 
 use crate::{
     event_to_tone_segment, synthesize_click_track, synthesize_timeline, synthesize_tone,
@@ -259,7 +259,7 @@ fn beat_seconds_from_input(
 }
 
 fn frame_value(
-    frame: video_analysis_core::OwnedAudioFrame,
+    frame: audio_contracts::OwnedAudioFrame,
     segment_count: usize,
 ) -> Result<serde_json::Value, String> {
     let samples = match frame.data {

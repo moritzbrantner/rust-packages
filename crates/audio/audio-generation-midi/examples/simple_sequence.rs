@@ -2,7 +2,7 @@ use audio_generation_midi::{
     MidiNote, MidiNoteEvent, MidiSong, MidiTrack, NoteName, RenderWaveform,
 };
 
-fn main() -> video_analysis_core::Result<()> {
+fn main() -> audio_contracts::Result<()> {
     let mut lead = MidiTrack::new("lead").waveform(RenderWaveform::Triangle);
     for (index, note) in [
         NoteName::C,

@@ -13,10 +13,10 @@ use audio_analysis_core::{
     interleaved_to_mono, normalized_samples, peak, rms, windowed_level_series, AudioFeatureSeries,
     ChannelMix, FrameSpec,
 };
-use math_signal_core::{BiquadCoefficients as DesignedBiquadCoefficients, SampleRate};
-use video_analysis_core::{
+use audio_contracts::{
     AnalysisEvent, AudioAnalyzer, AudioBuffer, AudioFrame, DetectError, OwnedAudioFrame, Result,
 };
+use math_signal_core::{BiquadCoefficients as DesignedBiquadCoefficients, SampleRate};
 use video_analysis_ingest::{AudioFrameSource, MediaSourceInfo};
 
 /// Trait for audio transform implementations.
@@ -755,8 +755,8 @@ fn coefficients(spec: BiquadSpec, sample_rate: u32) -> Result<DesignedBiquadCoef
 #[cfg(test)]
 mod tests {
     use super::*;
+    use audio_contracts::{AudioPipeline, Timebase, Timestamp};
     use proptest::prelude::*;
-    use video_analysis_core::{AudioPipeline, Timebase, Timestamp};
     use video_analysis_ingest::{analyze_audio_source, AudioStreamInfo, SourceMode};
 
     fn assert_approx_eq(actual: f32, expected: f32, tolerance: f32) {
@@ -1025,7 +1025,7 @@ mod tests {
                 source_info: MediaSourceInfo::recorded("memory").with_audio(AudioStreamInfo {
                     sample_rate: 48_000,
                     channels: 1,
-                    sample_format: video_analysis_core::AudioSampleFormat::F32,
+                    sample_format: audio_contracts::AudioSampleFormat::F32,
                 }),
                 frames: frames.into(),
             }

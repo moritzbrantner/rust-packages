@@ -13,10 +13,10 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 MATRIX_PATH = ROOT / "docs" / "PACKAGE_SURFACE_MATRIX.md"
+CONTRACT_ONLY_FOUNDATION_POLICY_PATH = ROOT / "docs" / "contract-only-foundation-crates.json"
 EXCLUDED_LIBRARY_CRATES = {
     "moritzbrantner-audio-analysis-test-support",
     "moenarch-audio-analysis-test-support",
-    "moenarch-media-core",
     "moritzbrantner-runtime-core",
     "moenarch-runtime-core",
     "moritzbrantner-runtime-onnx",
@@ -113,6 +113,7 @@ def main() -> int:
 
 def library_packages(only: str | None) -> list[LibraryPackage]:
     metadata = run_json(["cargo", "metadata", "--format-version", "1", "--no-deps"])
+    excluded_library_crates = EXCLUDED_LIBRARY_CRATES | contract_only_foundation_crates()
     packages = []
     for package in metadata["packages"]:
         name = package["name"]
@@ -122,7 +123,7 @@ def library_packages(only: str | None) -> list[LibraryPackage]:
             continue
         if str(relative).startswith("crates/bindings/"):
             continue
-        if name in EXCLUDED_LIBRARY_CRATES or name.endswith(WRAPPER_SUFFIXES):
+        if name in excluded_library_crates or name.endswith(WRAPPER_SUFFIXES):
             continue
         if not any(target.get("kind") == ["lib"] or "lib" in target.get("kind", []) for target in package["targets"]):
             continue
@@ -131,6 +132,30 @@ def library_packages(only: str | None) -> list[LibraryPackage]:
         packages.append(LibraryPackage(name=name, manifest_path=manifest))
     packages.sort(key=lambda package: package.name)
     return packages
+
+
+def contract_only_foundation_crates() -> set[str]:
+    policy = json.loads(CONTRACT_ONLY_FOUNDATION_POLICY_PATH.read_text(encoding="utf-8"))
+    if (
+        policy.get("schemaVersion") != 1
+        or policy.get("policy") != "contract-only-foundation-crates"
+    ):
+        raise ValueError(
+            f"invalid contract-only foundation policy header: {CONTRACT_ONLY_FOUNDATION_POLICY_PATH}"
+        )
+    packages = policy.get("packages")
+    if not isinstance(packages, dict) or not packages:
+        raise ValueError(
+            f"contract-only foundation policy needs named packages: {CONTRACT_ONLY_FOUNDATION_POLICY_PATH}"
+        )
+    if not all(
+        isinstance(name, str) and isinstance(reason, str) and reason
+        for name, reason in packages.items()
+    ):
+        raise ValueError(
+            f"contract-only foundation policy entries need package names and reasons: {CONTRACT_ONLY_FOUNDATION_POLICY_PATH}"
+        )
+    return set(packages)
 
 
 def render_matrix(packages: list[LibraryPackage]) -> str:

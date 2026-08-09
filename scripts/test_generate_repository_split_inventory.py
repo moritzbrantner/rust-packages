@@ -27,7 +27,10 @@ class RepositorySplitInventoryTests(unittest.TestCase):
                 record["id"]
                 for record in authority["post_baseline_packages"]
             ],
-            ["cargo:moenarch-media-core"],
+            [
+                "cargo:moenarch-media-core",
+                "cargo:moenarch-audio-contracts",
+            ],
         )
         self.assertEqual(
             authority["post_baseline_packages"][0]["provenance"],
@@ -36,7 +39,14 @@ class RepositorySplitInventoryTests(unittest.TestCase):
                 "issue": "https://github.com/moritzbrantner/rust-packages/issues/108",
             },
         )
-        self.assertEqual(len(authority["resolved_boundary_violations"]), 25)
+        self.assertEqual(
+            authority["post_baseline_packages"][1]["provenance"],
+            {
+                "introduced_after_commit": "96edb198f6ab322cdd65b7bcc2de6cbf9bcaabe3",
+                "issue": "https://github.com/moritzbrantner/rust-packages/issues/152",
+            },
+        )
+        self.assertEqual(len(authority["resolved_boundary_violations"]), 37)
         self.assertEqual(authority["schema_version"], 2)
 
     def test_boundary_resolutions_are_exact_unique_and_absent_from_baseline(
@@ -148,7 +158,8 @@ class RepositorySplitInventoryTests(unittest.TestCase):
         unrecorded["post_baseline_packages"] = []
         self.assertTrue(
             any(
-                "unclassified cargo packages: moenarch-media-core" in error.lower()
+                "unclassified cargo packages" in error.lower()
+                and "moenarch-media-core" in error.lower()
                 for error in self.validate(unrecorded, metadata)
             )
         )
@@ -201,7 +212,7 @@ class RepositorySplitInventoryTests(unittest.TestCase):
             patch("repository_split.git_commit_exists", return_value=True),
             patch(
                 "repository_split.git_commit_is_ancestor",
-                side_effect=[True, False],
+                side_effect=lambda *args: len(args) == 3,
             ),
         ):
             self.assertTrue(
@@ -215,6 +226,11 @@ class RepositorySplitInventoryTests(unittest.TestCase):
         authority, _, _, errors = generate()
         self.assertEqual(errors, [])
         changed = copy.deepcopy(authority)
+        audio_contracts = next(
+            record
+            for record in changed["post_baseline_packages"]
+            if record["id"] == "cargo:moenarch-audio-contracts"
+        )
         changed["post_baseline_packages"] = [
             {
                 "id": "cargo:moenarch-media-core",
@@ -230,7 +246,8 @@ class RepositorySplitInventoryTests(unittest.TestCase):
                     "introduced_after_commit": self.head(),
                     "issue": "https://github.com/moritzbrantner/rust-packages/issues/108",
                 },
-            }
+            },
+            audio_contracts,
         ]
         metadata = cargo_metadata()
         metadata["packages"].append(

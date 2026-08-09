@@ -11,7 +11,7 @@ and streaming helpers for `moritzbrantner-video-analysis`.
 
 ```rust,ignore
 use audio_analysis_core::{AudioClip, ConcatPolicy, FrameSpec, StreamingFrameBuffer};
-use video_analysis_core::{AudioBuffer, OwnedAudioFrame, Timebase, Timestamp};
+use audio_contracts::{AudioBuffer, OwnedAudioFrame, Timebase, Timestamp};
 
 let frame = OwnedAudioFrame::new(
     Timestamp::new(0, Timebase::new(1, 48_000)),

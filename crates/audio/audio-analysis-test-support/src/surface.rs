@@ -1,10 +1,10 @@
 //! Library-owned runtime surface for `audio-analysis-test-support`.
 
+use audio_contracts::AudioBuffer;
 use runtime_core::{
     structured_surface_response, OperationId, PackageSurface, RuntimeCapabilities,
     SurfaceOperation, SurfaceRequest, SurfaceResponse,
 };
-use video_analysis_core::AudioBuffer;
 
 use crate::{click_track, impulse_train, owned_f32_frame, pink_noise, sine, white_noise};
 
@@ -154,10 +154,7 @@ fn frame_value(input: serde_json::Value) -> Result<serde_json::Value, String> {
     let sample_rate = sample_rate(&input)?;
     let samples = fixture_samples(&input, sample_rate)?;
     let frame = owned_f32_frame(
-        video_analysis_core::Timestamp::new(
-            0,
-            video_analysis_core::Timebase::new(1, sample_rate as i32),
-        ),
+        audio_contracts::Timestamp::new(0, audio_contracts::Timebase::new(1, sample_rate as i32)),
         sample_rate,
         1,
         samples,

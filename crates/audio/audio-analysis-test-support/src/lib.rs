@@ -6,7 +6,7 @@ use std::fs::File;
 use std::io::{self, Write};
 use std::path::Path;
 
-use video_analysis_core::{AudioBuffer, OwnedAudioFrame, Result, Timestamp};
+use audio_contracts::{AudioBuffer, OwnedAudioFrame, Result, Timestamp};
 
 /// Generates a sine wave.
 pub fn sine(freq_hz: f32, sample_rate: u32, seconds: f32) -> Vec<f32> {
@@ -204,7 +204,7 @@ pub fn assert_approx_slice(actual: &[f32], expected: &[f32], tolerance: f32) {
 
 #[cfg(test)]
 mod tests {
-    use video_analysis_core::Timebase;
+    use audio_contracts::Timebase;
 
     use super::*;
 

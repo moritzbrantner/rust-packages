@@ -1,7 +1,7 @@
 use std::path::{Path, PathBuf};
 use std::process::Command;
 
-use video_analysis_core::{DetectError, Result};
+use audio_contracts::{DetectError, Result};
 use video_analysis_ffmpeg::is_ffmpeg_available;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

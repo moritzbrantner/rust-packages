@@ -1,5 +1,5 @@
 use audio_analysis_core::{StreamingFrameBuffer, StreamingFrameConfig};
-use video_analysis_core::{AudioBuffer, AudioFrame, Timebase, Timestamp};
+use audio_contracts::{AudioBuffer, AudioFrame, Timebase, Timestamp};
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut windows = StreamingFrameBuffer::new(StreamingFrameConfig::new(8, 4)?)?;

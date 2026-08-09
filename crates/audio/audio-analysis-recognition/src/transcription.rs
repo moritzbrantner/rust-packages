@@ -1,10 +1,10 @@
 //! Generic transcription contracts and deterministic providers.
 #![allow(deprecated)]
 
+use audio_contracts::{DetectError, Result};
 use model_runtime::{FallbackPolicy, ModelRuntimeBackend, ModelSpec, ModelTask};
 use serde::{Deserialize, Serialize};
 use text_transcripts::{TranscriptSegmentContract, TranscriptionContract};
-use video_analysis_core::{DetectError, Result};
 
 use crate::{AudioRuntime, AudioRuntimeSelection, SpeechRecognitionRequest};
 

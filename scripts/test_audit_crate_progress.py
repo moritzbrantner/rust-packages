@@ -42,6 +42,33 @@ class CrateProgressAuditTests(unittest.TestCase):
         record = audit.audit_records(ROOT, "moenarch-text-core")[0]
         self.assertGreaterEqual(audit.LEVEL_RANK[record.level], audit.LEVEL_RANK["L3 Transport Complete"])
 
+    def test_only_enumerated_contract_foundations_are_exempt_from_progress(self) -> None:
+        metadata = {
+            "packages": [
+                {
+                    "name": "moenarch-media-core",
+                    "manifest_path": str(ROOT / "crates/media/media-core/Cargo.toml"),
+                    "targets": [{"kind": ["lib"]}],
+                },
+                {
+                    "name": "moenarch-audio-contracts",
+                    "manifest_path": str(ROOT / "crates/audio/audio-contracts/Cargo.toml"),
+                    "targets": [{"kind": ["lib"]}],
+                },
+                {
+                    "name": "moenarch-video-analysis-core",
+                    "manifest_path": str(ROOT / "crates/video/video-analysis-core/Cargo.toml"),
+                    "targets": [{"kind": ["lib"]}],
+                },
+            ]
+        }
+
+        with mock.patch.object(audit, "run_json", return_value=metadata):
+            self.assertEqual(
+                [package.name for package in audit.library_packages(ROOT)],
+                ["moenarch-video-analysis-core"],
+            )
+
     def test_app_defaulting_to_describe_cannot_reach_usable(self) -> None:
         level = audit.maturity_level(
             surface_present=True,

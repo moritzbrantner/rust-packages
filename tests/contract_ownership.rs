@@ -844,6 +844,14 @@ fn foundation_contract_owner_rules_remain_enforced() {
         ("PixelFormat", "crates/media/media-core/"),
         ("AudioSampleFormat", "crates/media/media-core/"),
         ("DetectError", "crates/media/media-core/"),
+        ("AudioBuffer", "crates/audio/audio-contracts/"),
+        ("AudioFrame", "crates/audio/audio-contracts/"),
+        ("OwnedAudioFrame", "crates/audio/audio-contracts/"),
+        ("AudioAnalysis", "crates/audio/audio-contracts/"),
+        ("AudioAnalysisResult", "crates/audio/audio-contracts/"),
+        ("AudioAnalyzer", "crates/audio/audio-contracts/"),
+        ("AudioPipeline", "crates/audio/audio-contracts/"),
+        ("AudioPipelineBuilder", "crates/audio/audio-contracts/"),
         ("VideoFrame", "crates/video/video-analysis-core/"),
         ("OwnedVideoFrame", "crates/video/video-analysis-core/"),
         ("BoundingBox", "crates/video/video-analysis-core/"),
@@ -909,6 +917,68 @@ fn video_core_reexports_exact_neutral_media_contract_types() {
         "identity".into(),
     ));
     accepts_result(Ok(()));
+}
+
+#[test]
+fn video_core_reexports_exact_audio_contract_types() {
+    struct FixtureAnalyzer;
+
+    impl audio_contracts::AudioAnalyzer for FixtureAnalyzer {
+        fn name(&self) -> &str {
+            "fixture"
+        }
+
+        fn process_frame(
+            &mut self,
+            _frame: &audio_contracts::AudioFrame<'_>,
+        ) -> audio_contracts::Result<Vec<audio_contracts::AnalysisEvent>> {
+            Ok(Vec::new())
+        }
+    }
+
+    fn accepts_buffer(_: audio_contracts::AudioBuffer) {}
+    fn accepts_frame(_: audio_contracts::AudioFrame<'_>) {}
+    fn accepts_owned_frame(_: audio_contracts::OwnedAudioFrame) {}
+    fn accepts_analysis(_: audio_contracts::AudioAnalysis) {}
+    fn accepts_analysis_result(_: audio_contracts::AudioAnalysisResult) {}
+    fn accepts_analyzer(_: &mut dyn audio_contracts::AudioAnalyzer) {}
+    fn accepts_builder(_: audio_contracts::AudioPipelineBuilder) {}
+
+    let buffer = video_analysis_core::AudioBuffer::F32(vec![0.25, -0.25]);
+    accepts_frame(
+        video_analysis_core::AudioFrame::new(
+            video_analysis_core::Timestamp::new(0, video_analysis_core::Timebase::new(1, 48_000)),
+            48_000,
+            1,
+            &buffer,
+        )
+        .expect("valid compatibility frame"),
+    );
+    accepts_buffer(buffer);
+    accepts_owned_frame(
+        video_analysis_core::OwnedAudioFrame::new(
+            video_analysis_core::Timestamp::new(0, video_analysis_core::Timebase::new(1, 48_000)),
+            48_000,
+            1,
+            video_analysis_core::AudioBuffer::F32(vec![0.25]),
+        )
+        .expect("valid compatibility owned frame"),
+    );
+    accepts_analysis(video_analysis_core::AudioAnalysis {
+        timestamp: video_analysis_core::Timestamp::new(
+            0,
+            video_analysis_core::Timebase::new(1, 48_000),
+        ),
+        events: Vec::new(),
+        frames_processed: 1,
+    });
+    accepts_analysis_result(video_analysis_core::AudioAnalysisResult {
+        events: Vec::new(),
+        frames_processed: 1,
+    });
+    let mut analyzer: Box<dyn video_analysis_core::AudioAnalyzer> = Box::new(FixtureAnalyzer);
+    accepts_analyzer(analyzer.as_mut());
+    accepts_builder(video_analysis_core::AudioPipeline::builder());
 }
 
 #[test]
@@ -1202,7 +1272,8 @@ fn public_type_declaration_name(line: &str) -> Option<&str> {
     let line = line.trim_start();
     let declaration = line
         .strip_prefix("pub struct ")
-        .or_else(|| line.strip_prefix("pub enum "))?;
+        .or_else(|| line.strip_prefix("pub enum "))
+        .or_else(|| line.strip_prefix("pub trait "))?;
     declaration
         .split(|character: char| {
             character.is_whitespace() || matches!(character, '{' | '(' | ';' | '<')

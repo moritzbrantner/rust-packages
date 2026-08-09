@@ -126,6 +126,37 @@ fn foundation_crates_do_not_depend_on_domain_crates() {
     );
 }
 
+#[test]
+fn audio_contract_consumers_do_not_depend_on_visual_analysis_core() {
+    let graph = MetadataGraph::load();
+
+    for package_name in [
+        "moenarch-audio-analysis-core",
+        "moenarch-audio-analysis-fourier",
+        "moenarch-audio-analysis-io",
+        "moenarch-audio-analysis-pitch",
+        "moenarch-audio-analysis-processing",
+        "moenarch-audio-analysis-recognition",
+        "moenarch-audio-analysis-rhythm",
+        "moenarch-audio-analysis-speakers",
+        "moenarch-audio-analysis-synthesis",
+        "moenarch-audio-analysis-test-support",
+        "moenarch-audio-generation-midi",
+        "moenarch-audio-generation-tts",
+    ] {
+        let package = graph
+            .packages
+            .get(package_name)
+            .unwrap_or_else(|| panic!("missing workspace package `{package_name}`"));
+        assert!(
+            !package
+                .internal_dependencies
+                .contains("moenarch-video-analysis-core"),
+            "`{package_name}` must consume canonical audio contracts without depending on visual analysis"
+        );
+    }
+}
+
 #[derive(Debug)]
 struct Package {
     name: String,

@@ -1,11 +1,11 @@
 use std::fs;
 use std::path::{Path, PathBuf};
 
+use audio_contracts::{AudioBuffer, OwnedAudioFrame};
+#[cfg(feature = "candle")]
+use audio_contracts::{Timebase, Timestamp};
 use model_runtime::{ModelBundleManifest, ModelFileRequest, ModelPreset, ModelTask};
 use serde::{Deserialize, Serialize};
-use video_analysis_core::{AudioBuffer, OwnedAudioFrame};
-#[cfg(feature = "candle")]
-use video_analysis_core::{Timebase, Timestamp};
 
 use crate::{
     NativeTtsDevicePreference, PcmAudio, SpeechSynthesisDiagnostic,

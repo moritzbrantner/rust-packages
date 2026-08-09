@@ -4,8 +4,8 @@ pub mod surface;
 use audio_analysis_synthesis::{
     synthesize_timeline, AudioSynthesisConfig, ToneSegment, ToneSpec, Waveform,
 };
+use audio_contracts::{DetectError, OwnedAudioFrame, Result};
 use data_inversion_core::{Generated, InversionMethod};
-use video_analysis_core::{DetectError, OwnedAudioFrame, Result};
 
 const DEFAULT_TICKS_PER_QUARTER: u16 = 480;
 const DEFAULT_VELOCITY: u8 = 100;
@@ -691,7 +691,7 @@ fn invalid_argument(message: impl Into<String>) -> DetectError {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use video_analysis_core::AudioBuffer;
+    use audio_contracts::AudioBuffer;
 
     #[test]
     fn converts_named_notes_to_midi_and_frequency() {

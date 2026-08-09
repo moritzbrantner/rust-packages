@@ -4,11 +4,11 @@ use audio_analysis_core::{
     interleaved_to_mono, mean_absolute, peak, rms, summarize_feature_series, AudioClip, ChannelMix,
     FadeCurve,
 };
+use audio_contracts::{AudioBuffer, OwnedAudioFrame, Timebase, Timestamp};
 use runtime_core::{
     describe_surface_response, structured_surface_response, surface_operation, PackageSurface,
     RuntimeCapabilities, SurfaceRequest, SurfaceResponse,
 };
-use video_analysis_core::{AudioBuffer, OwnedAudioFrame, Timebase, Timestamp};
 
 use crate::operations::effects_catalog_value;
 use crate::{

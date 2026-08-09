@@ -2,8 +2,8 @@ use audio_analysis_core::{
     peak, rms, seconds_to_samples, AudioClip, AudioFormatSpec, FadeCurve, InterpolationMode,
     SampleRate,
 };
+use audio_contracts::{DetectError, Result};
 use math_signal_core::resample_interleaved;
-use video_analysis_core::{DetectError, Result};
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 /// Fade settings for offline processing.

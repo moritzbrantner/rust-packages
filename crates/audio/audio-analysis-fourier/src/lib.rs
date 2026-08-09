@@ -2,9 +2,9 @@
 
 pub mod surface;
 use audio_analysis_core::{mono_samples, zero_pad_to, FrameSpec, WindowFunction};
+use audio_contracts::{AnalysisEvent, AudioAnalyzer, AudioFrame, DetectError, Result};
 use rustfft::num_complex::Complex;
 use rustfft::FftPlanner;
-use video_analysis_core::{AnalysisEvent, AudioAnalyzer, AudioFrame, DetectError, Result};
 
 #[derive(Debug, Clone, PartialEq)]
 /// Data type for spectrum bin.
@@ -516,7 +516,7 @@ impl AudioAnalyzer for SpectralAnalyzer {
 mod tests {
     use super::*;
     use audio_analysis_core::WindowFunction;
-    use video_analysis_core::{AudioBuffer, AudioFrame, Timebase, Timestamp};
+    use audio_contracts::{AudioBuffer, AudioFrame, Timebase, Timestamp};
 
     fn sine_len(freq_hz: f32, sample_rate: u32, len: usize) -> Vec<f32> {
         (0..len)

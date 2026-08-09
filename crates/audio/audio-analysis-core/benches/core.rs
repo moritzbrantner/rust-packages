@@ -1,8 +1,8 @@
 use audio_analysis_core::{
     interleaved_to_mono, normalized_samples, ChannelMix, StreamingFrameBuffer, StreamingFrameConfig,
 };
+use audio_contracts::{AudioBuffer, AudioFrame, Timebase, Timestamp};
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
-use video_analysis_core::{AudioBuffer, AudioFrame, Timebase, Timestamp};
 
 fn sine(freq_hz: f32, sample_rate: u32, seconds: f32) -> Vec<f32> {
     let samples = (sample_rate as f32 * seconds) as usize;
