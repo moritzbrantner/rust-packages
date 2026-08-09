@@ -1,3 +1,4 @@
+use std::collections::BTreeSet;
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::Command;
@@ -194,9 +195,27 @@ fn synthetic_fixtures_are_not_public_package_identifier_inputs() {
 
 #[test]
 fn contract_only_core_crates_are_exempt_from_runtime_companions() {
-    assert!(excluded_library_package("moenarch-audio-contracts"));
-    assert!(excluded_library_package("moenarch-media-core"));
-    assert!(!excluded_library_package("moenarch-video-analysis-core"));
+    let root = Path::new(env!("CARGO_MANIFEST_DIR"));
+    let contract_only = contract_only_foundation_crates(root);
+    assert_eq!(
+        contract_only,
+        BTreeSet::from([
+            "moenarch-audio-contracts".to_string(),
+            "moenarch-media-core".to_string(),
+        ]),
+        "the contract-only exemption must remain a narrow reviewed enumeration"
+    );
+    assert!(excluded_library_package(root, "moenarch-audio-contracts"));
+    assert!(excluded_library_package(root, "moenarch-media-core"));
+    assert!(!excluded_library_package(
+        root,
+        "moenarch-video-analysis-core"
+    ));
+    assert!(!excluded_library_package(
+        root,
+        "moenarch-audio-analysis-core"
+    ));
+    assert!(!excluded_library_package(root, "moenarch-text-core"));
 }
 
 #[test]
@@ -498,7 +517,7 @@ fn library_manifests(root: &Path) -> Vec<PathBuf> {
                 || package_name.ends_with("-cli")
                 || package_name.ends_with("-server")
                 || package_name.ends_with("-wasm")
-                || excluded_library_package(package_name)
+                || excluded_library_package(root, package_name)
             {
                 return None;
             }
@@ -737,16 +756,42 @@ fn wasm_package_dependency_names(surface_name: &str) -> Vec<String> {
         .collect()
 }
 
-fn excluded_library_package(package_name: &str) -> bool {
-    matches!(
-        package_name,
-        "moenarch-audio-contracts"
-            | "moenarch-audio-analysis-test-support"
-            | "moenarch-media-core"
-            | "moenarch-runtime-core"
-            | "moenarch-runtime-onnx"
-            | "moenarch-video-analysis-test-support"
-    )
+fn excluded_library_package(root: &Path, package_name: &str) -> bool {
+    contract_only_foundation_crates(root).contains(package_name)
+        || matches!(
+            package_name,
+            "moenarch-audio-analysis-test-support"
+                | "moenarch-runtime-core"
+                | "moenarch-runtime-onnx"
+                | "moenarch-video-analysis-test-support"
+        )
+}
+
+fn contract_only_foundation_crates(root: &Path) -> BTreeSet<String> {
+    let path = root.join("docs/contract-only-foundation-crates.json");
+    let policy: serde_json::Value =
+        serde_json::from_str(&fs::read_to_string(&path).expect("contract-only policy file"))
+            .expect("valid contract-only policy JSON");
+    assert_eq!(
+        policy["schemaVersion"], 1,
+        "unsupported contract-only policy schema"
+    );
+    assert_eq!(
+        policy["policy"], "contract-only-foundation-crates",
+        "unexpected contract-only policy kind"
+    );
+    policy["packages"]
+        .as_object()
+        .expect("contract-only policy packages")
+        .iter()
+        .map(|(name, reason)| {
+            assert!(
+                reason.as_str().is_some_and(|reason| !reason.is_empty()),
+                "contract-only package {name} needs a rationale"
+            );
+            name.clone()
+        })
+        .collect()
 }
 
 fn is_active_rust_package_name(name: &str) -> bool {

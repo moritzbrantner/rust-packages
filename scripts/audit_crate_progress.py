@@ -17,10 +17,10 @@ from pathlib import Path
 DEFAULT_ROOT = Path(__file__).resolve().parents[1]
 LEDGER_PATH = Path("docs/CRATE_PROGRESS_LEDGER.md")
 ALLOW_PATH = Path("scripts/crate_progress_regressions.allow")
+CONTRACT_ONLY_FOUNDATION_POLICY_PATH = Path("docs/contract-only-foundation-crates.json")
 EXCLUDED_LIBRARY_CRATES = {
     "moritzbrantner-audio-analysis-test-support",
     "moenarch-audio-analysis-test-support",
-    "moenarch-audio-contracts",
     "moritzbrantner-runtime-core",
     "moenarch-runtime-core",
     "moritzbrantner-runtime-onnx",
@@ -51,6 +51,7 @@ SHARED_EXACT_PATHS = {
     "docs/CRATE_PROGRESS_POLICY.md",
     "docs/CRATE_PROGRESS_LEDGER.md",
     "docs/PACKAGE_SURFACE_MATRIX.md",
+    "docs/contract-only-foundation-crates.json",
     "docs/runtime-surfaces.md",
     "docs/API_CONTRACTS.md",
     "scripts/audit_crate_progress.py",
@@ -192,13 +193,24 @@ def main() -> int:
     return 0
 
 
-def audit_records(root: Path, only: str | None = None) -> list[ProgressRecord]:
-    packages = library_packages(root, only)
+def audit_records(
+    root: Path,
+    only: str | None = None,
+    contract_only: set[str] | None = None,
+) -> list[ProgressRecord]:
+    packages = library_packages(root, only, contract_only)
     return [audit_package(root, package) for package in packages]
 
 
-def library_packages(root: Path, only: str | None = None) -> list[LibraryPackage]:
+def library_packages(
+    root: Path,
+    only: str | None = None,
+    contract_only: set[str] | None = None,
+) -> list[LibraryPackage]:
     metadata = run_json(root, ["cargo", "metadata", "--format-version", "1", "--no-deps"])
+    excluded_library_crates = EXCLUDED_LIBRARY_CRATES | (
+        contract_only if contract_only is not None else contract_only_foundation_crates(root)
+    )
     packages: list[LibraryPackage] = []
     for package in metadata["packages"]:
         name = package["name"]
@@ -208,7 +220,7 @@ def library_packages(root: Path, only: str | None = None) -> list[LibraryPackage
             continue
         if str(relative).startswith("crates/bindings/"):
             continue
-        if name in EXCLUDED_LIBRARY_CRATES or name.endswith(WRAPPER_SUFFIXES):
+        if name in excluded_library_crates or name.endswith(WRAPPER_SUFFIXES):
             continue
         if not any("lib" in target.get("kind", []) for target in package["targets"]):
             continue
@@ -217,6 +229,27 @@ def library_packages(root: Path, only: str | None = None) -> list[LibraryPackage
         packages.append(LibraryPackage(name=name, manifest_path=relative))
     packages.sort(key=lambda package: package.name)
     return packages
+
+
+def contract_only_foundation_crates(root: Path) -> set[str]:
+    policy_path = root / CONTRACT_ONLY_FOUNDATION_POLICY_PATH
+    policy = json.loads(policy_path.read_text(encoding="utf-8"))
+    if (
+        policy.get("schemaVersion") != 1
+        or policy.get("policy") != "contract-only-foundation-crates"
+    ):
+        raise ValueError(f"invalid contract-only foundation policy header: {policy_path}")
+    packages = policy.get("packages")
+    if not isinstance(packages, dict) or not packages:
+        raise ValueError(f"contract-only foundation policy needs named packages: {policy_path}")
+    if not all(
+        isinstance(name, str) and isinstance(reason, str) and reason
+        for name, reason in packages.items()
+    ):
+        raise ValueError(
+            f"contract-only foundation policy entries need package names and reasons: {policy_path}"
+        )
+    return set(packages)
 
 
 def audit_package(root: Path, package: LibraryPackage) -> ProgressRecord:
@@ -574,9 +607,10 @@ def compare_records(root: Path, base: str, package_names: set[str]) -> int:
             )
         return 1
 
-    current = audit_selected_records(root, package_names)
+    contract_only = contract_only_foundation_crates(root)
+    current = audit_selected_records(root, package_names, contract_only)
     with base_worktree(root, base) as base_root:
-        base_records = audit_selected_records(base_root, package_names)
+        base_records = audit_selected_records(base_root, package_names, contract_only)
 
     failures = regression_failures(current, base_records, package_names, allow_entries)
     if failures:
@@ -588,19 +622,23 @@ def compare_records(root: Path, base: str, package_names: set[str]) -> int:
     return 0
 
 
-def audit_selected_records(root: Path, package_names: set[str]) -> dict[str, ProgressRecord]:
+def audit_selected_records(
+    root: Path,
+    package_names: set[str],
+    contract_only: set[str] | None = None,
+) -> dict[str, ProgressRecord]:
     if not package_names:
         return {}
     if len(package_names) > 8:
         return {
             record.library: record
-            for record in audit_records(root)
+            for record in audit_records(root, contract_only=contract_only)
             if record.library in package_names
         }
     return {
         record.library: record
         for package_name in sorted(package_names)
-        for record in audit_records(root, package_name)
+        for record in audit_records(root, package_name, contract_only)
     }
 
 

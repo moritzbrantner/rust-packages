@@ -5,9 +5,13 @@ the `@moritzbrantner/video-analysis-ui` package work together. It is intentional
 exhaustive rustdoc inventory. It focuses on shared types, traits, serialized
 formats, file formats, package exports, and dependency boundaries.
 
-`moritzbrantner-video-analysis-core` owns the canonical runtime contracts for time, media
-samples, scene detection, metrics, observations, analyzers, and pipelines. Other
-crates should compose around those contracts instead of defining parallel types.
+`moenarch-media-core` owns neutral media contracts for time, sample formats,
+analysis events, and shared errors. `moenarch-audio-contracts` owns audio
+buffers, frames, analyzers, and pipelines. `moritzbrantner-video-analysis-core`
+owns only video-specific contracts such as video frames, scene detection,
+metrics, and visual observations, while preserving compatibility re-exports of
+the neutral and audio contracts. Other crates should compose around these
+canonical owners instead of defining parallel types.
 
 ## Composable Building Block Policy
 
@@ -86,9 +90,14 @@ Text package servers and overview routes expose discovery metadata:
 
 The UI measures benchmark scenarios locally with `performance.now()` against the selected runtime mode and reports browser user agent, runtime mode, iteration counts, total time, average time, throughput, and output count.
 
-Every non-wrapper library crate owns its operation metadata and execution in
-`src/surface.rs`. Thin CLI, server, WASM, and app packages must call that
-library-owned surface instead of implementing package behavior in wrapper code.
+Every runtime-capable, non-wrapper library crate owns its operation metadata
+and execution in `src/surface.rs`. Thin CLI, server, WASM, and app packages must
+call that library-owned surface instead of implementing package behavior in
+wrapper code. The contract-only identity seams listed exhaustively in
+[`contract-only-foundation-crates.json`](contract-only-foundation-crates.json)
+are the sole exception: they own shared DTOs and traits, not package operations
+or runtime companions. The exact enumeration keeps unrelated libraries covered
+by the package-surface audits.
 The shared `PackageSurface`, `SurfaceOperation`, `SurfaceRequest`, and
 `SurfaceResponse` DTOs live in `moritzbrantner-runtime-core` and are re-exported
 from `video-analysis-core::runtime` for compatibility. Generic job

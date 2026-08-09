@@ -1,0 +1,8 @@
+{
+  "schemaVersion": 1,
+  "policy": "contract-only-foundation-crates",
+  "packages": {
+    "moenarch-audio-contracts": "Cycle-free audio DTO and trait identity seam with no package operations.",
+    "moenarch-media-core": "Neutral media DTO and trait identity seam with no package operations."
+  }
+}
