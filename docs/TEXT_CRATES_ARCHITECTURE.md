@@ -19,9 +19,10 @@ Text package model catalogs distinguish deterministic, loadable, and reference-o
 `moritzbrantner-text-model-runtime` owns the shared conformance report types: `TextModelLoadReport`, `TextModelRunReport`, `TextModelCapability`, `validate_text_model_bundle`, and `validate_tokenizer_bundle`.
 
 Default builds remain deterministic and network-free. Native tokenizers,
-Candle, ONNX, model bundles, and whisper.cpp paths are opt-in through feature
-gates such as `tokenizers`, `candle`, `onnx`, `model-bundles`, `native`, and
-`external-tests`. Feature gates make native/model paths available; callers must
+Candle, ONNX, and model bundles are opt-in through feature gates such as
+`tokenizers`, `candle`, `onnx`, `model-bundles`, and `external-tests`.
+whisper.cpp execution is owned by `audio-analysis-transcription` behind its
+`native` feature. Feature gates make native/model paths available; callers must
 still explicitly select model-backed behavior. Downloads never happen through
 generic validation helpers. The explicit exceptions are model-backed runtime
 operations such as `runtime.onnxQaProbe`, `runtime.downloadBundle`, `qa.answer`
@@ -38,7 +39,17 @@ cargo test -p moenarch-text-model-runtime --features external-tests -- --ignored
 cargo test -p moenarch-text-linguistics --features external-tests -- --ignored
 cargo test -p moenarch-text-embeddings --features external-tests -- --ignored
 cargo test -p moenarch-text-classification --features external-tests -- --ignored
-cargo test -p moenarch-text-transcripts --features native,external-tests -- --ignored
+```
+
+whisper.cpp uses the audio-owned setup and smoke path instead:
+
+```bash
+scripts/setup_whisper_cpp_external_model.sh
+RUN_NATIVE_WHISPER_TESTS=1 \
+NATIVE_WHISPER_AUDIO_PATH=/path/to/fixture-16khz-mono.wav \
+cargo test -p moenarch-audio-analysis-transcription \
+  --features native,external-tests --test whisper_native_external \
+  native_whisper_cpp_smoke_when_requested -- --ignored --nocapture
 ```
 
 ## Model-Capable And Model-Free Crates
@@ -53,7 +64,6 @@ local-model-backed execution are natural:
 - `text-model-runtime`
 - `text-question-answering`
 - `text-retrieval` for reranking
-- `text-transcripts`
 
 Model-free text crates for this release are deterministic by ownership:
 
@@ -62,6 +72,7 @@ Model-free text crates for this release are deterministic by ownership:
 - `text-index`
 - `text-generation`
 - `text-generation-linguistics`
+- `text-transcripts`
 
 ## Benchmarks
 
@@ -91,7 +102,7 @@ Benchmark results are not portable performance claims; they depend on CPU, brows
 | `text-embeddings` | Embedding backends, pooling, hashed fallback vectors, semantic search indexes. | General text classification, transcript parsing, linguistic annotations. |
 | `text-index` | Generic contract ingestion into index documents, durable text indexes, deterministic chunking, in-memory and SQLite storage, lexical/semantic/hybrid search, semantic facets, analysis attachments, index inspection, and snapshot planning. | File extraction, hosted search services, external vector databases, graph databases, model-backed default embeddings, NLP facet derivation. |
 | `text-retrieval` | Soft-legacy compatibility `RetrievalIndex`, search document adapters, reranking, and import paths from existing persisted retrieval snapshots into `text-index`. | New durable index ownership, canonical chunking for new workflows, file extraction, embedding model internals, ASR, linguistic parsing. |
-| `text-transcripts` | Transcript formats, transcript-specific analyzers, and optional ASR command/native adapters. | Generic lexical features, retrieval ranking. |
+| `text-transcripts` | Transcript/segment/word/character contracts, speaker labels, transcript formats, text-document conversion, and transcript-specific analyzers. | ASR command/native execution, audio decoding, model downloads, generic lexical features, retrieval ranking. |
 | `text-classification` | Text classification, zero-shot classification, sentiment request/response contracts, imported-prediction handling, deterministic fallbacks, runtime broker APIs, and classification model policy. | Tokenizer implementation details, reusable model runtime internals, retrieval indexes, transcript parsing. |
 | `text-question-answering` | Extractive QA request/response contracts, primary text-index path for cited document QA, soft-legacy compatibility retrieval-backed QA, imported span postprocessing, fallback policy, and optional local ONNX QA execution. | Text classification, tokenizer internals, transcript parsing, durable index sessions. |
 | `text-generation` | Deterministic Markov prediction and template/text synthesis from known signals. | Hosted LLM clients or claims of open-ended generative model inference. |
@@ -106,7 +117,7 @@ Benchmark results are not portable performance claims; they depend on CPU, brows
 | Durable search | `text-index` memory/SQLite Text Index | Optional caller-supplied embedders; hashed embeddings by default |
 | Embeddings | `HashedTextEmbedder` | Optional ONNX/Candle embedders in `text-embeddings` |
 | Linguistic analysis | Heuristic pipeline in `text-linguistics` | Optional local sequence labeler for NER |
-| Transcription | Transcript parsers | Whisper CLI/native whisper.cpp adapters |
+| Transcription | `text-transcripts` document contracts and parsers | Whisper CLI/native whisper.cpp adapters in `audio-analysis-transcription` and higher-layer workflows |
 | Classification/sentiment | `text-classification` lexical/imported fallbacks | `distilbert-sst2` through Candle sequence classification when `local-models` is enabled; caller-supplied sequence classifier backends remain supported |
 | Question answering | `text-question-answering` imported span postprocessing and heuristic fallback | `onnx-community/roberta-base-squad2-ONNX` through `text-model-runtime` with `local-onnx`; runtime-broker traits supplied by callers |
 | Reranking | `text-retrieval` ranking APIs | Runtime-broker traits supplied by callers |

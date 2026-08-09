@@ -46,7 +46,7 @@ class RepositorySplitInventoryTests(unittest.TestCase):
                 "issue": "https://github.com/moritzbrantner/rust-packages/issues/152",
             },
         )
-        self.assertEqual(len(authority["resolved_boundary_violations"]), 37)
+        self.assertEqual(len(authority["resolved_boundary_violations"]), 40)
         self.assertEqual(authority["schema_version"], 2)
 
     def test_boundary_resolutions_are_exact_unique_and_absent_from_baseline(

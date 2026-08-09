@@ -1,8 +1,8 @@
 use text_core::{AsTextSegmentContract, TextSegmentContract};
 use text_transcripts::{
-    parse_plain_lines, parse_srt, parse_webvtt, parse_whisper_json, parse_whisperx_json,
-    segment_to_owned_text_segment, TranscriptSegmentContract, TranscriptWordContract,
-    TranscriptionContract,
+    format_srt, format_webvtt, parse_plain_lines, parse_srt, parse_webvtt, parse_whisper_json,
+    parse_whisperx_json, segment_to_owned_text_segment, TranscriptSegmentContract,
+    TranscriptWordContract, TranscriptionContract,
 };
 
 #[test]
@@ -51,6 +51,45 @@ fn transcript_parsers_convert_to_generic_text_contracts_without_losing_core_fiel
     let plain_contract = TranscriptionContract::from(plain);
     assert_eq!(plain_contract.segments.len(), 2);
     assert_eq!(plain_contract.joined_text(), "first line second line");
+
+    Ok(())
+}
+
+#[test]
+fn native_whisperx_shape_round_trips_through_the_owned_contract(
+) -> Result<(), Box<dyn std::error::Error>> {
+    let imported = parse_whisperx_json(include_bytes!("fixtures/whisperx-parity-sample.json"))?;
+    let encoded = serde_json::to_vec(&imported)?;
+    let restored: TranscriptionContract = serde_json::from_slice(&encoded)?;
+
+    assert_eq!(restored, imported);
+    assert_eq!(restored.segments[0].speaker.as_deref(), Some("SPEAKER_00"));
+    assert_eq!(restored.segments[0].words[0].text, "hello");
+    assert_eq!(restored.segments[0].words[0].confidence, Some(0.95));
+    assert_eq!(restored.segments[1].speaker.as_deref(), Some("SPEAKER_01"));
+
+    Ok(())
+}
+
+#[test]
+fn subtitle_merger_srt_and_webvtt_shapes_round_trip_cue_timing_and_text(
+) -> Result<(), Box<dyn std::error::Error>> {
+    let source = parse_srt(
+        "1\n00:00:00,250 --> 00:00:01,750\nFirst cue.\n\n2\n00:00:02,000 --> 00:00:03,125\nSecond cue.\n",
+    )?;
+
+    let srt = parse_srt(&format_srt(&source.segments))?;
+    let webvtt = parse_webvtt(&format_webvtt(&source.segments))?;
+
+    for restored in [srt, webvtt] {
+        assert_eq!(restored.segments.len(), 2);
+        assert_eq!(restored.segments[0].start_seconds, Some(0.25));
+        assert_eq!(restored.segments[0].end_seconds, Some(1.75));
+        assert_eq!(restored.segments[0].text, "First cue.");
+        assert_eq!(restored.segments[1].start_seconds, Some(2.0));
+        assert_eq!(restored.segments[1].end_seconds, Some(3.125));
+        assert_eq!(restored.segments[1].text, "Second cue.");
+    }
 
     Ok(())
 }

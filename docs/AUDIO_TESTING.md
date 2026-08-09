@@ -408,9 +408,9 @@ transcriber, so it does not download models itself:
 ```bash
 RUN_NATIVE_WHISPER_TESTS=1 \
 NATIVE_WHISPER_AUDIO_PATH=/path/to/fixture-16khz-mono.wav \
-cargo test -p moenarch-text-transcripts \
+cargo test -p moenarch-audio-analysis-transcription \
   --features native,external-tests \
-  native_whisper_cpp_smoke_when_requested -- --ignored --nocapture
+  --test whisper_native_external native_whisper_cpp_smoke_when_requested -- --ignored --nocapture
 ```
 
 Optional override:
@@ -419,9 +419,9 @@ Optional override:
 WHISPER_CPP_MODEL_STORE="$PWD/.model-runtime/whisper-cpp" \
 RUN_NATIVE_WHISPER_TESTS=1 \
 NATIVE_WHISPER_AUDIO_PATH=/path/to/fixture-16khz-mono.wav \
-cargo test -p moenarch-text-transcripts \
+cargo test -p moenarch-audio-analysis-transcription \
   --features native,external-tests \
-  native_whisper_cpp_smoke_when_requested -- --ignored --nocapture
+  --test whisper_native_external native_whisper_cpp_smoke_when_requested -- --ignored --nocapture
 ```
 
 If `RUN_NATIVE_WHISPER_TESTS` is not set, the ignored smoke test exits as a

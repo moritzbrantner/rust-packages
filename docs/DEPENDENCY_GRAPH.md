@@ -996,10 +996,7 @@ flowchart LR
   crate_moenarch_text_retrieval_cli --> crate_moenarch_runtime_core
   crate_moenarch_text_retrieval_server --> crate_moenarch_text_retrieval
   crate_moenarch_text_retrieval_server --> crate_moenarch_runtime_core
-  crate_moenarch_text_transcripts --> crate_moenarch_audio_analysis_core
   crate_moenarch_text_transcripts --> crate_moenarch_text_core
-  crate_moenarch_text_transcripts --> crate_moenarch_video_analysis_core
-  crate_moenarch_text_transcripts --> crate_moenarch_video_analysis_ingest
   crate_moenarch_text_transcripts --> crate_moenarch_runtime_core
   crate_moenarch_text_transcripts_cli --> crate_moenarch_text_transcripts
   crate_moenarch_text_transcripts_cli --> crate_moenarch_runtime_core
@@ -1470,6 +1467,7 @@ flowchart LR
   crate_moenarch_video_analysis_use_cases --> crate_moenarch_audio_analysis_rhythm
   crate_moenarch_video_analysis_use_cases --> crate_moenarch_audio_analysis_separation
   crate_moenarch_video_analysis_use_cases -. dev .-> crate_moenarch_audio_analysis_test_support
+  crate_moenarch_video_analysis_use_cases --> crate_moenarch_audio_analysis_transcription
   crate_moenarch_video_analysis_use_cases --> crate_moenarch_image_analysis_comfyui
   crate_moenarch_video_analysis_use_cases --> crate_moenarch_image_analysis_core
   crate_moenarch_video_analysis_use_cases --> crate_moenarch_image_analysis_detection

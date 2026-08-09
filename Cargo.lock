@@ -2354,6 +2354,7 @@ dependencies = [
  "candle-core",
  "candle-nn",
  "candle-transformers",
+ "cmake",
  "flate2",
  "hound",
  "moenarch-audio-analysis-io",
@@ -2371,7 +2372,9 @@ dependencies = [
  "serde_json",
  "sha2",
  "tempfile",
+ "thiserror 2.0.18",
  "tokenizers",
+ "ureq 2.12.1",
 ]
 
 [[package]]
@@ -4326,19 +4329,12 @@ dependencies = [
 name = "moenarch-text-transcripts"
 version = "0.1.1"
 dependencies = [
- "cmake",
- "hound",
- "moenarch-audio-analysis-core",
  "moenarch-runtime-core",
  "moenarch-text-core",
- "moenarch-video-analysis-core",
- "moenarch-video-analysis-ingest",
  "serde",
  "serde_json",
- "sha2",
  "tempfile",
  "thiserror 2.0.18",
- "ureq 2.12.1",
 ]
 
 [[package]]
@@ -5985,6 +5981,7 @@ dependencies = [
  "moenarch-audio-analysis-rhythm",
  "moenarch-audio-analysis-separation",
  "moenarch-audio-analysis-test-support",
+ "moenarch-audio-analysis-transcription",
  "moenarch-comfyui-latents",
  "moenarch-comfyui-models",
  "moenarch-image-analysis-comfyui",

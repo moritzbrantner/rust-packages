@@ -41,6 +41,28 @@ def check(expected_tests: tuple[str, ...] = ()) -> orchestrator.Check:
 
 
 class ExternalRuntimeModelCheckTests(unittest.TestCase):
+    def test_standard_e2e_uses_generated_audio_whisper_cli_and_native_stays_opt_in(self) -> None:
+        e2e = SCRIPT.with_name("check-e2e.sh").read_text(encoding="utf-8")
+        self.assertIn(
+            "-p moenarch-video-analysis-use-cases --test external_tools "
+            "real_whisper_cli_transcribes_generated_speech_with_timing",
+            e2e,
+        )
+        self.assertNotIn("RUN_NATIVE_WHISPER_TESTS", e2e)
+        self.assertNotIn("whisper_native_external", e2e)
+
+        native = next(
+            row
+            for row in orchestrator.CHECKS
+            if row.check_id == "audio-transcription-whisper-cpp"
+        )
+        self.assertIn("RUN_NATIVE_WHISPER_TESTS=1", native.run_command or "")
+        self.assertIn("--test whisper_native_external", native.run_command or "")
+        self.assertEqual(
+            native.expected_tests,
+            ("native_whisper_cpp_smoke_when_requested",),
+        )
+
     def classify(
         self,
         output: str,

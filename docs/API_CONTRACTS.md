@@ -262,7 +262,9 @@ For the first enforced boundary, `moritzbrantner-text-core` owns generic text co
 `TextDocumentContract` and `TextSegmentContract`. `moritzbrantner-text-transcripts` owns
 `TranscriptSegmentContract` and `TranscriptionContract` as timed/speaker-aware
 text specializations. Audio transcription surfaces consume and return those
-transcript contracts through `moritzbrantner-audio-analysis-recognition`.
+transcript contracts through `moritzbrantner-audio-analysis-transcription`;
+`moritzbrantner-audio-analysis-recognition` retains deprecated compatibility
+wrappers only.
 Speaker diarization may enrich an existing
 `TranscriptionContract` with speaker labels and scores, but transcript DTOs
 remain owned by `moritzbrantner-text-transcripts`.
@@ -340,7 +342,7 @@ Runtime and external integration crates use a shared feature policy:
 | `moritzbrantner-text-generation-linguistics` | Linguistic adapters for deterministic generation | `moritzbrantner-data-inversion-core`, `moritzbrantner-text-core`, `moritzbrantner-text-generation`, `moritzbrantner-text-linguistics`, `moritzbrantner-video-analysis-core` | Linguistic-analysis term prompts, analysis-to-document synthesis, and Markov training modes for surface, normalized, lemma, and entity-aware tokens | Applications, text pipelines, prototyping |
 | `moritzbrantner-text-model-runtime` | Text model runtime helper contracts | `moritzbrantner-video-analysis-core`, optional `moritzbrantner-model-runtime`/tokenizer/inference backends | Tokenization summaries, softmax helpers, text runtime request DTOs, non-executing local model helpers | Text model-backed crates, CLI model utilities, package UI runtime probes |
 | `moritzbrantner-text-question-answering` | Question answering surface contracts | `moritzbrantner-text-index`, `moritzbrantner-text-retrieval`, `moritzbrantner-text-model-runtime`, `moritzbrantner-video-analysis-core` | QA model presets, question/context request DTOs, answer span responses, primary text-index cited document QA, soft-legacy compatibility retrieval-backed cited QA, and deterministic lexical fallback answers | Applications adding local-first question answering over documents and transcripts |
-| `moritzbrantner-text-transcripts` | Reusable transcript parsing and ASR command wrappers | `moritzbrantner-audio-analysis-core`, `moritzbrantner-audio-analysis-io`, `moritzbrantner-video-analysis-core`, `moritzbrantner-video-analysis-ingest`, `serde`, `serde_json`, `thiserror` | Transcript segment/result contracts, Whisper JSON/SRT/WebVTT/plain parsers, command transcribers, waveform-batch transcription bridge, text segment source adapter | Use cases, applications, text pipelines |
+| `moritzbrantner-text-transcripts` | Transcript document contract owner | `moritzbrantner-runtime-core`, `moritzbrantner-text-core`, `serde`, `serde_json`, `thiserror` | Transcript/segment/word/character timing contracts, speaker labels, Whisper/WhisperX JSON import, SRT/WebVTT/plain parsing and formatting, text-document conversion, normalization, and validation | Use cases, applications, text pipelines, audio transcription adapters |
 | `moritzbrantner-dense-data` | Generic dense point aggregation and clustering | `moritzbrantner-numbers-core`, `moritzbrantner-math-linear`, `moritzbrantner-math-statistics`, `moritzbrantner-video-analysis-core` | `DensePoint`, `DenseDataset`, weighted averages, per-dimension summaries, bounds, fixed-grid buckets, deterministic k-means clusters, covariance, and PCA helpers | Tables, graphs, charts, maps, media features, and analytics workflows |
 | `moritzbrantner-vector-analysis-core` | Dense vector contracts and metrics | `moritzbrantner-video-analysis-core` | Finite vector validation, normalization, dot/cosine/L1/L2 metrics, means, summary stats | Search, recognition, clustering, analytics workflows |
 | `moritzbrantner-vector-analysis-index` | Exact vector search and assignment | `moritzbrantner-vector-analysis-core`, `moritzbrantner-video-analysis-core`, `serde` | In-memory vector index, filtered search, metadata payloads, serializable vector records, search results, nearest-centroid assignment | Applications, prototypes, tests, small vector collections |
@@ -629,15 +631,15 @@ cases and model adapters.
   and index rehydration as soft-legacy compatibility plus reranking surfaces.
   New durable ingestion/search concepts belong to `moritzbrantner-text-index`.
 - `moritzbrantner-text-transcripts` owns `TranscriptFormat`, `TranscriptSegment`,
-  `TranscriptSegmentContract`, `TranscriptionResult`, `TranscriptionContract`,
-  `Transcriber`, `CommandTranscriber`, `WhisperCliTranscriber`,
-  `transcribe_waveform_batch`, and `TranscriptSegmentSource`. It parses Whisper
-  JSON, SRT, WebVTT, and plain line transcripts, converts transcript segments
-  into `TextSegmentContract` and `OwnedTextSegment` values, and bridges waveform
-  batches into the existing file-based transcription path. It also owns
-  transcript contract normalization, strict validation, aggregate text fallback
-  helpers, and native Whisper implementation details used by audio transcription
-  orchestration and transcript-aware text analysis.
+  `TranscriptSegmentContract`, `TranscriptWordContract`,
+  `TranscriptCharContract`, `TranscriptionResult`, and `TranscriptionContract`.
+  It parses Whisper/WhisperX JSON, SRT, WebVTT, and plain line transcripts,
+  converts transcript segments into `TextSegmentContract`, `TextDocumentContract`,
+  and `OwnedTextSegment` values, and owns normalization, strict validation,
+  aggregate text fallback, subtitle formatting, and transcript-aware text
+  analysis. Audio decoding, command/native ASR execution, VAD, diarization model
+  execution, FFmpeg, and model materialization remain owned by
+  `moritzbrantner-audio-analysis-transcription` and its audio adapters.
 - `moritzbrantner-text-generation` owns deterministic Markov prediction and deterministic
   synthesis from weighted terms and text events. `moritzbrantner-text-generation-linguistics`
   owns the adapters that turn linguistic analyses into term prompts, generated
@@ -1558,9 +1560,8 @@ Allowed internal dependencies:
   `video-analysis-core`.
 - `text-generation-linguistics` -> `data-inversion-core`, `text-core`,
   `text-generation`, `text-linguistics`, `video-analysis-core`.
-- `text-transcripts` -> `audio-analysis-core`,
-  `audio-analysis-io`, `video-analysis-core`, `video-analysis-ingest`,
-  `serde`, `serde_json`, `thiserror`.
+- `text-transcripts` -> `runtime-core`, `text-core`, `serde`, `serde_json`,
+  `thiserror`.
 - `vector-analysis-core` -> `video-analysis-core`.
 - `vector-analysis-index` -> `vector-analysis-core`,
   `video-analysis-core`.

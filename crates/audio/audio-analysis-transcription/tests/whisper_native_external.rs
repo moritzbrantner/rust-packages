@@ -2,7 +2,7 @@
 
 use std::path::PathBuf;
 
-use text_transcripts::{
+use audio_analysis_transcription::{
     whisper_cpp_catalog, NativeWhisperCppTranscriber, WhisperCppConfig, WhisperCppModel,
     WhisperCppModelStore,
 };

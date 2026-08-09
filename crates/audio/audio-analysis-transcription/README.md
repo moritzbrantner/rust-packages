@@ -2,6 +2,13 @@
 
 Rust-native and compatibility transcription orchestration for `video-analysis`.
 
+This crate is the higher-layer audio adapter for the transcript contracts owned
+by `text-transcripts`. It owns audio decoding, VAD and ASR execution, external
+WhisperX commands, whisper.cpp compatibility configuration, alignment and
+speaker-model orchestration, and model resource setup; every provider returns a
+`text_transcripts::TranscriptionContract` without creating a reverse NLP-to-audio
+dependency.
+
 Native Candle Whisper ASR is available behind the `candle` feature. CUDA device
 selection is available behind `cuda`, and local model bundle validation is
 available behind `model-bundles`. Native path decoding defaults to direct
@@ -9,6 +16,11 @@ samples or readable WAV files. With the explicit `audio-io` feature, non-WAV
 paths use FFmpeg-backed `audio-analysis-io` decode and then normalize/resample
 through the same native 16 kHz mono boundary. This opt-in media decode is not
 WhisperX parity and is not part of default tests.
+
+The compatibility whisper.cpp build, model store, and file adapter live behind
+the `native` feature. That adapter preserves the existing model/download
+behavior while returning the transcript document contract owned by
+`text-transcripts`.
 
 The `candle` feature also exposes `CandleQ8WhisperDecoder`, a low-level CPU Q8_0
 decoder building block for caller-owned GGUF bundles. Its incremental operation

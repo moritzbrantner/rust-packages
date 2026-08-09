@@ -2,8 +2,9 @@
 
 use std::path::{Path, PathBuf};
 
+use audio_analysis_transcription::WhisperCppProgressEvent;
 use serde::{Deserialize, Serialize};
-use text_transcripts::{TranscriptSegment, WhisperCppProgressEvent};
+use text_transcripts::TranscriptSegment;
 use video_analysis_core::{DetectError, Result};
 
 use crate::workflow_support::{

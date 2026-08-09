@@ -9,15 +9,15 @@ use std::str::FromStr;
 
 use audio_analysis_processing::AudioEnergyAnalyzer;
 use audio_analysis_separation::{DemucsModel, HtdemucsOptions, HtdemucsSeparator, Stem};
+use audio_analysis_transcription::{
+    transcribe_whisper_cpp_file_with_progress, WhisperCppProgressEvent,
+};
+/// Re-exports the audio transcription whisper.cpp compatibility config API.
+pub use audio_analysis_transcription::{WhisperCppConfig, WhisperCppModel};
 use model_runtime::{DownloadedModel, HuggingFaceModelSpec, ModelTask};
 use serde::{Deserialize, Serialize};
 use text_transcripts::TranscriptHeuristicAnalyzer;
-use text_transcripts::{
-    segment_to_owned_text_segment, Transcriber, TranscriptSegment, WhisperCliTranscriber,
-    WhisperCppProgressEvent, WhisperCppTranscriber,
-};
-/// Re-exports the text analysis transcription whisper cpp config API.
-pub use text_transcripts::{WhisperCppConfig, WhisperCppModel};
+use text_transcripts::{segment_to_owned_text_segment, TranscriptSegment};
 use video_analysis_core::{
     AnalysisEvent, BoundingBox, DetectError, Observation, ObservationKind, RealtimeVideoPipeline,
     Result, SampledVideoAnalyzer,
@@ -2396,10 +2396,7 @@ fn run_whisper_cpp(
     audio_path: &Path,
     progress: &mut dyn FnMut(WhisperCppProgressEvent),
 ) -> Result<(TranscriptionReport, PathBuf)> {
-    let mut transcriber = WhisperCppTranscriber::new(config.clone());
-    let parsed = transcriber
-        .transcribe_with_progress(audio_path, progress)
-        .map_err(|err| DetectError::Source(err.to_string()))?;
+    let parsed = transcribe_whisper_cpp_file_with_progress(config.clone(), audio_path, progress)?;
     let segments = parsed
         .segments
         .into_iter()
@@ -2432,31 +2429,14 @@ fn run_whisper_command(
         .join("transcript");
     fs::create_dir_all(&output_dir)?;
 
-    let mut transcriber = WhisperCliTranscriber::new(command)
-        .args(extra_args.iter().cloned())
-        .output_dir(output_dir);
-    let parsed = transcriber
-        .transcribe(audio_path)
-        .map_err(|err| DetectError::Source(err.to_string()))?;
-    let segments = parsed
-        .segments
-        .into_iter()
-        .map(|segment| TranscriptSegmentReport {
-            index: segment.index,
-            start_seconds: segment.start_seconds,
-            end_seconds: segment.end_seconds,
-            text: segment.text.trim().to_string(),
-        })
-        .collect::<Vec<_>>();
-    Ok((
-        TranscriptionReport {
-            status: "completed".to_string(),
-            text: parsed.text.map(|text| text.trim().to_string()),
-            segments,
-            message: parsed.source,
+    workflow_support::run_whisper_cli_command(
+        &ExternalCommandConfig {
+            command: command.to_path_buf(),
+            args: extra_args.to_vec(),
         },
-        audio_path.to_path_buf(),
-    ))
+        audio_path,
+        &output_dir,
+    )
 }
 
 fn analyze_audio(
@@ -2728,6 +2708,73 @@ mod tests {
         .normalized();
 
         assert_eq!(config.engine, TranscriptionEngine::Whisper);
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn whisper_cli_compatibility_preserves_argv_newest_output_ids_and_source() {
+        use std::os::unix::fs::PermissionsExt;
+
+        let dir = tempfile::tempdir().unwrap();
+        let audio_path = dir.path().join("input.wav");
+        fs::write(&audio_path, b"fixture").unwrap();
+        let output_dir = dir.path().join("transcript");
+        fs::create_dir_all(&output_dir).unwrap();
+        let stale_path = output_dir.join("z-stale.json");
+        fs::write(
+            &stale_path,
+            br#"{"text":"stale","segments":[{"id":7,"start":0.0,"end":1.0,"text":"stale"}]}"#,
+        )
+        .unwrap();
+        fs::File::options()
+            .write(true)
+            .open(&stale_path)
+            .unwrap()
+            .set_modified(std::time::SystemTime::UNIX_EPOCH)
+            .unwrap();
+
+        let argv_path = dir.path().join("argv.txt");
+        let command_path = dir.path().join("fake-whisper.sh");
+        fs::write(
+            &command_path,
+            format!(
+                "#!/bin/sh\nprintf '%s\\n' \"$@\" > '{}'\noutput_dir=''\nprevious=''\nfor argument in \"$@\"; do\n  if [ \"$previous\" = '--output_dir' ]; then output_dir=\"$argument\"; fi\n  previous=\"$argument\"\ndone\nmkdir -p \"$output_dir\"\ncat > \"$output_dir/a-new.json\" <<'JSON'\n{{\"text\":\"selected\",\"segments\":[{{\"id\":41,\"start\":1.25,\"end\":2.5,\"text\":\" selected cue \"}}]}}\nJSON\n",
+                argv_path.display()
+            ),
+        )
+        .unwrap();
+        let mut permissions = fs::metadata(&command_path).unwrap().permissions();
+        permissions.set_mode(0o755);
+        fs::set_permissions(&command_path, permissions).unwrap();
+
+        let (report, returned_audio) = run_whisper_command(
+            &command_path,
+            &["--model".to_string(), "base.en".to_string()],
+            &audio_path,
+        )
+        .unwrap();
+
+        let argv = fs::read_to_string(argv_path).unwrap();
+        assert_eq!(
+            argv.lines().map(str::to_string).collect::<Vec<_>>(),
+            vec![
+                audio_path.to_string_lossy().into_owned(),
+                "--model".to_string(),
+                "base.en".to_string(),
+                "--output_format".to_string(),
+                "json".to_string(),
+                "--output_dir".to_string(),
+                output_dir.to_string_lossy().into_owned(),
+            ]
+        );
+        assert_eq!(returned_audio, audio_path);
+        assert_eq!(report.text.as_deref(), Some("selected"));
+        assert_eq!(report.segments[0].index, 41);
+        assert_eq!(report.segments[0].text, "selected cue");
+        assert_eq!(
+            report.message,
+            Some(output_dir.join("a-new.json").to_string_lossy().into_owned())
+        );
     }
 
     #[test]

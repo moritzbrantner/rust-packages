@@ -29,9 +29,58 @@ use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 use media_core::{DetectError, Result};
 use serde::{Deserialize, Serialize};
 use text_transcripts::{
-    normalize_transcription_contract, TranscriptCharContract, TranscriptWordContract,
-    TranscriptionContract,
+    normalize_transcription_contract, TranscriptCharContract, TranscriptSegmentContract,
+    TranscriptWordContract, TranscriptionContract,
 };
+
+mod whisper_cpp;
+pub use whisper_cpp::{
+    transcription_catalog as whisper_cpp_catalog, whisper_cpp_system_info,
+    ModelStore as WhisperCppModelStore, WhisperCppCatalog, WhisperCppConfig, WhisperCppError,
+    WhisperCppModel, WhisperCppModelStatus, WhisperCppPhase, WhisperCppProgressEvent,
+    WhisperCppSegment, WhisperCppTranscriber as NativeWhisperCppTranscriber,
+    WhisperCppTranscription,
+};
+
+/// Runs the compatibility whisper.cpp file adapter and returns the text-owned
+/// transcript document contract.
+pub fn transcribe_whisper_cpp_file_with_progress(
+    config: WhisperCppConfig,
+    input: &Path,
+    progress: &mut dyn FnMut(WhisperCppProgressEvent),
+) -> Result<TranscriptionContract> {
+    let mut transcriber = NativeWhisperCppTranscriber::new(config);
+    let transcript = transcriber
+        .transcribe_file_with_progress(input, progress)
+        .map_err(|error| DetectError::Source(error.to_string()))?;
+    let language = transcript.language.clone();
+    let segments = transcript
+        .segments
+        .into_iter()
+        .map(|segment| TranscriptSegmentContract {
+            index: segment.index,
+            start_seconds: segment.start_seconds,
+            end_seconds: segment.end_seconds,
+            text: segment.text,
+            language: language.clone(),
+            speaker: None,
+            confidence: segment.confidence,
+            is_final: true,
+            words: Vec::new(),
+            chars: Vec::new(),
+            attributes: BTreeMap::new(),
+        })
+        .collect();
+    TranscriptionContract {
+        text: transcript.text,
+        language,
+        segments,
+        source: transcript.source,
+        attributes: BTreeMap::new(),
+    }
+    .normalized()
+    .map_err(|error| DetectError::Source(error.to_string()))
+}
 
 const CANDLE_WHISPER_AUTOREGRESSIVE_KV_CACHE_EXECUTION: &str =
     "candle-whisper-autoregressive-kv-cache";
@@ -743,7 +792,21 @@ impl CandleWhisperDecodeRuntime {
     }
 }
 
-/// Options for native whisper.cpp compatibility.
+impl From<WhisperCppConfig> for WhisperCppProviderOptions {
+    fn from(value: WhisperCppConfig) -> Self {
+        Self {
+            model_id: value.model.id().to_string(),
+            task: if value.translate {
+                TranscriptionTask::Translate
+            } else {
+                TranscriptionTask::Transcribe
+            },
+            language: value.language,
+            model_path: None,
+        }
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct WhisperCppProviderOptions {

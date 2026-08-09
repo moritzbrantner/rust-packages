@@ -4,33 +4,20 @@ pub mod surface;
 use std::collections::BTreeMap;
 use std::fmt;
 use std::fs;
-use std::path::{Path, PathBuf};
-use std::process::{Child, Command, ExitStatus, Output, Stdio};
-use std::time::Duration;
+use std::path::Path;
 
-use audio_analysis_core::OwnedAudioWaveformBatch;
 use serde::Deserialize;
 use serde_json::Value;
-use text_core::{tokenize, tokenize_words, TextProcessingOptions, TokenKind};
-
-mod whisper_cpp;
+use text_core::{
+    tokenize, tokenize_words, AnalysisEvent, OwnedTextSegment, TextAnalyzer, TextProcessingOptions,
+    TextSegment, Timestamp, TokenKind,
+};
 
 use thiserror::Error;
-use video_analysis_core::{AnalysisEvent, OwnedTextSegment, TextAnalyzer, TextSegment, Timestamp};
-use video_analysis_ingest::{
-    MediaSourceInfo, SourceMode, TextFormat as IngestTextFormat, TextSegmentSource, TextStreamInfo,
-};
 pub mod contracts;
 pub use contracts::{
     text_segment_contract_with_source, TranscriptCharContract, TranscriptSegmentContract,
     TranscriptWordContract, TranscriptionContract,
-};
-/// Re-exports the text transcript native whisper.cpp API.
-pub use whisper_cpp::{
-    transcription_catalog as whisper_cpp_catalog, whisper_cpp_system_info,
-    ModelStore as WhisperCppModelStore, WhisperCppCatalog, WhisperCppConfig, WhisperCppError,
-    WhisperCppModel, WhisperCppModelStatus, WhisperCppPhase, WhisperCppProgressEvent,
-    WhisperCppSegment, WhisperCppTranscriber as NativeWhisperCppTranscriber,
 };
 
 #[derive(Debug, Error)]
@@ -45,23 +32,9 @@ pub enum TranscriptionError {
     #[error("invalid transcript: {0}")]
     /// The invalid transcript variant.
     InvalidTranscript(String),
-    #[error("transcriber command `{0}` failed")]
-    /// The command failed variant.
-    CommandFailed(String),
-    #[error("transcriber command `{command}` timed out after {seconds} seconds")]
-    /// The command timeout variant.
-    CommandTimeout {
-        /// Command that timed out.
-        command: String,
-        /// Timeout in seconds.
-        seconds: u64,
-    },
     #[error("{0}")]
     /// The detect variant.
-    Detect(#[from] video_analysis_core::DetectError),
-    #[error("{0}")]
-    /// The whisper cpp variant.
-    WhisperCpp(#[from] WhisperCppError),
+    Detect(#[from] text_core::DetectError),
 }
 
 /// Type alias for result.
@@ -171,12 +144,6 @@ pub struct TranscriptWord {
     pub confidence: Option<f32>,
 }
 
-/// Trait for transcriber implementations.
-pub trait Transcriber {
-    /// Returns transcribe.
-    fn transcribe(&mut self, input: &Path) -> Result<TranscriptionResult>;
-}
-
 #[derive(Debug, Clone)]
 /// Options for subtitle text normalization.
 pub struct SubtitleNormalizationOptions {
@@ -213,19 +180,6 @@ pub fn normalize_subtitle_text(text: &str, options: SubtitleNormalizationOptions
     normalized
 }
 
-#[derive(Debug, Clone)]
-/// Options for command transcriber construction.
-pub struct CommandTranscriberOptions {
-    /// Command path.
-    pub command: PathBuf,
-    /// Extra command arguments.
-    pub args: Vec<String>,
-    /// Expected output format.
-    pub format: TranscriptFormat,
-    /// Optional timeout in seconds.
-    pub timeout_seconds: Option<u64>,
-}
-
 #[derive(Debug, Default, Clone)]
 /// Transcript-specific deterministic analyzer.
 pub struct TranscriptHeuristicAnalyzer;
@@ -238,7 +192,7 @@ impl TextAnalyzer for TranscriptHeuristicAnalyzer {
     fn process_segment(
         &mut self,
         segment: &TextSegment<'_>,
-    ) -> video_analysis_core::Result<Vec<AnalysisEvent>> {
+    ) -> text_core::Result<Vec<AnalysisEvent>> {
         let mut events = Vec::new();
         let text = segment.text.trim();
         if text.ends_with(['?', '؟', '？']) {
@@ -258,290 +212,6 @@ impl TextAnalyzer for TranscriptHeuristicAnalyzer {
             ));
         }
         Ok(events)
-    }
-}
-
-#[derive(Debug, Clone)]
-/// Data type for command transcriber.
-pub struct CommandTranscriber {
-    command: PathBuf,
-    args: Vec<String>,
-    format: TranscriptFormat,
-    timeout_seconds: Option<u64>,
-}
-
-impl CommandTranscriber {
-    /// Creates a new value.
-    pub fn new(command: impl Into<PathBuf>, format: TranscriptFormat) -> Self {
-        Self {
-            command: command.into(),
-            args: Vec::new(),
-            format,
-            timeout_seconds: None,
-        }
-    }
-
-    /// Creates from options.
-    pub fn from_options(options: CommandTranscriberOptions) -> Self {
-        Self {
-            command: options.command,
-            args: options.args,
-            format: options.format,
-            timeout_seconds: options.timeout_seconds,
-        }
-    }
-
-    /// Returns args.
-    pub fn args(mut self, args: impl IntoIterator<Item = String>) -> Self {
-        self.args.extend(args);
-        self
-    }
-
-    /// Returns this value with timeout.
-    pub fn timeout_seconds(mut self, timeout_seconds: Option<u64>) -> Self {
-        self.timeout_seconds = timeout_seconds;
-        self
-    }
-}
-
-impl Transcriber for CommandTranscriber {
-    fn transcribe(&mut self, input: &Path) -> Result<TranscriptionResult> {
-        let child = Command::new(&self.command)
-            .args(&self.args)
-            .arg(input)
-            .stdin(Stdio::null())
-            .stdout(Stdio::piped())
-            .stderr(Stdio::piped())
-            .spawn()?;
-        let output = wait_with_optional_timeout(child, &self.command, self.timeout_seconds)?;
-        if !output.status.success() {
-            return Err(TranscriptionError::CommandFailed(
-                self.command.display().to_string(),
-            ));
-        }
-        parse_transcript_bytes(&output.stdout, self.format)
-    }
-}
-
-#[derive(Debug, Clone)]
-/// Options for whisper CLI transcriber construction.
-pub struct WhisperCliTranscriberOptions {
-    /// Command path.
-    pub command: PathBuf,
-    /// Extra command arguments.
-    pub args: Vec<String>,
-    /// Optional output directory.
-    pub output_dir: Option<PathBuf>,
-    /// Optional timeout in seconds.
-    pub timeout_seconds: Option<u64>,
-}
-
-#[derive(Debug, Clone)]
-/// Data type for whisper cli transcriber.
-pub struct WhisperCliTranscriber {
-    command: PathBuf,
-    args: Vec<String>,
-    output_dir: Option<PathBuf>,
-    timeout_seconds: Option<u64>,
-}
-
-impl WhisperCliTranscriber {
-    /// Creates a new value.
-    pub fn new(command: impl Into<PathBuf>) -> Self {
-        Self {
-            command: command.into(),
-            args: Vec::new(),
-            output_dir: None,
-            timeout_seconds: None,
-        }
-    }
-
-    /// Creates from options.
-    pub fn from_options(options: WhisperCliTranscriberOptions) -> Self {
-        Self {
-            command: options.command,
-            args: options.args,
-            output_dir: options.output_dir,
-            timeout_seconds: options.timeout_seconds,
-        }
-    }
-
-    /// Returns args.
-    pub fn args(mut self, args: impl IntoIterator<Item = String>) -> Self {
-        self.args.extend(args);
-        self
-    }
-
-    /// Returns output dir.
-    pub fn output_dir(mut self, output_dir: impl Into<PathBuf>) -> Self {
-        self.output_dir = Some(output_dir.into());
-        self
-    }
-
-    /// Returns this value with timeout.
-    pub fn timeout_seconds(mut self, timeout_seconds: Option<u64>) -> Self {
-        self.timeout_seconds = timeout_seconds;
-        self
-    }
-}
-
-impl Transcriber for WhisperCliTranscriber {
-    fn transcribe(&mut self, input: &Path) -> Result<TranscriptionResult> {
-        let output_dir = self.output_dir.clone().unwrap_or_else(|| {
-            input
-                .parent()
-                .unwrap_or_else(|| Path::new("."))
-                .join("transcript")
-        });
-        fs::create_dir_all(&output_dir)?;
-
-        let child = Command::new(&self.command)
-            .arg(input)
-            .args(&self.args)
-            .arg("--output_format")
-            .arg("json")
-            .arg("--output_dir")
-            .arg(&output_dir)
-            .stdin(Stdio::null())
-            .spawn()?;
-        let status = wait_status_with_optional_timeout(child, &self.command, self.timeout_seconds)?;
-        if !status.success() {
-            return Err(TranscriptionError::CommandFailed(
-                self.command.display().to_string(),
-            ));
-        }
-
-        let transcript_path = find_transcript_json(&output_dir).ok_or_else(|| {
-            TranscriptionError::InvalidTranscript(
-                "transcriber completed but no JSON transcript was found".to_string(),
-            )
-        })?;
-        let bytes = fs::read(&transcript_path)?;
-        let mut result = parse_whisper_json(&bytes)?;
-        result.source = Some(transcript_path.to_string_lossy().into_owned());
-        Ok(result)
-    }
-}
-
-/// Data type for whisper cpp transcriber.
-pub struct WhisperCppTranscriber {
-    inner: NativeWhisperCppTranscriber,
-}
-
-impl WhisperCppTranscriber {
-    /// Creates a new value.
-    pub fn new(config: WhisperCppConfig) -> Self {
-        Self {
-            inner: NativeWhisperCppTranscriber::new(config),
-        }
-    }
-
-    /// Returns this value with model store.
-    pub fn with_model_store(mut self, store: WhisperCppModelStore) -> Self {
-        self.inner = self.inner.with_model_store(store);
-        self
-    }
-
-    /// Returns on progress.
-    pub fn on_progress<F>(mut self, callback: F) -> Self
-    where
-        F: FnMut(WhisperCppProgressEvent) + 'static,
-    {
-        self.inner = self.inner.on_progress(callback);
-        self
-    }
-
-    /// Returns transcribe with progress.
-    pub fn transcribe_with_progress(
-        &mut self,
-        input: &Path,
-        progress: &mut dyn FnMut(WhisperCppProgressEvent),
-    ) -> Result<TranscriptionResult> {
-        let transcript = self.inner.transcribe_file_with_progress(input, progress)?;
-        Ok(whisper_cpp_result_to_transcription_result(transcript))
-    }
-}
-
-impl Transcriber for WhisperCppTranscriber {
-    fn transcribe(&mut self, input: &Path) -> Result<TranscriptionResult> {
-        let transcript = self.inner.transcribe_file(input)?;
-        Ok(whisper_cpp_result_to_transcription_result(transcript))
-    }
-}
-
-fn whisper_cpp_result_to_transcription_result(
-    transcript: whisper_cpp::WhisperCppTranscription,
-) -> TranscriptionResult {
-    TranscriptionResult {
-        text: transcript.text,
-        language: transcript.language.clone(),
-        segments: transcript
-            .segments
-            .into_iter()
-            .map(|segment| TranscriptSegment {
-                index: segment.index,
-                start_seconds: segment.start_seconds,
-                end_seconds: segment.end_seconds,
-                text: segment.text,
-                language: transcript.language.clone(),
-                speaker: None,
-                confidence: segment.confidence,
-                is_final: true,
-            })
-            .collect(),
-        source: transcript.source,
-    }
-}
-
-/// Data type for transcript segment source.
-pub struct TranscriptSegmentSource {
-    source_info: MediaSourceInfo,
-    segments: Vec<TranscriptSegment>,
-    next_index: usize,
-}
-
-impl TranscriptSegmentSource {
-    /// Returns recorded.
-    pub fn recorded(input: impl Into<String>, segments: Vec<TranscriptSegment>) -> Self {
-        Self::new(SourceMode::Recorded, input, segments)
-    }
-
-    /// Returns live.
-    pub fn live(input: impl Into<String>, segments: Vec<TranscriptSegment>) -> Self {
-        Self::new(SourceMode::Live, input, segments)
-    }
-
-    fn new(mode: SourceMode, input: impl Into<String>, segments: Vec<TranscriptSegment>) -> Self {
-        let language = segments.iter().find_map(|segment| segment.language.clone());
-        let source_info = MediaSourceInfo {
-            input: input.into(),
-            mode,
-            video: None,
-            audio: Vec::new(),
-            text: vec![TextStreamInfo {
-                format: IngestTextFormat::Transcript,
-                language,
-            }],
-        };
-        Self {
-            source_info,
-            segments,
-            next_index: 0,
-        }
-    }
-}
-
-impl TextSegmentSource for TranscriptSegmentSource {
-    fn source_info(&self) -> &MediaSourceInfo {
-        &self.source_info
-    }
-
-    fn next_text_segment(&mut self) -> video_analysis_core::Result<Option<OwnedTextSegment>> {
-        let Some(segment) = self.segments.get(self.next_index) else {
-            return Ok(None);
-        };
-        self.next_index += 1;
-        Ok(Some(segment_to_owned_text_segment(segment)))
     }
 }
 
@@ -761,63 +431,6 @@ pub fn write_srt(path: impl AsRef<Path>, segments: &[TranscriptSegment]) -> Resu
         fs::create_dir_all(parent)?;
     }
     fs::write(path, format_srt(segments))?;
-    Ok(())
-}
-
-/// Returns transcribe waveform batch.
-pub fn transcribe_waveform_batch<T: Transcriber>(
-    transcriber: &mut T,
-    batch: &OwnedAudioWaveformBatch,
-    wav_path: &Path,
-) -> Result<TranscriptionResult> {
-    write_waveform_batch_as_wav(wav_path, batch)?;
-    transcriber.transcribe(wav_path)
-}
-
-fn write_waveform_batch_as_wav(
-    path: impl AsRef<Path>,
-    batch: &OwnedAudioWaveformBatch,
-) -> Result<()> {
-    let view = batch.as_view()?;
-    if view.batch_size() != 1 {
-        return Err(video_analysis_core::DetectError::InvalidArgument(
-            "waveform WAV export requires a batch size of 1".to_string(),
-        )
-        .into());
-    }
-    let path = path.as_ref();
-    if let Some(parent) = path.parent() {
-        fs::create_dir_all(parent)?;
-    }
-    let spec = hound::WavSpec {
-        channels: view.channel_count() as u16,
-        sample_rate: view.sample_rate,
-        bits_per_sample: 32,
-        sample_format: hound::SampleFormat::Float,
-    };
-    let mut writer = hound::WavWriter::create(path, spec).map_err(|err| {
-        video_analysis_core::DetectError::Source(format!(
-            "failed to create WAV `{}`: {err}",
-            path.display()
-        ))
-    })?;
-    for time_index in 0..view.time_steps() {
-        for channel_index in 0..view.channel_count() {
-            let sample = view.waveform(0, channel_index)?[time_index];
-            writer.write_sample(sample).map_err(|err| {
-                video_analysis_core::DetectError::Source(format!(
-                    "failed to write WAV sample `{}`: {err}",
-                    path.display()
-                ))
-            })?;
-        }
-    }
-    writer.finalize().map_err(|err| {
-        video_analysis_core::DetectError::Source(format!(
-            "failed to finalize WAV `{}`: {err}",
-            path.display()
-        ))
-    })?;
     Ok(())
 }
 
@@ -1173,56 +786,6 @@ fn confidence_field(object: &serde_json::Map<String, Value>, names: &[&str]) -> 
     None
 }
 
-fn wait_with_optional_timeout(
-    mut child: Child,
-    command: &Path,
-    timeout_seconds: Option<u64>,
-) -> Result<Output> {
-    if let Some(seconds) = timeout_seconds {
-        let deadline = std::time::Instant::now() + Duration::from_secs(seconds);
-        loop {
-            if child.try_wait()?.is_some() {
-                return Ok(child.wait_with_output()?);
-            }
-            if std::time::Instant::now() >= deadline {
-                let _ = child.kill();
-                let _ = child.wait();
-                return Err(TranscriptionError::CommandTimeout {
-                    command: command.display().to_string(),
-                    seconds,
-                });
-            }
-            std::thread::sleep(Duration::from_millis(25));
-        }
-    }
-    Ok(child.wait_with_output()?)
-}
-
-fn wait_status_with_optional_timeout(
-    mut child: Child,
-    command: &Path,
-    timeout_seconds: Option<u64>,
-) -> Result<ExitStatus> {
-    if let Some(seconds) = timeout_seconds {
-        let deadline = std::time::Instant::now() + Duration::from_secs(seconds);
-        loop {
-            if let Some(status) = child.try_wait()? {
-                return Ok(status);
-            }
-            if std::time::Instant::now() >= deadline {
-                let _ = child.kill();
-                let _ = child.wait();
-                return Err(TranscriptionError::CommandTimeout {
-                    command: command.display().to_string(),
-                    seconds,
-                });
-            }
-            std::thread::sleep(Duration::from_millis(25));
-        }
-    }
-    Ok(child.wait()?)
-}
-
 fn strip_subtitle_markup(text: &str) -> String {
     let mut output = String::with_capacity(text.len());
     let mut chars = text.chars().peekable();
@@ -1444,32 +1007,9 @@ fn event_at(analyzer: &str, label: &str, timestamp: Option<Timestamp>) -> Analys
     }
 }
 
-fn find_transcript_json(output_dir: &Path) -> Option<PathBuf> {
-    let mut candidates = fs::read_dir(output_dir)
-        .ok()?
-        .filter_map(|entry| entry.ok().map(|entry| entry.path()))
-        .filter(|path| path.extension().and_then(|value| value.to_str()) == Some("json"))
-        .collect::<Vec<_>>();
-    candidates.sort_by(|left, right| {
-        let left_modified = fs::metadata(left)
-            .and_then(|metadata| metadata.modified())
-            .ok();
-        let right_modified = fs::metadata(right)
-            .and_then(|metadata| metadata.modified())
-            .ok();
-        left_modified
-            .cmp(&right_modified)
-            .then_with(|| left.cmp(right))
-    });
-    candidates.pop()
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
-    use tempfile::tempdir;
-    use video_analysis_core::{AudioBuffer, OwnedAudioFrame, Timebase, Timestamp};
-    use video_analysis_ingest::TextSegmentSource;
 
     #[test]
     fn parses_whisper_json() {
@@ -1654,25 +1194,6 @@ mod tests {
     }
 
     #[test]
-    fn transcript_segment_source_iterates() {
-        let mut source = TranscriptSegmentSource::recorded(
-            "test",
-            vec![TranscriptSegment {
-                index: 0,
-                start_seconds: None,
-                end_seconds: None,
-                text: "hello".to_string(),
-                language: None,
-                speaker: None,
-                confidence: None,
-                is_final: true,
-            }],
-        );
-        assert_eq!(source.next_text_segment().unwrap().unwrap().text, "hello");
-        assert!(source.next_text_segment().unwrap().is_none());
-    }
-
-    #[test]
     fn transcript_heuristic_analyzer_emits_speech_events() {
         let segment = TextSegment {
             segment_index: 0,
@@ -1693,43 +1214,6 @@ mod tests {
         assert!(labels.iter().any(|label| label == "speech:question"));
         assert!(labels.iter().any(|label| label == "speech:url"));
         assert!(labels.iter().any(|label| label == "speech:number"));
-    }
-
-    #[test]
-    fn command_transcriber_reports_failure() {
-        let mut transcriber = CommandTranscriber::new("false", TranscriptFormat::Plain);
-        let err = transcriber.transcribe(Path::new("missing")).unwrap_err();
-        assert!(matches!(err, TranscriptionError::CommandFailed(_)));
-    }
-
-    #[test]
-    fn transcribes_waveform_batches_via_existing_command_transcriber() {
-        let dir = tempdir().unwrap();
-        let script_path = dir.path().join("transcriber.sh");
-        fs::write(&script_path, "#!/bin/sh\nprintf 'hello from batch\\n'\n").unwrap();
-        #[cfg(unix)]
-        {
-            use std::os::unix::fs::PermissionsExt;
-
-            let mut permissions = fs::metadata(&script_path).unwrap().permissions();
-            permissions.set_mode(0o755);
-            fs::set_permissions(&script_path, permissions).unwrap();
-        }
-
-        let mut transcriber = CommandTranscriber::new(&script_path, TranscriptFormat::Plain);
-        let frame = OwnedAudioFrame::new(
-            Timestamp::new(0, Timebase::new(1, 16_000)),
-            16_000,
-            1,
-            AudioBuffer::F32(vec![0.0, 0.25, -0.25, 0.5]),
-        )
-        .unwrap();
-        let batch = OwnedAudioWaveformBatch::from_audio_frames(&[frame]).unwrap();
-        let wav_path = dir.path().join("input.wav");
-
-        let result = transcribe_waveform_batch(&mut transcriber, &batch, &wav_path).unwrap();
-        assert_eq!(result.text.as_deref(), Some("hello from batch"));
-        assert!(wav_path.is_file());
     }
 
     #[test]

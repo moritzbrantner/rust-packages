@@ -27,6 +27,7 @@ audio-analysis-pitch.workspace = true
 audio-analysis-rhythm.workspace = true
 audio-analysis-recognition.workspace = true
 audio-analysis-separation.workspace = true
+audio-analysis-transcription.workspace = true
 audio-analysis-processing.workspace = true
 chrono.workspace = true
 clap.workspace = true

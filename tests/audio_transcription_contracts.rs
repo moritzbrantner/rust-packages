@@ -6,7 +6,83 @@ use audio_analysis_recognition::{
     transcribe, transcribe_audio, AudioRuntime, AudioRuntimeSelection, SpeechRecognitionRequest,
     TranscriptionInput, TranscriptionRequest, TranscriptionRuntimeSelection,
 };
+use audio_analysis_transcription::{
+    run_transcription_pipeline, AsrRequest, AsrResponse, AudioTranscriptionProvider,
+    TranscriptionOutputOptions, TranscriptionPipelineRequest, TranscriptionProviderSelection,
+    TranscriptionSource, TranscriptionVadProvider, VadOptions, VadRequest, VadResponse,
+    WhisperCppProviderOptions,
+};
 use text_transcripts::{TranscriptSegmentContract, TranscriptionContract};
+
+struct ContractAsrAdapter;
+
+impl AudioTranscriptionProvider for ContractAsrAdapter {
+    fn provider_id(&self) -> &str {
+        "contract-fixture"
+    }
+
+    fn transcribe(&mut self, request: AsrRequest) -> video_analysis_core::Result<AsrResponse> {
+        Ok(AsrResponse {
+            model_id: request.model_id,
+            language: request.language.clone(),
+            transcript: TranscriptionContract::from_segments(
+                request.audio.source,
+                request.language,
+                vec![TranscriptSegmentContract::new(0, "adapter transcript")],
+            )
+            .map_err(|error| video_analysis_core::DetectError::Source(error.to_string()))?,
+            diagnostics: Vec::new(),
+        })
+    }
+}
+
+struct UnusedVadAdapter;
+
+impl TranscriptionVadProvider for UnusedVadAdapter {
+    fn provider_id(&self) -> &str {
+        "unused"
+    }
+
+    fn detect_speech(&mut self, _request: VadRequest) -> video_analysis_core::Result<VadResponse> {
+        unreachable!("disabled VAD must not execute")
+    }
+}
+
+#[test]
+fn audio_execution_adapter_returns_the_text_owned_transcript_contract(
+) -> Result<(), Box<dyn std::error::Error>> {
+    let mut vad = UnusedVadAdapter;
+    let mut asr = ContractAsrAdapter;
+    let response = run_transcription_pipeline(
+        TranscriptionPipelineRequest {
+            source: TranscriptionSource::Samples {
+                samples: vec![0.0; 160],
+                sample_rate: 16_000,
+                channels: 1,
+                source: Some("fixture.wav".to_string()),
+            },
+            provider: TranscriptionProviderSelection::WhisperCpp(
+                WhisperCppProviderOptions::default(),
+            ),
+            vad: VadOptions {
+                enabled: false,
+                ..VadOptions::default()
+            },
+            alignment: Default::default(),
+            diarization: Default::default(),
+            output: TranscriptionOutputOptions::default(),
+        },
+        &mut vad,
+        &mut asr,
+        None,
+        None,
+    )?;
+
+    assert_eq!(response.transcript.text_or_joined(), "adapter transcript");
+    assert_eq!(response.transcript.source.as_deref(), Some("fixture.wav"));
+
+    Ok(())
+}
 
 #[test]
 fn generic_audio_transcription_returns_transcription_contract_from_imported_segments(

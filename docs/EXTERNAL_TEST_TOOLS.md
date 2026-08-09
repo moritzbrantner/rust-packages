@@ -59,7 +59,7 @@ roots only when needed.
 | Bundle | Setup | Check / Run |
 | --- | --- | --- |
 | ONNX model smoke | `bash scripts/setup_model_external_tools.sh onnx` | `bash scripts/check_model_external_tools.sh onnx` then `scripts/check_onnx_external_smoke.sh` |
-| Native transcription smoke | `bash scripts/setup_e2e_external_tools.sh whisper` plus model-bundle setup documented below | Run the env-gated native transcription commands below |
+| Native whisper.cpp transcription smoke | `bash scripts/setup_whisper_cpp_external_model.sh` plus a local WAV fixture | Run the env-gated audio transcription command below |
 | Video scene benchmark smoke | `scripts/setup_video_scene_benchmarks.sh bbc` | `scripts/setup_video_scene_benchmarks.sh verify` then the bounded BBC evaluator command in `VIDEO_SCENE_DETECTION_PARITY.md` |
 | Radiance / Nerfstudio smoke | `bash scripts/setup_radiance_external_tools.sh` | `scripts/check_e2e_external_tools.sh` or the dedicated radiance check required by the touched workflow |
 
@@ -76,11 +76,10 @@ scripts/sync_model_bundles.sh
 cargo test -p moenarch-text-model-runtime --features external-tests -- --ignored
 cargo test -p moenarch-text-linguistics --features external-tests -- --ignored
 cargo test -p moenarch-text-embeddings --features external-tests -- --ignored
-cargo test -p moenarch-text-transcripts --features native,external-tests -- --ignored
 ```
 
-These tests reuse `.model-runtime` and report whether required tokenizer,
-Candle, ONNX, or whisper.cpp files are locally present. The local ONNX defaults
+The text tests reuse `.model-runtime` for tokenizer, Candle, and ONNX files.
+The local ONNX defaults
 for extractive QA, image classification, and image captioning are materialized
 through `moritzbrantner-model-runtime`:
 

@@ -4,9 +4,9 @@ use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
 
+use audio_analysis_transcription::{WhisperCppPhase, WhisperCppProgressEvent};
 use serde::Serialize;
 use serde_json::Value;
-use text_transcripts::{WhisperCppPhase, WhisperCppProgressEvent, WhisperCppTranscriber};
 use video_analysis_core::{DetectError, Result};
 use video_analysis_ffmpeg::extract_wav;
 
@@ -153,7 +153,7 @@ pub(crate) fn transcribe_media(
     let prepared = prepare_transcription_config(config);
     match extract_transcription_wav(media_path, work_dir).and_then(|audio_path| {
         if prepared.engine == TranscriptionEngine::WhisperCpp {
-            run_whisper_cpp_transcriber(&prepared, &audio_path, progress)
+            crate::run_whisper_cpp(&prepared.whisper_cpp, &audio_path, progress)
         } else {
             let command = prepared
                 .command
@@ -251,7 +251,7 @@ fn default_transcriber_message(engine: TranscriptionEngine) -> String {
     }
 }
 
-fn run_transcriber_command(
+pub(crate) fn run_transcriber_command(
     engine: TranscriptionEngine,
     config: &ExternalCommandConfig,
     audio_path: &Path,
@@ -289,30 +289,52 @@ fn run_transcriber_command(
     Ok((report, audio_path.to_path_buf()))
 }
 
-fn run_whisper_cpp_transcriber(
-    config: &TranscriptionConfig,
+/// Runs the legacy OpenAI Whisper CLI with its exact positional-argument
+/// contract and imports the newest JSON output through `text-transcripts`.
+pub(crate) fn run_whisper_cli_command(
+    config: &ExternalCommandConfig,
     audio_path: &Path,
-    progress: &mut dyn FnMut(WhisperCppProgressEvent),
+    output_dir: &Path,
 ) -> Result<(TranscriptionReport, PathBuf)> {
-    let mut transcriber = WhisperCppTranscriber::new(config.whisper_cpp.clone());
-    let parsed = transcriber
-        .transcribe_with_progress(audio_path, progress)
+    fs::create_dir_all(output_dir)?;
+
+    let status = Command::new(&config.command)
+        .arg(audio_path)
+        .args(&config.args)
+        .arg("--output_format")
+        .arg("json")
+        .arg("--output_dir")
+        .arg(output_dir)
+        .stdin(Stdio::null())
+        .status()?;
+    if !status.success() {
+        return Err(DetectError::Source(format!(
+            "whisper transcriber command `{}` failed",
+            config.command.display()
+        )));
+    }
+
+    let transcript_path = find_newest_transcript_json(output_dir).ok_or_else(|| {
+        DetectError::Source("transcriber completed but no JSON transcript was found".to_string())
+    })?;
+    let parsed = text_transcripts::parse_whisper_json(&fs::read(&transcript_path)?)
         .map_err(|error| DetectError::Source(error.to_string()))?;
+    let segments = parsed
+        .segments
+        .into_iter()
+        .map(|segment| TranscriptSegmentReport {
+            index: segment.index,
+            start_seconds: segment.start_seconds,
+            end_seconds: segment.end_seconds,
+            text: segment.text.trim().to_string(),
+        })
+        .collect();
     Ok((
         TranscriptionReport {
             status: "completed".to_string(),
             text: parsed.text.map(|text| text.trim().to_string()),
-            segments: parsed
-                .segments
-                .into_iter()
-                .map(|segment| TranscriptSegmentReport {
-                    index: segment.index,
-                    start_seconds: segment.start_seconds,
-                    end_seconds: segment.end_seconds,
-                    text: segment.text.trim().to_string(),
-                })
-                .collect(),
-            message: parsed.source,
+            segments,
+            message: Some(display_path(&transcript_path)),
         },
         audio_path.to_path_buf(),
     ))
@@ -335,6 +357,24 @@ fn find_transcript_json(output_dir: &Path) -> Option<PathBuf> {
         .collect::<Vec<_>>();
     entries.sort();
     entries.pop()
+}
+
+fn find_newest_transcript_json(output_dir: &Path) -> Option<PathBuf> {
+    fs::read_dir(output_dir)
+        .ok()?
+        .filter_map(|entry| entry.ok().map(|entry| entry.path()))
+        .filter(|path| path.extension().and_then(|ext| ext.to_str()) == Some("json"))
+        .max_by(|left, right| {
+            let left_modified = fs::metadata(left)
+                .and_then(|metadata| metadata.modified())
+                .ok();
+            let right_modified = fs::metadata(right)
+                .and_then(|metadata| metadata.modified())
+                .ok();
+            left_modified
+                .cmp(&right_modified)
+                .then_with(|| left.cmp(right))
+        })
 }
 
 fn parse_transcription_json(bytes: &[u8]) -> Result<TranscriptionReport> {

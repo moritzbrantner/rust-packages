@@ -44,30 +44,6 @@
       "target_phase": "foundation"
     },
     {
-      "dependency_kind": "normal",
-      "dependency_package": "moenarch-audio-analysis-core",
-      "migration_issue": "https://github.com/moritzbrantner/rust-packages/issues/112",
-      "reason": "transcript contracts still import audio or video implementation",
-      "source_package": "moenarch-text-transcripts",
-      "target_phase": "nlp"
-    },
-    {
-      "dependency_kind": "normal",
-      "dependency_package": "moenarch-video-analysis-core",
-      "migration_issue": "https://github.com/moritzbrantner/rust-packages/issues/112",
-      "reason": "transcript contracts still import audio or video implementation",
-      "source_package": "moenarch-text-transcripts",
-      "target_phase": "nlp"
-    },
-    {
-      "dependency_kind": "normal",
-      "dependency_package": "moenarch-video-analysis-ingest",
-      "migration_issue": "https://github.com/moritzbrantner/rust-packages/issues/112",
-      "reason": "transcript contracts still import audio or video implementation",
-      "source_package": "moenarch-text-transcripts",
-      "target_phase": "nlp"
-    },
-    {
       "dependency_kind": "dev",
       "dependency_package": "moenarch-three-d-processing-core",
       "migration_issue": "https://github.com/moritzbrantner/rust-packages/issues/118",
