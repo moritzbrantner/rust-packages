@@ -1,8 +1,8 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "urn:moenarch:interoperability:media-intelligence:operation-envelope:1",
-  "title": "Media Intelligence Operation Envelope v1",
-  "description": "Transport-neutral envelope for explicit adapters between Rust capability operations and media-intelligence services.",
+  "title": "Media Intelligence Operation Framing Envelope v1",
+  "description": "Transport framing only. The schema identified by payloadSchema owns and validates payload semantics.",
   "oneOf": [
     {
       "$ref": "#/$defs/request"
@@ -93,25 +93,11 @@
         {
           "type": "object",
           "required": [
-            "causationId",
-            "diagnostics",
-            "artifacts"
+            "causationId"
           ],
           "properties": {
             "messageType": {
               "const": "result"
-            },
-            "diagnostics": {
-              "type": "array",
-              "items": {
-                "$ref": "#/$defs/diagnostic"
-              }
-            },
-            "artifacts": {
-              "type": "array",
-              "items": {
-                "$ref": "#/$defs/artifactRef"
-              }
             }
           }
         }
@@ -130,160 +116,10 @@
           "properties": {
             "messageType": {
               "const": "error"
-            },
-            "payloadSchema": {
-              "const": "urn:moenarch:runtime:surface-error:1"
-            },
-            "payload": {
-              "$ref": "#/$defs/surfaceError"
             }
           }
         }
       ]
-    },
-    "diagnostic": {
-      "type": "object",
-      "required": [
-        "severity",
-        "code",
-        "message"
-      ],
-      "properties": {
-        "severity": {
-          "enum": [
-            "info",
-            "warning",
-            "error"
-          ]
-        },
-        "code": {
-          "type": "string",
-          "minLength": 1
-        },
-        "message": {
-          "type": "string"
-        },
-        "source": {
-          "type": [
-            "string",
-            "null"
-          ]
-        },
-        "help": {
-          "type": [
-            "string",
-            "null"
-          ]
-        }
-      }
-    },
-    "artifactRef": {
-      "type": "object",
-      "required": [
-        "id",
-        "kind",
-        "mediaType",
-        "uri"
-      ],
-      "properties": {
-        "id": {
-          "type": "string",
-          "minLength": 1
-        },
-        "kind": {
-          "oneOf": [
-            {
-              "enum": [
-                "file",
-                "directory",
-                "image",
-                "audio",
-                "video",
-                "text",
-                "json",
-                "log",
-                "archive",
-                "binary"
-              ]
-            },
-            {
-              "type": "object",
-              "required": [
-                "other"
-              ],
-              "properties": {
-                "other": {
-                  "type": "string",
-                  "minLength": 1
-                }
-              },
-              "additionalProperties": false
-            }
-          ]
-        },
-        "mediaType": {
-          "type": "string",
-          "minLength": 1
-        },
-        "uri": {
-          "type": "string",
-          "format": "uri-reference",
-          "minLength": 1
-        },
-        "sizeBytes": {
-          "type": [
-            "integer",
-            "null"
-          ],
-          "minimum": 0
-        },
-        "sha256": {
-          "type": [
-            "string",
-            "null"
-          ],
-          "pattern": "^[0-9a-f]{64}$"
-        },
-        "createdAt": {
-          "type": [
-            "string",
-            "null"
-          ],
-          "format": "date-time"
-        },
-        "metadata": {
-          "type": "object",
-          "additionalProperties": {
-            "type": "string"
-          }
-        }
-      }
-    },
-    "surfaceError": {
-      "$id": "urn:moenarch:runtime:surface-error:1",
-      "type": "object",
-      "required": [
-        "code",
-        "message",
-        "operation",
-        "details"
-      ],
-      "properties": {
-        "code": {
-          "type": "string",
-          "minLength": 1
-        },
-        "message": {
-          "type": "string"
-        },
-        "operation": {
-          "type": [
-            "string",
-            "null"
-          ]
-        },
-        "details": true
-      }
     }
   }
 }

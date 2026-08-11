@@ -1,0 +1,13 @@
+{
+  "schema_version": "v1",
+  "event_id": "msg-text-statistics-request-1",
+  "event_type": "rust.operation.request",
+  "timestamp": "2026-08-11T10:00:00Z",
+  "source_id": "media-intelligence-fixture",
+  "payload_location": "fixture://tests/fixtures/media-intelligence/v1/text-statistics.request.json",
+  "metadata": {
+    "schema_version": "v1",
+    "source_type": "rust-capability-operation-envelope",
+    "retry_count": 0
+  }
+}

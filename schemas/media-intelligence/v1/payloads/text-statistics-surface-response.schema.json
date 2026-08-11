@@ -1,0 +1,257 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:moenarch:text-core:text-statistics-surface-response:0.1.0",
+  "title": "text-core text.statistics SurfaceResponse 0.1.0",
+  "$comment": "Source-true compatibility projection. runtime-core owns SurfaceResponse/Diagnostic, jobs-core owns OperationResult/ArtifactRef, and text-core owns TextStatisticsResult.",
+  "type": "object",
+  "required": [
+    "operation",
+    "value",
+    "diagnostics",
+    "artifacts"
+  ],
+  "properties": {
+    "operation": {
+      "const": "text.statistics"
+    },
+    "value": {
+      "$ref": "#/$defs/structuredValue"
+    },
+    "diagnostics": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/diagnostic"
+      }
+    },
+    "artifacts": {
+      "type": "array",
+      "items": true
+    }
+  },
+  "$defs": {
+    "textStatisticsResult": {
+      "type": "object",
+      "required": [
+        "byteCount",
+        "characterCount",
+        "wordCount",
+        "lineCount",
+        "sentenceCount"
+      ],
+      "properties": {
+        "byteCount": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "characterCount": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "wordCount": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "lineCount": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "sentenceCount": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    },
+    "operationResult": {
+      "type": "object",
+      "required": [
+        "value",
+        "diagnostics",
+        "artifacts"
+      ],
+      "properties": {
+        "value": {
+          "oneOf": [
+            {
+              "$ref": "#/$defs/textStatisticsResult"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "diagnostics": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/diagnostic"
+          }
+        },
+        "artifacts": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/artifactRef"
+          }
+        }
+      }
+    },
+    "structuredValue": {
+      "type": "object",
+      "required": [
+        "title",
+        "operation",
+        "message",
+        "summary",
+        "result",
+        "value",
+        "diagnostics",
+        "artifacts"
+      ],
+      "properties": {
+        "title": {
+          "type": "string"
+        },
+        "operation": {
+          "const": "text.statistics"
+        },
+        "message": {
+          "type": "string"
+        },
+        "summary": {
+          "type": "object"
+        },
+        "result": {
+          "$ref": "#/$defs/operationResult"
+        },
+        "value": {
+          "$ref": "#/$defs/textStatisticsResult"
+        },
+        "diagnostics": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/diagnostic"
+          }
+        },
+        "artifacts": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/artifactRef"
+          }
+        }
+      }
+    },
+    "diagnostic": {
+      "type": "object",
+      "required": [
+        "severity",
+        "code",
+        "message",
+        "source",
+        "help"
+      ],
+      "properties": {
+        "severity": {
+          "enum": [
+            "info",
+            "warning",
+            "error"
+          ]
+        },
+        "code": {
+          "type": "string"
+        },
+        "message": {
+          "type": "string"
+        },
+        "source": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "help": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      }
+    },
+    "artifactRef": {
+      "type": "object",
+      "required": [
+        "id",
+        "kind",
+        "mediaType",
+        "uri",
+        "sizeBytes",
+        "sha256",
+        "createdAt",
+        "metadata"
+      ],
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "kind": {
+          "oneOf": [
+            {
+              "enum": [
+                "file",
+                "directory",
+                "image",
+                "audio",
+                "video",
+                "text",
+                "json",
+                "log",
+                "archive",
+                "binary"
+              ]
+            },
+            {
+              "type": "object",
+              "required": [
+                "other"
+              ],
+              "properties": {
+                "other": {
+                  "type": "string"
+                }
+              }
+            }
+          ]
+        },
+        "mediaType": {
+          "type": "string"
+        },
+        "uri": {
+          "type": "string"
+        },
+        "sizeBytes": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0
+        },
+        "sha256": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "createdAt": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "metadata": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          }
+        }
+      }
+    }
+  }
+}
