@@ -163,9 +163,10 @@ cargo run -q -p moenarch-text-core-cli -- \
 
 The actual downstream Pydantic model check is executable without a committed
 path dependency. With authenticated access, clone and pin media-intelligence to
-`e5b49cdd32acbfdaca057dc05d12412899f3129d`, install only its contracts package
-into a temporary virtual environment, and validate the checked pointer fixture
-with `mi_contracts.events.EventEnvelopeV1.model_validate`:
+`e5b49cdd32acbfdaca057dc05d12412899f3129d`, install its declared Pydantic
+dependency into a temporary virtual environment outside the checkout, and
+validate the checked pointer fixture with
+`mi_contracts.events.EventEnvelopeV1.model_validate`:
 
 ```bash
 mi_contracts_check="$(mktemp -d -t mi-contracts-check.XXXXXX)"
@@ -175,16 +176,26 @@ git -C "$mi_contracts_check/media-intelligence" checkout --detach \
   e5b49cdd32acbfdaca057dc05d12412899f3129d
 python3 -m venv "$mi_contracts_check/venv"
 "$mi_contracts_check/venv/bin/python" -m pip install \
-  "$mi_contracts_check/media-intelligence/contracts"
-"$mi_contracts_check/venv/bin/python" \
+  'pydantic>=2.6,<3'
+PYTHONDONTWRITEBYTECODE=1 "$mi_contracts_check/venv/bin/python" \
+  tests/fixtures/media-intelligence/v1/mi_contracts_model_sensitivity.py \
+  --checkout "$mi_contracts_check/media-intelligence"
+PYTHONDONTWRITEBYTECODE=1 "$mi_contracts_check/venv/bin/python" \
   tests/fixtures/media-intelligence/v1/mi_contracts_model_smoke.py \
   --checkout "$mi_contracts_check/media-intelligence"
 ```
 
-The runner verifies both the exact commit and the GitHub origin before importing
-the downstream model. It then requires an exact Pydantic round trip including
-`payload_location`. This is a test-only temporary checkout and is not a
-production, Cargo, Python, or committed sibling-path dependency.
+The runner has no commit override: the reviewed SHA is internal and immutable.
+It accepts only exact canonical GitHub HTTPS/SSH origins for
+`github.com/moritzbrantner/media-intelligence`, requires exact `HEAD`, rejects
+tracked or untracked changes, and also rejects ignored files anywhere below the
+imported `contracts/src` tree. The temporary virtual environment is outside the
+checkout, and bytecode writes are disabled. Provenance is checked before and
+after the exact Pydantic round trip, including `payload_location`. The
+sensitivity runner proves that a lookalike host, alternate `HEAD`, removed pin
+override, dirty imported source, and ignored bytecode below the imported source
+fail for their expected reasons. This is a test-only temporary checkout and is
+not a production, Cargo, Python, or committed sibling-path dependency.
 
 Also detect current `EventEnvelopeV1` schema drift from the pinned snapshot:
 
