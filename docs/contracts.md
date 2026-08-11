@@ -74,6 +74,16 @@ TypeScript declarations into `contracts/generated`. Reuse that idea when a crate
 is ready for generated clients, but do not require every crate to adopt it before
 the operation DTOs are stable.
 
+## Service Schema Interoperability
+
+Cross-language services consume versioned JSON Schema artifacts and explicit
+adapters, not Rust source or sibling checkout paths. The media-intelligence
+boundary, including its shared file/HTTP/queue envelope, ownership rules,
+fixtures, and validation smoke, is documented in
+[`MEDIA_INTELLIGENCE_INTEROPERABILITY.md`](MEDIA_INTELLIGENCE_INTEROPERABILITY.md).
+Python business records remain owned by `mi_contracts`; the interoperability
+envelope does not move those records into runtime contracts.
+
 ## Shared Runtime Ownership
 
 - `video-analysis-core::runtime`: diagnostics, operation metadata, runtime

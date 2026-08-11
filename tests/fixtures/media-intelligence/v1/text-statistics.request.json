@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "messageType": "request",
+  "messageId": "msg-text-statistics-request-1",
+  "correlationId": "corr-text-statistics-1",
+  "operationId": "text.statistics",
+  "payloadSchema": "urn:moenarch:text-core:text-statistics-request:0.1.0",
+  "payload": {
+    "text": "Hello world. Again."
+  },
+  "occurredAt": "2026-08-11T10:00:00Z"
+}
