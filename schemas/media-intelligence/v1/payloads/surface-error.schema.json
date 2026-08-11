@@ -1,0 +1,29 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:moenarch:runtime-core:surface-error:0.2.0",
+  "title": "runtime-core SurfaceError 0.2.0",
+  "$comment": "Compatibility snapshot of runtime_core::SurfaceError; runtime-core remains the semantic owner.",
+  "type": "object",
+  "required": [
+    "code",
+    "message",
+    "operation",
+    "details"
+  ],
+  "properties": {
+    "code": {
+      "type": "string",
+      "minLength": 1
+    },
+    "message": {
+      "type": "string"
+    },
+    "operation": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "details": true
+  }
+}

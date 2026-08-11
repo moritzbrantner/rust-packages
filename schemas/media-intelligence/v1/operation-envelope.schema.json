@@ -1,0 +1,125 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:moenarch:interoperability:media-intelligence:operation-envelope:1",
+  "title": "Media Intelligence Operation Framing Envelope v1",
+  "description": "Transport framing only. The schema identified by payloadSchema owns and validates payload semantics.",
+  "oneOf": [
+    {
+      "$ref": "#/$defs/request"
+    },
+    {
+      "$ref": "#/$defs/result"
+    },
+    {
+      "$ref": "#/$defs/error"
+    }
+  ],
+  "$defs": {
+    "envelope": {
+      "type": "object",
+      "required": [
+        "schemaVersion",
+        "messageType",
+        "messageId",
+        "correlationId",
+        "operationId",
+        "payloadSchema",
+        "payload"
+      ],
+      "properties": {
+        "schemaVersion": {
+          "const": 1
+        },
+        "messageType": {
+          "enum": [
+            "request",
+            "result",
+            "error"
+          ]
+        },
+        "messageId": {
+          "$ref": "#/$defs/messageId"
+        },
+        "correlationId": {
+          "$ref": "#/$defs/messageId"
+        },
+        "causationId": {
+          "$ref": "#/$defs/messageId"
+        },
+        "operationId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 160,
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*$"
+        },
+        "payloadSchema": {
+          "type": "string",
+          "format": "uri",
+          "minLength": 1
+        },
+        "payload": true,
+        "occurredAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      }
+    },
+    "messageId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128,
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]*$"
+    },
+    "request": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/envelope"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "messageType": {
+              "const": "request"
+            }
+          }
+        }
+      ]
+    },
+    "result": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/envelope"
+        },
+        {
+          "type": "object",
+          "required": [
+            "causationId"
+          ],
+          "properties": {
+            "messageType": {
+              "const": "result"
+            }
+          }
+        }
+      ]
+    },
+    "error": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/envelope"
+        },
+        {
+          "type": "object",
+          "required": [
+            "causationId"
+          ],
+          "properties": {
+            "messageType": {
+              "const": "error"
+            }
+          }
+        }
+      ]
+    }
+  }
+}

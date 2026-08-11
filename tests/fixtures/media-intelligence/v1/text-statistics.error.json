@@ -1,0 +1,16 @@
+{
+  "schemaVersion": 1,
+  "messageType": "error",
+  "messageId": "msg-text-statistics-error-1",
+  "correlationId": "corr-text-statistics-1",
+  "causationId": "msg-text-statistics-request-1",
+  "operationId": "text.statistics",
+  "payloadSchema": "urn:moenarch:runtime-core:surface-error:0.2.0",
+  "payload": {
+    "code": "invalid_request",
+    "message": "invalid request: missing field `text`",
+    "operation": null,
+    "details": {}
+  },
+  "occurredAt": "2026-08-11T10:00:01Z"
+}

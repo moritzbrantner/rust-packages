@@ -1,0 +1,15 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:moenarch:text-core:text-statistics-request:0.1.0",
+  "title": "text-core TextStatisticsRequest 0.1.0",
+  "$comment": "Compatibility snapshot of text_core::TextStatisticsRequest; text-core remains the semantic owner.",
+  "type": "object",
+  "required": [
+    "text"
+  ],
+  "properties": {
+    "text": {
+      "type": "string"
+    }
+  }
+}
