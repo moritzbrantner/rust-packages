@@ -3,9 +3,13 @@ from __future__ import annotations
 
 import copy
 import json
+import re
+import shutil
+import tempfile
 from collections import Counter
 from pathlib import Path
 from typing import Any, Callable
+from urllib.parse import unquote, urlparse
 
 from jsonschema import Draft202012Validator, FormatChecker
 from jsonschema.exceptions import ValidationError
@@ -24,11 +28,14 @@ PAYLOAD_SCHEMA_PATHS = (
 EVENT_SCHEMA_PATH = (
     SCHEMA_ROOT / "external/mi-contracts/0.1.0/event-envelope-v1.schema.json"
 )
-MESSAGE_PATHS = {
-    message_type: FIXTURE_ROOT / f"text-statistics.{message_type}.json"
-    for message_type in ("request", "result", "error")
-}
-EVENT_FIXTURE_PATH = FIXTURE_ROOT / "text-statistics.event-envelope.json"
+EVENT_FIXTURE_NAME = "text-statistics.event-envelope.json"
+EVENT_FIXTURE_PATH = FIXTURE_ROOT / EVENT_FIXTURE_NAME
+SELECTED_EXCHANGE = "text-statistics"
+MESSAGE_TYPES = ("request", "result", "error")
+OPERATION_FIXTURE_PATTERN = re.compile(
+    r"^(?P<exchange>[a-z0-9-]+)\.(?P<message_type>request|result|error)\.json$"
+)
+FIXTURE_URI_AUTHORITY = "media-intelligence-v1"
 
 REQUEST_SCHEMA_ID = "urn:moenarch:text-core:text-statistics-request:0.1.0"
 RESULT_SCHEMA_ID = (
@@ -59,6 +66,34 @@ PAYLOAD_VALIDATORS = {
     schema_id: validator(schema) for schema_id, schema in PAYLOAD_SCHEMAS.items()
 }
 EVENT_VALIDATOR = validator(load_json(EVENT_SCHEMA_PATH))
+
+
+def discover_operation_fixture_paths(
+    fixture_root: Path = FIXTURE_ROOT,
+) -> dict[str, Path]:
+    discovered: dict[str, Path] = {}
+    unknown: list[str] = []
+    for path in sorted(fixture_root.rglob("*.json")):
+        if path.resolve() == (fixture_root / EVENT_FIXTURE_NAME).resolve():
+            continue
+        match = OPERATION_FIXTURE_PATTERN.fullmatch(path.name)
+        if match is None or match.group("exchange") != SELECTED_EXCHANGE:
+            unknown.append(str(path.relative_to(fixture_root)))
+            continue
+        message_type = match.group("message_type")
+        if message_type in discovered:
+            unknown.append(str(path.relative_to(fixture_root)))
+            continue
+        discovered[message_type] = path
+
+    if unknown:
+        raise ValueError(
+            "unknown or duplicate operation fixture files: " + ", ".join(unknown)
+        )
+    missing = sorted(set(MESSAGE_TYPES) - discovered.keys())
+    if missing:
+        raise ValueError("missing operation fixture files: " + ", ".join(missing))
+    return discovered
 
 
 def resolve_payload_schema(schema_id: str) -> Draft202012Validator:
@@ -134,24 +169,55 @@ def validate_source_truth(messages: list[dict[str, Any]]) -> None:
         raise ValueError("text.statistics result is not source true")
 
 
-def validate_event_pointer(event: dict[str, Any], request: dict[str, Any]) -> None:
+def resolve_fixture_pointer(payload_location: str) -> Path:
+    parsed = urlparse(payload_location)
+    if parsed.scheme != "fixture":
+        raise ValueError(f"unauthorized fixture scheme: {parsed.scheme or '<missing>'}")
+    if parsed.netloc != FIXTURE_URI_AUTHORITY:
+        raise ValueError(f"unauthorized fixture authority: {parsed.netloc or '<missing>'}")
+    if parsed.query or parsed.fragment:
+        raise ValueError("fixture pointer must not contain a query or fragment")
+
+    relative = Path(unquote(parsed.path).lstrip("/"))
+    candidate = (FIXTURE_ROOT / relative).resolve()
+    approved_root = FIXTURE_ROOT.resolve()
+    try:
+        candidate.relative_to(approved_root)
+    except ValueError as error:
+        raise ValueError("fixture pointer escapes approved fixture root") from error
+    if not candidate.is_file():
+        raise ValueError(f"fixture pointer does not exist: {relative}")
+
+    approved_targets = set(discover_operation_fixture_paths().values())
+    if candidate not in {path.resolve() for path in approved_targets}:
+        raise ValueError(f"fixture pointer target is not an approved operation fixture: {relative}")
+    return candidate
+
+
+def validate_event_pointer(
+    event: dict[str, Any], selected_request: dict[str, Any]
+) -> None:
     EVENT_VALIDATOR.validate(event)
-    if event["schema_version"] != "v1" or event["metadata"]["schema_version"] != "v1":
-        raise ValueError("EventEnvelopeV1 version does not map to operation envelope v1")
-    if request["schemaVersion"] != 1:
-        raise ValueError("operation envelope version does not map to EventEnvelopeV1")
-    if event["event_id"] != request["messageId"]:
-        raise ValueError("event id must equal pointed-to message id")
-    if event["event_type"] != f"rust.operation.{request['messageType']}":
-        raise ValueError("event type does not identify the pointed-to message type")
-    if event["timestamp"] != request["occurredAt"]:
-        raise ValueError("event timestamp must equal operation occurrence time")
     if not event["payload_location"]:
         raise ValueError("event payload location is required by the pointer adapter")
-    if not event["payload_location"].endswith(MESSAGE_PATHS["request"].name):
-        raise ValueError("event payload location does not point to the request fixture")
+    pointed_path = resolve_fixture_pointer(event["payload_location"])
+    pointed_message = load_json(pointed_path)
+    validate_message(pointed_message)
+
+    if event["schema_version"] != "v1" or event["metadata"]["schema_version"] != "v1":
+        raise ValueError("EventEnvelopeV1 version does not map to operation envelope v1")
+    if pointed_message["schemaVersion"] != 1:
+        raise ValueError("operation envelope version does not map to EventEnvelopeV1")
+    if event["event_id"] != pointed_message["messageId"]:
+        raise ValueError("event id must equal pointed-to message id")
+    if event["event_type"] != f"rust.operation.{pointed_message['messageType']}":
+        raise ValueError("event type does not identify the pointed-to message type")
+    if event["timestamp"] != pointed_message["occurredAt"]:
+        raise ValueError("event timestamp must equal operation occurrence time")
     if event["metadata"]["source_type"] != "rust-capability-operation-envelope":
         raise ValueError("event source type does not identify the pointer adapter")
+    if pointed_message != selected_request:
+        raise ValueError("event pointer does not resolve to the selected request fixture")
 
 
 def validate_exchange(
@@ -165,10 +231,26 @@ def validate_exchange(
         validate_event_pointer(event, by_type(messages)["request"])
 
 
-def expect_rejected(label: str, action: Callable[[], None]) -> str:
+def expect_rejected(
+    label: str,
+    expected_exception: type[Exception],
+    expected_message: str,
+    action: Callable[[], None],
+) -> str:
     try:
         action()
-    except (AssertionError, KeyError, TypeError, ValidationError, ValueError):
+    except expected_exception as error:
+        messages = [str(error)]
+        if isinstance(error, ValidationError):
+            pending = list(error.context)
+            while pending:
+                context = pending.pop()
+                messages.append(context.message)
+                pending.extend(context.context)
+        if not any(expected_message in message for message in messages):
+            raise AssertionError(
+                f"{label} failed for the wrong reason: {error}"
+            ) from error
         return label
     raise AssertionError(f"sensitivity mutation unexpectedly passed: {label}")
 
@@ -181,34 +263,85 @@ def sensitivity_checks(
 
     unknown_pair = copy.deepcopy(messages)
     by_type(unknown_pair)["request"]["payloadSchema"] = RESULT_SCHEMA_ID
-    rejected.append(expect_rejected("unknown allowlist tuple", lambda: validate_exchange(unknown_pair)))
+    rejected.append(
+        expect_rejected(
+            "unknown allowlist tuple",
+            ValueError,
+            "exchange is not allowlisted",
+            lambda: validate_exchange(unknown_pair),
+        )
+    )
 
     bad_correlation = copy.deepcopy(messages)
     by_type(bad_correlation)["result"]["correlationId"] = "corr-wrong"
-    rejected.append(expect_rejected("mismatched correlation", lambda: validate_exchange(bad_correlation)))
+    rejected.append(
+        expect_rejected(
+            "mismatched correlation",
+            ValueError,
+            "result correlation mismatch",
+            lambda: validate_exchange(bad_correlation),
+        )
+    )
 
     bad_causation = copy.deepcopy(messages)
     by_type(bad_causation)["error"]["causationId"] = "msg-wrong"
-    rejected.append(expect_rejected("mismatched causation", lambda: validate_exchange(bad_causation)))
+    rejected.append(
+        expect_rejected(
+            "mismatched causation",
+            ValueError,
+            "error causation mismatch",
+            lambda: validate_exchange(bad_causation),
+        )
+    )
 
     wrong_error_schema = copy.deepcopy(messages)
     by_type(wrong_error_schema)["error"]["payloadSchema"] = REQUEST_SCHEMA_ID
-    rejected.append(expect_rejected("wrong error schema", lambda: validate_exchange(wrong_error_schema)))
+    rejected.append(
+        expect_rejected(
+            "wrong error schema",
+            ValueError,
+            "exchange is not allowlisted",
+            lambda: validate_exchange(wrong_error_schema),
+        )
+    )
 
     missing_required = copy.deepcopy(messages)
     del by_type(missing_required)["request"]["messageId"]
-    rejected.append(expect_rejected("missing required field", lambda: validate_exchange(missing_required)))
+    rejected.append(
+        expect_rejected(
+            "missing required field",
+            ValidationError,
+            "'messageId' is a required property",
+            lambda: validate_exchange(missing_required),
+        )
+    )
 
     malformed_payload = copy.deepcopy(messages)
     by_type(malformed_payload)["request"]["payload"]["text"] = 42
-    rejected.append(expect_rejected("malformed payload", lambda: validate_exchange(malformed_payload)))
+    rejected.append(
+        expect_rejected(
+            "malformed payload",
+            ValidationError,
+            "is not of type 'string'",
+            lambda: validate_exchange(malformed_payload),
+        )
+    )
 
     duplicate_type = copy.deepcopy(messages)
     duplicate_type.append(copy.deepcopy(typed["request"]))
-    rejected.append(expect_rejected("duplicate message type", lambda: validate_exchange(duplicate_type)))
+    rejected.append(
+        expect_rejected(
+            "duplicate message type",
+            ValueError,
+            "expected one request/result/error",
+            lambda: validate_exchange(duplicate_type),
+        )
+    )
 
     rejected.append(
         expect_rejected(
+            "unresolved payload schema",
+            ValueError,
             "unresolved payload schema",
             lambda: resolve_payload_schema("urn:moenarch:unknown:payload:1"),
         )
@@ -216,27 +349,126 @@ def sensitivity_checks(
 
     invented_error = copy.deepcopy(messages)
     by_type(invented_error)["error"]["payload"]["operation"] = "text.statistics"
-    rejected.append(expect_rejected("non-source error fixture", lambda: validate_exchange(invented_error)))
+    rejected.append(
+        expect_rejected(
+            "non-source error fixture",
+            ValueError,
+            "malformed text.statistics error is not source true",
+            lambda: validate_exchange(invented_error),
+        )
+    )
 
-    wrong_event = copy.deepcopy(event)
-    wrong_event["payload_location"] = None
+    missing_pointer = copy.deepcopy(event)
+    missing_pointer["payload_location"] = None
     rejected.append(
         expect_rejected(
             "missing event pointer",
-            lambda: validate_exchange(messages, wrong_event),
+            ValueError,
+            "event payload location is required",
+            lambda: validate_exchange(messages, missing_pointer),
+        )
+    )
+
+    unauthorized_pointer = copy.deepcopy(event)
+    unauthorized_pointer["payload_location"] = (
+        "fixture://other-authority/text-statistics.request.json"
+    )
+    rejected.append(
+        expect_rejected(
+            "unauthorized event pointer",
+            ValueError,
+            "unauthorized fixture authority",
+            lambda: validate_exchange(messages, unauthorized_pointer),
+        )
+    )
+
+    escaping_pointer = copy.deepcopy(event)
+    escaping_pointer["payload_location"] = (
+        f"fixture://{FIXTURE_URI_AUTHORITY}/../text-statistics.request.json"
+    )
+    rejected.append(
+        expect_rejected(
+            "escaping event pointer",
+            ValueError,
+            "escapes approved fixture root",
+            lambda: validate_exchange(messages, escaping_pointer),
+        )
+    )
+
+    nonexistent_pointer = copy.deepcopy(event)
+    nonexistent_pointer["payload_location"] = (
+        f"fixture://{FIXTURE_URI_AUTHORITY}/not-found.request.json"
+    )
+    rejected.append(
+        expect_rejected(
+            "nonexistent event pointer",
+            ValueError,
+            "fixture pointer does not exist",
+            lambda: validate_exchange(messages, nonexistent_pointer),
+        )
+    )
+
+    mismatched_pointer = copy.deepcopy(event)
+    mismatched_pointer["payload_location"] = (
+        f"fixture://{FIXTURE_URI_AUTHORITY}/text-statistics.result.json"
+    )
+    mismatched_pointer["event_id"] = typed["result"]["messageId"]
+    mismatched_pointer["event_type"] = "rust.operation.result"
+    mismatched_pointer["timestamp"] = typed["result"]["occurredAt"]
+    rejected.append(
+        expect_rejected(
+            "mismatched event pointer",
+            ValueError,
+            "does not resolve to the selected request fixture",
+            lambda: validate_exchange(messages, mismatched_pointer),
         )
     )
     return rejected
 
 
+def fixture_discovery_sensitivity() -> str:
+    with tempfile.TemporaryDirectory(prefix="media-intelligence-fixtures-") as directory:
+        temporary_root = Path(directory)
+        for fixture in FIXTURE_ROOT.glob("*.json"):
+            shutil.copy2(fixture, temporary_root / fixture.name)
+        shutil.copy2(
+            FIXTURE_ROOT / "text-statistics.request.json",
+            temporary_root / "unexpected.request.json",
+        )
+        return expect_rejected(
+            "extra on-disk operation fixture",
+            ValueError,
+            "unknown or duplicate operation fixture files: unexpected.request.json",
+            lambda: discover_operation_fixture_paths(temporary_root),
+        )
+
+
+def exception_narrowing_sensitivity() -> str:
+    try:
+        expect_rejected(
+            "unrelated exception",
+            ValueError,
+            "expected validation failure",
+            lambda: {}["unexpected-bug"],
+        )
+    except KeyError as error:
+        if error.args != ("unexpected-bug",):
+            raise AssertionError("unexpected KeyError payload") from error
+        return "unrelated exception propagation"
+    raise AssertionError("unrelated KeyError was incorrectly counted as a rejection")
+
+
 def main() -> None:
-    messages = [load_json(MESSAGE_PATHS[message_type]) for message_type in ("request", "result", "error")]
+    message_paths = discover_operation_fixture_paths()
+    messages = [load_json(message_paths[message_type]) for message_type in MESSAGE_TYPES]
     event = load_json(EVENT_FIXTURE_PATH)
     validate_exchange(messages, event)
     rejected = sensitivity_checks(messages, event)
+    rejected.append(fixture_discovery_sensitivity())
+    rejected.append(exception_narrowing_sensitivity())
     print(
-        "validated media-intelligence v1 schemas, payloads, pointer adapter, "
-        f"and {len(rejected)} sensitivity mutations"
+        "validated discovered media-intelligence v1 schemas, payloads, loaded pointer, "
+        f"and {len(rejected)} narrowly asserted sensitivity mutations"
     )
 
 

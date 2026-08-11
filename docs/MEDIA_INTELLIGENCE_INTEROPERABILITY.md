@@ -136,16 +136,21 @@ Run the local positive and negative compatibility suite (Python `jsonschema`
 python3 tests/fixtures/media-intelligence/v1/compatibility_smoke.py
 ```
 
-It validates every operation envelope, resolves and validates every
+It discovers the operation fixture set from disk and fails closed on any
+unknown, duplicate, or incomplete request/result/error fixture set. It validates
+every discovered operation envelope, resolves and validates every
 `payloadSchema`, validates the downstream `EventEnvelopeV1` pointer fixture,
-checks source-truth projections, and proves rejection of:
+loads the pointed-to `fixture://` object inside the approved v1 fixture root,
+validates that operation envelope and payload, checks source-truth projections,
+and proves rejection of:
 
 - unknown allowlist tuples;
 - mismatched causation or correlation;
 - the wrong error payload schema;
 - missing framing fields and malformed payloads;
-- duplicate message kinds; and
-- unresolved payload-schema identifiers.
+- duplicate message kinds and extra on-disk operation fixtures;
+- unresolved payload-schema identifiers; and
+- missing, unauthorized, escaping, nonexistent, and mismatched pointer targets.
 
 Confirm the Rust source serialization used by the fixtures with:
 
@@ -156,8 +161,32 @@ cargo run -q -p moenarch-text-core-cli -- \
   run --operation text.statistics --json '{"missing":true}' 2>&1
 ```
 
-With authenticated access to the private downstream repository, detect current
-`EventEnvelopeV1` schema drift from the pinned snapshot:
+The actual downstream Pydantic model check is executable without a committed
+path dependency. With authenticated access, clone and pin media-intelligence to
+`e5b49cdd32acbfdaca057dc05d12412899f3129d`, install only its contracts package
+into a temporary virtual environment, and validate the checked pointer fixture
+with `mi_contracts.events.EventEnvelopeV1.model_validate`:
+
+```bash
+mi_contracts_check="$(mktemp -d -t mi-contracts-check.XXXXXX)"
+gh repo clone moritzbrantner/media-intelligence \
+  "$mi_contracts_check/media-intelligence"
+git -C "$mi_contracts_check/media-intelligence" checkout --detach \
+  e5b49cdd32acbfdaca057dc05d12412899f3129d
+python3 -m venv "$mi_contracts_check/venv"
+"$mi_contracts_check/venv/bin/python" -m pip install \
+  "$mi_contracts_check/media-intelligence/contracts"
+"$mi_contracts_check/venv/bin/python" \
+  tests/fixtures/media-intelligence/v1/mi_contracts_model_smoke.py \
+  --checkout "$mi_contracts_check/media-intelligence"
+```
+
+The runner verifies both the exact commit and the GitHub origin before importing
+the downstream model. It then requires an exact Pydantic round trip including
+`payload_location`. This is a test-only temporary checkout and is not a
+production, Cargo, Python, or committed sibling-path dependency.
+
+Also detect current `EventEnvelopeV1` schema drift from the pinned snapshot:
 
 ```bash
 gh api -H 'Accept: application/vnd.github.raw+json' \
@@ -165,7 +194,7 @@ gh api -H 'Accept: application/vnd.github.raw+json' \
 python3 -c 'import json, sys; from pathlib import Path; remote=json.load(sys.stdin); local=json.loads(Path("schemas/media-intelligence/external/mi-contracts/0.1.0/event-envelope-v1.schema.json").read_text()); assert remote == local; print("mi_contracts EventEnvelopeV1 snapshot matches current main")'
 ```
 
-Downstream media-intelligence should additionally run its own
-`EventEnvelopeV1.model_validate` test and an adapter integration test that reads
-the pointed-to envelope. Those implementation tests cannot be added to this
-repository without crossing the issue's ownership and write boundaries.
+The contract/model/pointer integration is tested here. Deployment wiring for
+object storage, queue delivery, acknowledgements, retries, and service-specific
+adapter registration remains downstream media-intelligence rollout work; this
+slice does not claim that operational deployment is complete.
