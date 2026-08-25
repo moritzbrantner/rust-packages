@@ -1,11 +1,23 @@
 # Agent-Driven Rust Releases
 
 This guide defines the non-secret release architecture for future capability
-repositories. Phase A publishes nothing.
+repositories. It applies only when the assigned work is explicitly a release or
+distribution task.
+
+Ordinary implementation is source-first. A missing registry version is not by
+itself an implementation blocker when an exact source revision can be validated
+by the consumer. Do not invoke this release procedure merely to unblock feature
+work, and do not turn a consumer change into a transitive publication wave.
+Version bumps, registry publication, tags, and registry-only consumer cutovers
+begin only after the source graph has already been proven and a dedicated
+release task authorizes the minimal required closure.
+
+Phase A publishes nothing.
 
 ## Publication environment
 
-Local Cargo publication is authorized. Use only Cargo's normal
+Local Cargo publication is authorized only for an explicit release task that
+satisfies this guide's exact release contract. Use only Cargo's normal
 already-configured credential mechanism; never inspect, print, request, paste,
 copy, or pass a token as a command-line argument. GitHub Actions trusted
 publishing may remain as an optional alternative, but hosted execution and OIDC
@@ -82,9 +94,11 @@ resource-backed integrations, and optional real-model checks. Inspect package
 file lists for models, credentials, caches, local output, large fixtures, and
 unlicensed data. Never use `--no-verify` or an unexplained `--allow-dirty`.
 
-Candidate consumers use isolated worktrees or temporary patches that are never
-committed. Foundation/domain issues select applicable consumers from
-`docs/CONSUMER_RELEASE_MATRIX.md`.
+Candidate consumers use isolated worktrees or temporary exact source overrides
+that are never committed as release dependencies. Foundation/domain issues
+select applicable consumers from `docs/CONSUMER_RELEASE_MATRIX.md`. Proving a
+candidate consumer against source is expected before publication; registry-only
+consumer proof happens after the required versions become visible.
 
 ## Topological, idempotent publication
 
