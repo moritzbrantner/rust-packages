@@ -248,10 +248,7 @@ impl AnnotationSelector {
                         "2D regions must be finite with positive width and height".to_string(),
                     ));
                 }
-                validate_optional_non_empty(
-                    coordinate_space.as_deref(),
-                    "region coordinate space",
-                )
+                validate_optional_non_empty(coordinate_space.as_deref(), "region coordinate space")
             }
             Self::Track { track_id } => validate_non_empty(track_id, "track id"),
             Self::Custom {
@@ -357,7 +354,9 @@ impl TimestampWire {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(tag = "kind", rename_all = "snake_case")]
 enum AnnotationTimingWire {
-    Instant { timestamp: TimestampWire },
+    Instant {
+        timestamp: TimestampWire,
+    },
     Range {
         start: TimestampWire,
         end: TimestampWire,
@@ -671,10 +670,7 @@ impl AnnotationDataset {
     }
 
     /// Adds several annotations with the same validation as [`Self::push`].
-    pub fn extend(
-        &mut self,
-        annotations: impl IntoIterator<Item = MediaAnnotation>,
-    ) -> Result<()> {
+    pub fn extend(&mut self, annotations: impl IntoIterator<Item = MediaAnnotation>) -> Result<()> {
         for annotation in annotations {
             self.push(annotation)?;
         }
@@ -771,7 +767,10 @@ impl AnnotationDataset {
         let mut merged = Self::new();
         if let Some(first) = datasets.first() {
             merged.name = first.name.clone();
-            if datasets.iter().all(|dataset| dataset.source == first.source) {
+            if datasets
+                .iter()
+                .all(|dataset| dataset.source == first.source)
+            {
                 merged.source = first.source.clone();
             }
         }
@@ -891,13 +890,7 @@ mod tests {
             .push(
                 MediaAnnotation::new("face-1", "face")
                     .label("Alice")
-                    .during(
-                        MediaRange::new(
-                            timestamp(500, 1, 1_000),
-                            timestamp(2, 1, 1),
-                        )
-                        .unwrap(),
-                    )
+                    .during(MediaRange::new(timestamp(500, 1, 1_000), timestamp(2, 1, 1)).unwrap())
                     .source(MediaSourceRef::stream("video-0").source_kind("video"))
                     .selector(AnnotationSelector::Region2d {
                         x: 10.0,
@@ -926,15 +919,9 @@ mod tests {
             .push(MediaAnnotation::new("instant", "beat").at(timestamp(1, 1, 1)))
             .unwrap();
         dataset
-            .push(
-                MediaAnnotation::new("range", "speech").during(
-                    MediaRange::new(
-                        timestamp(1_500, 1, 1_000),
-                        timestamp(2_500, 1, 1_000),
-                    )
-                    .unwrap(),
-                ),
-            )
+            .push(MediaAnnotation::new("range", "speech").during(
+                MediaRange::new(timestamp(1_500, 1, 1_000), timestamp(2_500, 1, 1_000)).unwrap(),
+            ))
             .unwrap();
 
         let query = MediaRange::new(timestamp(900, 1, 1_000), timestamp(2, 1, 1)).unwrap();
@@ -964,10 +951,7 @@ mod tests {
             .unwrap()
             .same_instant(timestamp(1, 1, 1))
             .unwrap());
-        assert_eq!(
-            annotation.provenance[0].analyzer.as_deref(),
-            Some("rhythm")
-        );
+        assert_eq!(annotation.provenance[0].analyzer.as_deref(), Some("rhythm"));
     }
 
     #[test]
