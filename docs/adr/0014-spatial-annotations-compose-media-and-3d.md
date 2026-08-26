@@ -18,7 +18,9 @@ The module owns:
 
 The canonical camera pose remains `CameraPose3d`, including the existing COLMAP world-to-camera conversion. Generic object orientation remains quaternion-backed through `RigidTransform3d`. Scene-to-scene relationships use `SimilarityTransform3d` so arbitrary reconstruction scale is not silently treated as metric.
 
-Global geographic coordinates are not treated as another Cartesian frame. `GeographicFrameAnchor` explicitly anchors a local Cartesian frame at a WGS84 position with a local ENU/NED tangent convention, orientation, and meters-per-unit scale.
+Cartesian 3D frames must have coherent dimensional semantics. Geographic and image frame kinds are not Cartesian 3D frames, and pixel/degree units are rejected even if attached to a local, camera, or custom frame. Metric units have canonical scale: meter = 1 meter per unit, centimeter = 0.01, and millimeter = 0.001. `Arbitrary`, `Unitless`, and unspecified units remain available for normalized or reconstruction-relative spaces.
+
+Global geographic coordinates are not treated as another Cartesian frame. `GeographicFrameAnchor` explicitly anchors a local Cartesian frame at a WGS84 position with a local ENU/NED tangent convention, orientation, and meters-per-unit scale. When the frame already declares a concrete metric unit, the anchor scale must agree with that unit; reconstruction-relative or unitless frames may provide their own positive scale.
 
 `geo-analysis` remains the owner of general geospatial geometry and algorithms. Its `geo-core` already owns 2D coordinates, bounding boxes, and GeoJSON-shaped geometry; this module does not duplicate polygon/line/topology models. GIS algorithms, CRS reprojection, topology, GeoJSON processing, and map/product behavior remain outside the 3D core. A consumer can carry a geo-owned selector through `SpatialBinding` in the same way it can carry a media-owned selector.
 
