@@ -4,6 +4,8 @@
 //! of video contracts while existing datasets can move onto the common media
 //! annotation envelope without a flag-day rewrite.
 
+use std::collections::BTreeMap;
+
 use media_core::annotations::{
     AnnotationDataset, AnnotationProvenance, AnnotationSelector, AnnotationTiming, AnnotationValue,
     MediaAnnotation, MediaSourceRef, Result,
@@ -23,18 +25,22 @@ pub fn annotation_dataset_from_video_dataset(
     let mut annotations = AnnotationDataset::new();
     annotations.name = dataset.metadata.name.clone();
     annotations.attributes = dataset.metadata.attributes.clone();
-    annotations.attributes.insert(
-        "legacySchema".to_string(),
+    insert_migration_attribute(
+        &mut annotations.attributes,
+        "legacySchema",
         "video-analysis-dataset".to_string(),
     );
-    annotations.attributes.insert(
-        "legacySchemaVersion".to_string(),
+    insert_migration_attribute(
+        &mut annotations.attributes,
+        "legacySchemaVersion",
         dataset.metadata.schema_version.to_string(),
     );
     if let Some(created_at) = &dataset.metadata.created_at {
-        annotations
-            .attributes
-            .insert("legacyCreatedAt".to_string(), created_at.clone());
+        insert_migration_attribute(
+            &mut annotations.attributes,
+            "legacyCreatedAt",
+            created_at.clone(),
+        );
     }
     if let Some(source) = &dataset.metadata.source {
         annotations.source = Some(
@@ -76,6 +82,20 @@ pub fn annotation_dataset_from_video_dataset(
 
     annotations.validate()?;
     Ok(annotations)
+}
+
+fn insert_migration_attribute(
+    attributes: &mut BTreeMap<String, String>,
+    preferred_key: &str,
+    value: String,
+) {
+    let mut key = preferred_key.to_string();
+    let mut suffix = 1_u32;
+    while attributes.contains_key(&key) {
+        key = format!("{preferred_key}.{suffix}");
+        suffix += 1;
+    }
+    attributes.insert(key, value);
 }
 
 fn record_timing(record: &DatasetRecord) -> Result<Option<AnnotationTiming>> {
@@ -215,7 +235,9 @@ fn record_selector(record: &DatasetRecord) -> Option<AnnotationSelector> {
 fn record_label(record: &DatasetRecord) -> Option<String> {
     match record {
         DatasetRecord::VideoFrame(_) | DatasetRecord::AudioFrame(_) => None,
-        DatasetRecord::TextSegment(record) => Some(record.text.clone()),
+        DatasetRecord::TextSegment(record) => {
+            (!record.text.trim().is_empty()).then(|| record.text.clone())
+        }
         DatasetRecord::Scene(record) => Some(format!("scene {}", record.scene_index)),
         DatasetRecord::Cut(record) => Some(record.detector.clone()),
         DatasetRecord::Observation(record) => record.label.clone().or_else(|| record.text.clone()),
@@ -251,7 +273,7 @@ fn record_provenance(record: &DatasetRecord) -> Option<AnnotationProvenance> {
     Some(AnnotationProvenance::analyzer(analyzer))
 }
 
-fn record_attributes(record: &DatasetRecord) -> std::collections::BTreeMap<String, String> {
+fn record_attributes(record: &DatasetRecord) -> BTreeMap<String, String> {
     match record {
         DatasetRecord::Observation(record) => record.attributes.clone(),
         DatasetRecord::Feature(record) => record.attributes.clone(),
@@ -281,6 +303,7 @@ fn timestamp(record: TimestampRecord) -> Result<Timestamp> {
 mod tests {
     use media_core::annotations::{AnnotationTiming, AnnotationValue};
     use video_analysis_core::{AnalysisEvent, Timebase, Timestamp};
+    use video_analysis_dataset::TextSegmentRecord;
 
     use super::*;
 
@@ -312,5 +335,49 @@ mod tests {
             Some("fixture")
         );
         assert!(matches!(annotation.value, Some(AnnotationValue::Json(_))));
+    }
+
+    #[test]
+    fn preserves_conflicting_legacy_metadata_attributes() {
+        let mut legacy = AnalysisDataset::empty();
+        legacy
+            .metadata
+            .attributes
+            .insert("legacySchema".to_string(), "caller-value".to_string());
+
+        let converted = annotation_dataset_from_video_dataset(&legacy).unwrap();
+
+        assert_eq!(
+            converted.attributes.get("legacySchema").map(String::as_str),
+            Some("caller-value")
+        );
+        assert_eq!(
+            converted
+                .attributes
+                .get("legacySchema.1")
+                .map(String::as_str),
+            Some("video-analysis-dataset")
+        );
+    }
+
+    #[test]
+    fn empty_legacy_text_is_preserved_without_invalid_label() {
+        let mut legacy = AnalysisDataset::empty();
+        legacy.push(DatasetRecord::TextSegment(TextSegmentRecord {
+            stream_id: "transcript".to_string(),
+            segment_index: 0,
+            timestamp: None,
+            text: "   ".to_string(),
+            language: None,
+            is_final: true,
+        }));
+
+        let converted = annotation_dataset_from_video_dataset(&legacy).unwrap();
+        assert_eq!(converted.annotations.len(), 1);
+        assert_eq!(converted.annotations[0].label, None);
+        assert!(matches!(
+            converted.annotations[0].value,
+            Some(AnnotationValue::Json(_))
+        ));
     }
 }
