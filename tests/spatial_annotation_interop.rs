@@ -1,6 +1,6 @@
 #![cfg(feature = "three-d")]
 
-use media_core::AnnotationSelector;
+use media_core::annotations::AnnotationSelector;
 use three_d_processing_core::annotations::{
     CoordinateFrameRef, CoordinateUnit, SpatialBinding, SpatialEntityRef, SpatialSelector,
 };
