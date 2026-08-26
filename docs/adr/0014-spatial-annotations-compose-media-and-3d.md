@@ -10,7 +10,7 @@ The module owns:
 
 - stable coordinate-frame references and coordinate units;
 - similarity transforms between Cartesian frames so reconstruction-relative scale is representable;
-- WGS84 geographic positions and local-frame geographic anchors;
+- WGS84 positions only where needed to anchor local 3D frames to the Earth;
 - spatial uncertainty independent from semantic annotation confidence;
 - opaque domain entity references for COLMAP, Gaussian splats, or future scene formats;
 - typed 3D point, box, sphere, rigid-pose, camera-pose, geographic-point, and entity selectors;
@@ -18,7 +18,9 @@ The module owns:
 
 The canonical camera pose remains `CameraPose3d`, including the existing COLMAP world-to-camera conversion. Generic object orientation remains quaternion-backed through `RigidTransform3d`. Scene-to-scene relationships use `SimilarityTransform3d` so arbitrary reconstruction scale is not silently treated as metric.
 
-Global geographic coordinates are not treated as another Cartesian frame. `GeographicFrameAnchor` explicitly anchors a local Cartesian frame at a WGS84 position with a local ENU/NED tangent convention, orientation, and meters-per-unit scale. GIS algorithms, CRS reprojection, topology, GeoJSON processing, and map/product behavior remain outside this module and can stay owned by geo/spatial capability repositories.
+Global geographic coordinates are not treated as another Cartesian frame. `GeographicFrameAnchor` explicitly anchors a local Cartesian frame at a WGS84 position with a local ENU/NED tangent convention, orientation, and meters-per-unit scale.
+
+`geo-analysis` remains the owner of general geospatial geometry and algorithms. Its `geo-core` already owns 2D coordinates, bounding boxes, and GeoJSON-shaped geometry; this module does not duplicate polygon/line/topology models. GIS algorithms, CRS reprojection, topology, GeoJSON processing, and map/product behavior remain outside the 3D core. A consumer can carry a geo-owned selector through `SpatialBinding` in the same way it can carry a media-owned selector.
 
 Image/video/media integration is deliberately dependency-neutral here. A consumer that already depends on both capabilities can serialize its real frame, region, track, or other selector into `SpatialBinding` and recover the same type on read. A product or integration crate may additionally adapt a `SpatialBinding` into the neutral `MediaAnnotation` envelope. `three-d-processing-core` itself does not depend on `media-core` merely to make that composition possible.
 
