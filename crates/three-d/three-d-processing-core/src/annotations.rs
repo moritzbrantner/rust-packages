@@ -112,6 +112,22 @@ impl CoordinateFrameRef {
         }
         Ok(())
     }
+
+    /// Validates that this frame can carry Cartesian 3D coordinates.
+    pub fn validate_cartesian_3d(&self) -> Result<()> {
+        self.validate()?;
+        match self.kind {
+            CoordinateFrameKind::Geographic => Err(invalid_argument(
+                "geographic frames cannot be used as Cartesian 3D coordinate frames",
+            )),
+            CoordinateFrameKind::Image => Err(invalid_argument(
+                "image frames cannot be used as Cartesian 3D coordinate frames",
+            )),
+            CoordinateFrameKind::Local
+            | CoordinateFrameKind::Camera
+            | CoordinateFrameKind::Custom => Ok(()),
+        }
+    }
 }
 
 /// Similarity transform between two Cartesian coordinate frames.
@@ -152,8 +168,8 @@ impl CoordinateFrameTransform3d {
 
     /// Validates both frames and transform values.
     pub fn validate(&self) -> Result<()> {
-        self.from.validate()?;
-        self.to.validate()?;
+        self.from.validate_cartesian_3d()?;
+        self.to.validate_cartesian_3d()?;
         if self.from.id == self.to.id {
             return Err(invalid_argument(
                 "coordinate frame transform must reference two different frame ids",
@@ -272,7 +288,7 @@ impl GeographicFrameAnchor {
 
     /// Validates the frame, anchor, orientation, and positive scale.
     pub fn validate(&self) -> Result<()> {
-        self.frame.validate()?;
+        self.frame.validate_cartesian_3d()?;
         self.origin.validate()?;
         self.orientation.normalize()?;
         if !self.meters_per_unit.is_finite() || self.meters_per_unit <= 0.0 {
@@ -431,7 +447,7 @@ impl SpatialSelector {
                 point,
                 uncertainty,
             } => {
-                frame.validate()?;
+                frame.validate_cartesian_3d()?;
                 if !point.is_finite() {
                     return Err(invalid_argument("spatial point coordinates must be finite"));
                 }
@@ -440,7 +456,7 @@ impl SpatialSelector {
                 }
             }
             Self::Box3 { frame, min, max } => {
-                frame.validate()?;
+                frame.validate_cartesian_3d()?;
                 if !min.is_finite() || !max.is_finite() {
                     return Err(invalid_argument("spatial box coordinates must be finite"));
                 }
@@ -455,7 +471,7 @@ impl SpatialSelector {
                 center,
                 radius,
             } => {
-                frame.validate()?;
+                frame.validate_cartesian_3d()?;
                 if !center.is_finite() {
                     return Err(invalid_argument("spatial sphere center must be finite"));
                 }
@@ -470,7 +486,7 @@ impl SpatialSelector {
                 pose,
                 uncertainty,
             } => {
-                frame.validate()?;
+                frame.validate_cartesian_3d()?;
                 RigidTransform3d::new(pose.rotation, pose.translation)?;
                 if let Some(uncertainty) = uncertainty {
                     uncertainty.validate()?;
@@ -483,7 +499,7 @@ impl SpatialSelector {
                 calibration_ref,
                 uncertainty,
             } => {
-                frame.validate()?;
+                frame.validate_cartesian_3d()?;
                 pose.validate()?;
                 if let Some(intrinsics) = intrinsics {
                     intrinsics.validate()?;
@@ -642,6 +658,30 @@ mod tests {
         anchor.validate().unwrap();
         assert!(GeographicPosition::new(181.0, 0.0, None).is_err());
         assert!(GeographicPosition::new(0.0, -91.0, None).is_err());
+    }
+
+    #[test]
+    fn cartesian_transforms_reject_geographic_and_image_frames() {
+        let geographic = CoordinateFrameRef::new("wgs84", CoordinateFrameKind::Geographic)
+            .unwrap()
+            .unit(CoordinateUnit::Degree);
+        let image = CoordinateFrameRef::new("image-1", CoordinateFrameKind::Image)
+            .unwrap()
+            .unit(CoordinateUnit::Pixel);
+        let transform = SimilarityTransform3d::new(
+            crate::Vector3d::new(0.0, 0.0, 0.0),
+            Quaterniond::IDENTITY,
+            1.0,
+        )
+        .unwrap();
+
+        assert!(CoordinateFrameTransform3d::new(
+            geographic,
+            scene_frame(),
+            transform.clone()
+        )
+        .is_err());
+        assert!(CoordinateFrameTransform3d::new(image, scene_frame(), transform).is_err());
     }
 
     #[test]
