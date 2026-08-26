@@ -5,13 +5,11 @@
 //! annotation envelope without a flag-day rewrite.
 
 use media_core::annotations::{
-    AnnotationDataset, AnnotationProvenance, AnnotationSelector, AnnotationTiming,
-    AnnotationValue, MediaAnnotation, MediaSourceRef, Result,
+    AnnotationDataset, AnnotationProvenance, AnnotationSelector, AnnotationTiming, AnnotationValue,
+    MediaAnnotation, MediaSourceRef, Result,
 };
 use media_core::{MediaRange, Timebase, Timestamp};
-use video_analysis_dataset::{
-    AnalysisDataset, BoundingBoxRecord, DatasetRecord, TimestampRecord,
-};
+use video_analysis_dataset::{AnalysisDataset, BoundingBoxRecord, DatasetRecord, TimestampRecord};
 
 /// Converts an existing retained video-analysis dataset into neutral annotations.
 ///
@@ -47,10 +45,8 @@ pub fn annotation_dataset_from_video_dataset(
     }
 
     for (index, record) in dataset.records.iter().enumerate() {
-        let mut annotation = MediaAnnotation::new(
-            format!("legacy:{index}:{}", record.kind()),
-            record.kind(),
-        );
+        let mut annotation =
+            MediaAnnotation::new(format!("legacy:{index}:{}", record.kind()), record.kind());
 
         if let Some(label) = record_label(record) {
             annotation = annotation.label(label);
@@ -71,10 +67,9 @@ pub fn annotation_dataset_from_video_dataset(
             annotation = annotation.provenance(provenance);
         }
         annotation.attributes = record_attributes(record);
-        annotation.attributes.insert(
-            "legacyRecordKind".to_string(),
-            record.kind().to_string(),
-        );
+        annotation
+            .attributes
+            .insert("legacyRecordKind".to_string(), record.kind().to_string());
         annotation = annotation.value(AnnotationValue::Json(serde_json::to_value(record)?));
         annotations.push(annotation)?;
     }
@@ -206,14 +201,11 @@ fn record_selector(record: &DatasetRecord) -> Option<AnnotationSelector> {
         DatasetRecord::Track(record) => Some(AnnotationSelector::Track {
             track_id: record.track_id.clone(),
         }),
-        DatasetRecord::Pose2d(record) => record
-            .region
-            .map(region_selector)
-            .or_else(|| {
-                record.frame.map(|frame| AnnotationSelector::Frame {
-                    frame_index: frame.frame_index,
-                })
-            }),
+        DatasetRecord::Pose2d(record) => record.region.map(region_selector).or_else(|| {
+            record.frame.map(|frame| AnnotationSelector::Frame {
+                frame_index: frame.frame_index,
+            })
+        }),
         DatasetRecord::Pose3d(record) => record.frame.map(|frame| AnnotationSelector::Frame {
             frame_index: frame.frame_index,
         }),
@@ -296,11 +288,9 @@ mod tests {
     fn converts_legacy_events_losslessly_into_neutral_annotations() {
         let source_timestamp = Timestamp::new(24, Timebase::new(1, 24));
         let mut legacy = AnalysisDataset::empty();
-        legacy.extend_events([
-            AnalysisEvent::new("fixture", "marker")
-                .at_timestamp(source_timestamp)
-                .score(0.75),
-        ]);
+        legacy.extend_events([AnalysisEvent::new("fixture", "marker")
+            .at_timestamp(source_timestamp)
+            .score(0.75)]);
 
         let converted = annotation_dataset_from_video_dataset(&legacy).unwrap();
         assert_eq!(converted.annotations.len(), 1);
@@ -321,9 +311,6 @@ mod tests {
             annotation.provenance[0].analyzer.as_deref(),
             Some("fixture")
         );
-        assert!(matches!(
-            annotation.value,
-            Some(AnnotationValue::Json(_))
-        ));
+        assert!(matches!(annotation.value, Some(AnnotationValue::Json(_))));
     }
 }
