@@ -5,16 +5,40 @@ consumers.
 
 The crate owns only:
 
-- `Timebase`, the rational duration of one timestamp tick;
-- `Timestamp`, presentation ticks paired with their timebase;
+- `Timebase`, the rational duration of one timestamp tick, with additive
+  validation for new boundary code;
+- `Timestamp`, presentation ticks paired with their timebase, plus exact
+  chronological comparison and lossless rescaling helpers;
+- `MediaRange`, a validated half-open `[start, end)` range whose endpoints may
+  use different timebases;
 - `AnalysisEvent`, a domain-neutral labeled result with optional time and score;
 - `PixelFormat` and `AudioSampleFormat`, compact stream-format identifiers
   without frame or buffer ownership;
 - `DetectError` and `Result`, the shared media error identity used across
   foundation and capability contracts.
 
-`moenarch-video-analysis-core` re-exports these exact types to preserve its
-existing public API and type identity while consumers migrate.
+The legacy `Timebase::new` and `Timestamp::new` constructors remain available
+for compatibility. New source, serialization, and annotation boundaries should
+prefer the validated constructors and chronological helpers rather than relying
+on structural `Ord` or unchecked floating-point conversion.
+
+`moenarch-video-analysis-core` re-exports the existing neutral types to preserve
+its public API and type identity while consumers migrate. New neutral contracts
+may be consumed directly from `moenarch-media-core` until compatibility
+re-exports are deliberately expanded.
+
+## Time semantics
+
+A valid `Timebase` has a positive numerator and denominator. `Timestamp`
+comparison across different timebases is performed exactly with rational
+integer arithmetic through `chronological_cmp`; it does not convert through
+`f64` seconds. `rescale_exact` succeeds only when the destination timebase can
+represent the same instant with an integral PTS value.
+
+`MediaRange` uses half-open semantics: the start is included and the end is
+excluded. Empty ranges are valid. Range construction, containment, overlap, and
+duration validate their timestamps and compare endpoints chronologically across
+timebases.
 
 ## Ownership audit
 
@@ -33,15 +57,17 @@ they do not own media data. Moving the shared error identity alongside those
 identifiers lets non-visual foundation crates stop depending on video ownership
 without copying error DTOs or changing downstream result types.
 
-No cross-family range contract existed at the audited source head, so none was
-invented for this extraction. No alternate source or stream metadata type is
-introduced here.
+No cross-family range contract existed at the source head audited by issue
+#108, so that extraction did not invent one. `MediaRange` was added later as an
+explicit annotation/interoperability prerequisite; it remains intentionally
+limited to neutral media time and does not absorb scenes, tracks, transcript
+segments, frames, regions, or source metadata.
 
 ## Candidate consumer audit
 
-The issue #108 audit inspected the current default-branch heads of the named
-candidate consumers. `video-analysis-studio` is the only candidate that imports
-these neutral Rust types directly:
+The issue #108 audit inspected the then-current default-branch heads of the
+named candidate consumers. `video-analysis-studio` was the only candidate that
+imported the original neutral Rust types directly:
 
 | Consumer | Audited commit | Neutral contract use |
 | --- | --- | --- |
