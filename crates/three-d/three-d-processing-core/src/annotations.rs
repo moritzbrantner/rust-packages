@@ -668,20 +668,19 @@ mod tests {
         let image = CoordinateFrameRef::new("image-1", CoordinateFrameKind::Image)
             .unwrap()
             .unit(CoordinateUnit::Pixel);
-        let transform = SimilarityTransform3d::new(
-            crate::Vector3d::new(0.0, 0.0, 0.0),
-            Quaterniond::IDENTITY,
-            1.0,
-        )
-        .unwrap();
 
         assert!(CoordinateFrameTransform3d::new(
             geographic,
             scene_frame(),
-            transform.clone()
+            SimilarityTransform3d::IDENTITY,
         )
         .is_err());
-        assert!(CoordinateFrameTransform3d::new(image, scene_frame(), transform).is_err());
+        assert!(CoordinateFrameTransform3d::new(
+            image,
+            scene_frame(),
+            SimilarityTransform3d::IDENTITY,
+        )
+        .is_err());
     }
 
     #[test]
