@@ -758,7 +758,7 @@ impl AnnotationDataset {
             .filter(move |annotation| annotation.kind == kind)
     }
 
-    /// Merges datasets without silently resolving duplicate annotation ids.
+    /// Merges datasets without silently resolving duplicate annotation ids or metadata conflicts.
     pub fn merge(datasets: &[Self]) -> Result<Self> {
         for dataset in datasets {
             dataset.validate()?;
@@ -767,6 +767,7 @@ impl AnnotationDataset {
         let mut merged = Self::new();
         if let Some(first) = datasets.first() {
             merged.name = first.name.clone();
+            merged.attributes = first.attributes.clone();
             if datasets
                 .iter()
                 .all(|dataset| dataset.source == first.source)
@@ -774,6 +775,23 @@ impl AnnotationDataset {
                 merged.source = first.source.clone();
             }
         }
+
+        for dataset in datasets.iter().skip(1) {
+            for (key, value) in &dataset.attributes {
+                match merged.attributes.get(key) {
+                    Some(existing) if existing != value => {
+                        return Err(AnnotationError::Invalid(format!(
+                            "conflicting dataset attribute `{key}` while merging"
+                        )));
+                    }
+                    Some(_) => {}
+                    None => {
+                        merged.attributes.insert(key.clone(), value.clone());
+                    }
+                }
+            }
+        }
+
         for dataset in datasets {
             for annotation in &dataset.annotations {
                 merged.push(annotation.clone())?;
@@ -832,6 +850,7 @@ pub fn read_jsonl(reader: impl Read) -> Result<AnnotationDataset> {
 
 /// Writes a complete annotation dataset to a JSON file.
 pub fn write_json_file(path: impl AsRef<Path>, dataset: &AnnotationDataset) -> Result<()> {
+    dataset.validate()?;
     write_json(File::create(path)?, dataset)
 }
 
@@ -842,6 +861,7 @@ pub fn read_json_file(path: impl AsRef<Path>) -> Result<AnnotationDataset> {
 
 /// Writes annotation records to a JSONL file.
 pub fn write_jsonl_file(path: impl AsRef<Path>, dataset: &AnnotationDataset) -> Result<()> {
+    dataset.validate()?;
     write_jsonl(File::create(path)?, dataset)
 }
 
@@ -876,10 +896,23 @@ fn validate_attribute_keys(attributes: &BTreeMap<String, String>, field: &str) -
 
 #[cfg(test)]
 mod tests {
+    use std::path::PathBuf;
+
     use super::*;
 
     fn timestamp(pts: i64, num: i32, den: i32) -> Timestamp {
         Timestamp::try_new(pts, Timebase::try_new(num, den).unwrap()).unwrap()
+    }
+
+    fn temp_path(extension: &str) -> PathBuf {
+        let nonce = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_nanos();
+        std::env::temp_dir().join(format!(
+            "media-annotations-{}-{nonce}.{extension}",
+            std::process::id()
+        ))
     }
 
     #[test]
@@ -975,5 +1008,55 @@ mod tests {
         let mut dataset = AnnotationDataset::new();
         dataset.push(MediaAnnotation::new("same", "one")).unwrap();
         assert!(dataset.push(MediaAnnotation::new("same", "two")).is_err());
+    }
+
+    #[test]
+    fn merge_preserves_dataset_attributes_and_rejects_conflicts() {
+        let mut left = AnnotationDataset::new();
+        left.attributes
+            .insert("owner".to_string(), "shared".to_string());
+        left.attributes
+            .insert("left".to_string(), "present".to_string());
+        let mut right = AnnotationDataset::new();
+        right
+            .attributes
+            .insert("owner".to_string(), "shared".to_string());
+        right
+            .attributes
+            .insert("right".to_string(), "present".to_string());
+
+        let merged = AnnotationDataset::merge(&[left.clone(), right.clone()]).unwrap();
+        assert_eq!(merged.attributes.get("owner").map(String::as_str), Some("shared"));
+        assert_eq!(merged.attributes.get("left").map(String::as_str), Some("present"));
+        assert_eq!(merged.attributes.get("right").map(String::as_str), Some("present"));
+
+        right
+            .attributes
+            .insert("owner".to_string(), "different".to_string());
+        assert!(AnnotationDataset::merge(&[left, right]).is_err());
+    }
+
+    #[test]
+    fn invalid_datasets_do_not_truncate_existing_output_files() {
+        let mut invalid = AnnotationDataset::new();
+        invalid
+            .annotations
+            .push(MediaAnnotation::new("duplicate", "first"));
+        invalid
+            .annotations
+            .push(MediaAnnotation::new("duplicate", "second"));
+
+        let json_path = temp_path("json");
+        let jsonl_path = temp_path("jsonl");
+        std::fs::write(&json_path, b"previous-json").unwrap();
+        std::fs::write(&jsonl_path, b"previous-jsonl").unwrap();
+
+        assert!(write_json_file(&json_path, &invalid).is_err());
+        assert!(write_jsonl_file(&jsonl_path, &invalid).is_err());
+        assert_eq!(std::fs::read(&json_path).unwrap(), b"previous-json");
+        assert_eq!(std::fs::read(&jsonl_path).unwrap(), b"previous-jsonl");
+
+        let _ = std::fs::remove_file(json_path);
+        let _ = std::fs::remove_file(jsonl_path);
     }
 }
