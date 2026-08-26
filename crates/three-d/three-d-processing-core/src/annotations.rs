@@ -193,7 +193,7 @@ impl CoordinateFrameTransform3d {
         Ok(value)
     }
 
-    /// Validates both frames and transform values.
+    /// Validates both frames, unit semantics, and transform values.
     pub fn validate(&self) -> Result<()> {
         self.from.validate_cartesian_3d()?;
         self.to.validate_cartesian_3d()?;
@@ -207,6 +207,18 @@ impl CoordinateFrameTransform3d {
             self.transform.rotation,
             self.transform.scale,
         )?;
+        if let (Some(from_meters), Some(to_meters)) = (
+            self.from.unit.and_then(CoordinateUnit::metric_meters_per_unit),
+            self.to.unit.and_then(CoordinateUnit::metric_meters_per_unit),
+        ) {
+            let expected_scale = from_meters / to_meters;
+            if !approximately_equal(self.transform.scale.abs(), expected_scale) {
+                return Err(invalid_argument(format!(
+                    "transform scale magnitude {} contradicts metric frame units, expected {expected_scale}",
+                    self.transform.scale.abs()
+                )));
+            }
+        }
         Ok(())
     }
 }
@@ -723,6 +735,52 @@ mod tests {
             )
             .is_err());
         }
+    }
+
+    #[test]
+    fn metric_frame_transforms_enforce_unit_ratios() {
+        let meters = CoordinateFrameRef::local("meters")
+            .unwrap()
+            .unit(CoordinateUnit::Meter);
+        let centimeters = CoordinateFrameRef::local("centimeters")
+            .unwrap()
+            .unit(CoordinateUnit::Centimeter);
+        let reflected_meter_to_centimeter = SimilarityTransform3d::new(
+            crate::Vector3d::ZERO,
+            Quaterniond::IDENTITY,
+            -100.0,
+        )
+        .unwrap();
+
+        CoordinateFrameTransform3d::new(
+            meters.clone(),
+            centimeters.clone(),
+            SimilarityTransform3d::new(crate::Vector3d::ZERO, Quaterniond::IDENTITY, 100.0)
+                .unwrap(),
+        )
+        .unwrap();
+        CoordinateFrameTransform3d::new(
+            meters.clone(),
+            centimeters.clone(),
+            reflected_meter_to_centimeter,
+        )
+        .unwrap();
+
+        assert!(CoordinateFrameTransform3d::new(
+            meters.clone(),
+            centimeters,
+            SimilarityTransform3d::IDENTITY,
+        )
+        .is_err());
+        assert!(CoordinateFrameTransform3d::new(
+            meters.clone(),
+            CoordinateFrameRef::local("meters-2")
+                .unwrap()
+                .unit(CoordinateUnit::Meter),
+            SimilarityTransform3d::new(crate::Vector3d::ZERO, Quaterniond::IDENTITY, 0.025)
+                .unwrap(),
+        )
+        .is_err());
     }
 
     #[test]
