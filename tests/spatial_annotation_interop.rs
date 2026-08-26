@@ -26,10 +26,8 @@ fn media_frame_round_trips_with_colmap_camera_pose() {
     let scene_frame = CoordinateFrameRef::local("colmap-world")
         .expect("scene frame should be valid")
         .unit(CoordinateUnit::Arbitrary);
-    let pose = CameraPose3d::from_colmap_world_to_camera(
-        1.0, 0.0, 0.0, 0.0, 0.25, -0.5, 1.5,
-    )
-    .expect("COLMAP pose should convert to the canonical camera pose");
+    let pose = CameraPose3d::from_colmap_world_to_camera(1.0, 0.0, 0.0, 0.0, 0.25, -0.5, 1.5)
+        .expect("COLMAP pose should convert to the canonical camera pose");
     let intrinsics = PinholeIntrinsicsd::new(1920, 1080, 1200.0, 1200.0, 960.0, 540.0)
         .expect("pinhole intrinsics should be valid");
     let calibration_ref = SpatialEntityRef::new("colmap", "camera", "7")
