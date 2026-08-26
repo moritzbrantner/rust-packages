@@ -12,10 +12,18 @@ The crate owns only:
 - `MediaRange`, a validated half-open `[start, end)` range whose endpoints may
   use different timebases;
 - `AnalysisEvent`, a domain-neutral labeled result with optional time and score;
+- the `annotations` module, which provides a neutral annotation envelope,
+  source/selectors/provenance, exact temporal queries, and JSON/JSONL storage;
 - `PixelFormat` and `AudioSampleFormat`, compact stream-format identifiers
   without frame or buffer ownership;
 - `DetectError` and `Result`, the shared media error identity used across
   foundation and capability contracts.
+
+The annotation layer deliberately does not define scenes, transcript segments,
+visual detections, poses, tracks, or audio features. Those remain domain-owned
+and are adapted into `annotations::MediaAnnotation` at domain boundaries. This
+keeps `media-core` useful as an interoperability foundation without turning it
+into a cross-domain ontology.
 
 The legacy `Timebase::new` and `Timestamp::new` constructors remain available
 for compatibility. New source, serialization, and annotation boundaries should
@@ -40,6 +48,27 @@ excluded. Empty ranges are valid. Range construction, containment, overlap, and
 duration validate their timestamps and compare endpoints chronologically across
 timebases.
 
+## Annotation interoperability
+
+`annotations::MediaAnnotation` is the common envelope for findings that need to
+coexist across media domains. It carries a stable id and kind plus optional
+label, exact instant or `MediaRange`, source/stream identity, source selector,
+finite score, provenance, structured value, and adapter-specific attributes.
+Selectors cover frames, text segments and spans, 2D regions, tracks, and custom
+structured selectors without importing domain-specific types.
+
+`annotations::AnnotationDataset` validates unique annotation ids and supports
+exact chronological sorting, point-in-time queries, half-open range overlap
+queries, kind filtering, and duplicate-safe merging. JSON preserves dataset
+metadata and exact PTS/timebase values. JSONL is an annotation-stream format and
+therefore intentionally omits dataset-level metadata.
+
+The legacy `AnalysisEvent` converts directly into this envelope. Richer domain
+models should be adapted from their owning crate rather than moved into
+`media-core`; for example, `video-analysis-storage::annotations` converts the
+existing retained video-analysis dataset without introducing a reverse
+dependency from foundation into video.
+
 ## Ownership audit
 
 The issue #108 contract audit kept media data in its narrowest existing domain:
@@ -58,10 +87,9 @@ identifiers lets non-visual foundation crates stop depending on video ownership
 without copying error DTOs or changing downstream result types.
 
 No cross-family range contract existed at the source head audited by issue
-#108, so that extraction did not invent one. `MediaRange` was added later as an
-explicit annotation/interoperability prerequisite; it remains intentionally
-limited to neutral media time and does not absorb scenes, tracks, transcript
-segments, frames, regions, or source metadata.
+#108, so that extraction did not invent one. `MediaRange` and the neutral
+annotation envelope were added later as explicit interoperability prerequisites;
+they remain intentionally separate from domain-owned media data.
 
 ## Candidate consumer audit
 
