@@ -598,7 +598,7 @@ pub struct SpatialBinding {
     pub schema_version: u32,
     /// Typed spatial selection.
     pub spatial: SpatialSelector,
-    /// Optional selector from another capability, serialized without taking ownership of its type.
+    /// Optional non-null selector from another capability, serialized without owning its type.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub source_selector: Option<Value>,
 }
@@ -615,13 +615,19 @@ impl SpatialBinding {
         Ok(value)
     }
 
-    /// Serializes and attaches a selector owned by another capability.
+    /// Serializes and attaches a non-null selector owned by another capability.
     pub fn with_source_selector<T: Serialize>(mut self, selector: T) -> Result<Self> {
-        self.source_selector = Some(serde_json::to_value(selector).map_err(|error| {
+        let selector = serde_json::to_value(selector).map_err(|error| {
             invalid_argument(format!(
                 "could not serialize spatial source selector: {error}"
             ))
-        })?);
+        })?;
+        if selector.is_null() {
+            return Err(invalid_argument(
+                "spatial source selector must not serialize to null",
+            ));
+        }
+        self.source_selector = Some(selector);
         self.validate()?;
         Ok(self)
     }
@@ -640,7 +646,7 @@ impl SpatialBinding {
             .transpose()
     }
 
-    /// Validates schema and spatial invariants.
+    /// Validates schema, spatial invariants, and source-selector presence semantics.
     pub fn validate(&self) -> Result<()> {
         if self.schema_version != SPATIAL_ANNOTATION_SCHEMA_VERSION {
             return Err(invalid_argument(format!(
@@ -648,7 +654,13 @@ impl SpatialBinding {
                 self.schema_version
             )));
         }
-        self.spatial.validate()
+        self.spatial.validate()?;
+        if self.source_selector.as_ref().is_some_and(Value::is_null) {
+            return Err(invalid_argument(
+                "spatial source selector must not be null when present",
+            ));
+        }
+        Ok(())
     }
 }
 
@@ -901,6 +913,24 @@ mod tests {
                 .unwrap(),
             Some(source_selector)
         );
+    }
+
+    #[test]
+    fn source_selectors_must_not_serialize_to_null() {
+        let spatial = SpatialSelector::GeographicPoint {
+            position: GeographicPosition::new(8.0, 49.0, None).unwrap(),
+            horizontal_accuracy_meters: None,
+            vertical_accuracy_meters: None,
+        };
+        let binding = SpatialBinding::new(spatial.clone()).unwrap();
+
+        assert!(binding
+            .with_source_selector(Option::<u64>::None)
+            .is_err());
+
+        let mut invalid = SpatialBinding::new(spatial).unwrap();
+        invalid.source_selector = Some(Value::Null);
+        assert!(invalid.validate().is_err());
     }
 
     #[test]
