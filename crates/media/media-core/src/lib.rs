@@ -1,5 +1,7 @@
 #![doc = include_str!("../README.md")]
 
+pub mod annotations;
+
 use std::cmp::Ordering;
 
 /// A compact identifier for the pixel layout of a video frame.
