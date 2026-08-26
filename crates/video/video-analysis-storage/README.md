@@ -1,18 +1,39 @@
 # video-analysis-storage
 
-Dataset persistence for `moritzbrantner-video-analysis`.
+Dataset persistence and migration support for `moritzbrantner-video-analysis`.
 
 ## Feature flags
 
 - No optional feature flags today.
 
+## Legacy dataset persistence
+
+The existing `AnalysisDataset` JSON/JSONL/directory formats remain supported for
+compatibility. This crate does not rewrite those serialized shapes in place.
+
+The `annotations` module provides the migration boundary to the neutral
+`media-core::annotations` model. `annotation_dataset_from_video_dataset`
+promotes common timing, source, selector, label, score, and analyzer data into
+the neutral envelope and retains each complete legacy `DatasetRecord` as a JSON
+payload, so fields that remain video-specific are not discarded.
+
+Scene records map to `MediaRange` using their stored start/end positions. Track
+records are anchored at their first timestamp rather than inventing an
+end-exclusive range from a legacy last-observation timestamp. Consumers that
+need richer track interval semantics can add them once the producing domain has
+an explicit boundary contract.
+
+New cross-media persistence and temporal queries should use
+`media_core::annotations::AnnotationDataset`; the old dataset/storage/transform
+surface remains available while consumers migrate.
+
 ## Example
 
 ```rust,ignore
-use video_analysis_storage::{load_dataset_dir, write_dataset_dir};
+use video_analysis_storage::{read_dataset_dir, write_dataset_dir};
 
 write_dataset_dir("output/report", &Default::default())?;
-let dataset = load_dataset_dir("output/report")?;
+let dataset = read_dataset_dir("output/report")?;
 
 let _ = dataset;
 ```
@@ -48,5 +69,6 @@ external-tool execution.
 
 ## Related crates
 
+- `media-core`
 - `video-analysis-dataset`
 - `video-analysis-output`

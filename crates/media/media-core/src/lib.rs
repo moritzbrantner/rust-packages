@@ -1,5 +1,7 @@
 #![doc = include_str!("../README.md")]
 
+pub mod annotations;
+
 use std::cmp::Ordering;
 
 /// A compact identifier for the pixel layout of a video frame.
@@ -230,8 +232,7 @@ impl Timestamp {
     pub fn rescale_exact(self, timebase: Timebase) -> Result<Self> {
         self.validate()?;
         timebase.validate()?;
-        let numerator =
-            self.pts as i128 * self.timebase.num as i128 * timebase.den as i128;
+        let numerator = self.pts as i128 * self.timebase.num as i128 * timebase.den as i128;
         let denominator = self.timebase.den as i128 * timebase.num as i128;
         if numerator % denominator != 0 {
             return Err(DetectError::InvalidArgument(format!(
@@ -292,8 +293,10 @@ impl MediaRange {
     pub fn contains(self, timestamp: Timestamp) -> Result<bool> {
         self.validate()?;
         timestamp.validate()?;
-        Ok(self.start.chronological_cmp(timestamp)? != Ordering::Greater
-            && timestamp.chronological_cmp(self.end)? == Ordering::Less)
+        Ok(
+            self.start.chronological_cmp(timestamp)? != Ordering::Greater
+                && timestamp.chronological_cmp(self.end)? == Ordering::Less,
+        )
     }
 
     /// Returns whether two half-open ranges overlap.
@@ -347,8 +350,7 @@ mod tests {
     use std::cmp::Ordering;
 
     use super::{
-        AnalysisEvent, AudioSampleFormat, DetectError, MediaRange, PixelFormat, Timebase,
-        Timestamp,
+        AnalysisEvent, AudioSampleFormat, DetectError, MediaRange, PixelFormat, Timebase, Timestamp,
     };
 
     #[test]
@@ -380,18 +382,12 @@ mod tests {
     #[test]
     fn exact_rescaling_preserves_instants_and_rejects_rounding() {
         let timestamp = Timestamp::new(24, Timebase::new(1, 24));
-        let milliseconds = timestamp
-            .rescale_exact(Timebase::new(1, 1_000))
-            .unwrap();
+        let milliseconds = timestamp.rescale_exact(Timebase::new(1, 1_000)).unwrap();
         assert_eq!(milliseconds.pts, 1_000);
-        assert!(timestamp
-            .rescale_exact(Timebase::new(1, 25))
-            .is_ok());
+        assert!(timestamp.rescale_exact(Timebase::new(1, 25)).is_ok());
 
         let one_frame = Timestamp::new(1, Timebase::new(1, 24));
-        assert!(one_frame
-            .rescale_exact(Timebase::new(1, 1_000))
-            .is_err());
+        assert!(one_frame.rescale_exact(Timebase::new(1, 1_000)).is_err());
     }
 
     #[test]

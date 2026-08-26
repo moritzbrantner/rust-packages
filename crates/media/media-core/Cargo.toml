@@ -4,7 +4,7 @@ version.workspace = true
 edition.workspace = true
 license.workspace = true
 rust-version.workspace = true
-description = "Neutral media timing and analysis-event contracts."
+description = "Neutral media timing, annotation, and analysis-event contracts."
 readme = "README.md"
 repository.workspace = true
 homepage.workspace = true
@@ -14,3 +14,8 @@ categories.workspace = true
 
 [lib]
 name = "media_core"
+
+[dependencies]
+serde.workspace = true
+serde_json.workspace = true
+thiserror.workspace = true

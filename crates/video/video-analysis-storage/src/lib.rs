@@ -1,5 +1,6 @@
 #![doc = include_str!("../README.md")]
 
+pub mod annotations;
 pub mod surface;
 use std::collections::BTreeMap;
 use std::fs::{self, File};
