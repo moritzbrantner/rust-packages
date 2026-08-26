@@ -179,11 +179,8 @@ impl CoordinateFrameTransform3d {
         to: CoordinateFrameRef,
         transform: SimilarityTransform3d,
     ) -> Result<Self> {
-        let transform = SimilarityTransform3d::new(
-            transform.translation,
-            transform.rotation,
-            transform.scale,
-        )?;
+        let transform =
+            SimilarityTransform3d::new(transform.translation, transform.rotation, transform.scale)?;
         let value = Self {
             from,
             to,
@@ -208,8 +205,12 @@ impl CoordinateFrameTransform3d {
             self.transform.scale,
         )?;
         if let (Some(from_meters), Some(to_meters)) = (
-            self.from.unit.and_then(CoordinateUnit::metric_meters_per_unit),
-            self.to.unit.and_then(CoordinateUnit::metric_meters_per_unit),
+            self.from
+                .unit
+                .and_then(CoordinateUnit::metric_meters_per_unit),
+            self.to
+                .unit
+                .and_then(CoordinateUnit::metric_meters_per_unit),
         ) {
             let expected_scale = from_meters / to_meters;
             if !approximately_equal(self.transform.scale.abs(), expected_scale) {
@@ -261,15 +262,15 @@ impl GeographicPosition {
                 "longitude_degrees must be finite and in [-180, 180]",
             ));
         }
-        if !self.latitude_degrees.is_finite()
-            || !(-90.0..=90.0).contains(&self.latitude_degrees)
-        {
+        if !self.latitude_degrees.is_finite() || !(-90.0..=90.0).contains(&self.latitude_degrees) {
             return Err(invalid_argument(
                 "latitude_degrees must be finite and in [-90, 90]",
             ));
         }
         if self.altitude_meters.is_some_and(|value| !value.is_finite()) {
-            return Err(invalid_argument("altitude_meters must be finite when present"));
+            return Err(invalid_argument(
+                "altitude_meters must be finite when present",
+            ));
         }
         Ok(())
     }
@@ -335,7 +336,11 @@ impl GeographicFrameAnchor {
                 "meters_per_unit must be finite and greater than zero",
             ));
         }
-        if let Some(expected) = self.frame.unit.and_then(CoordinateUnit::metric_meters_per_unit) {
+        if let Some(expected) = self
+            .frame
+            .unit
+            .and_then(CoordinateUnit::metric_meters_per_unit)
+        {
             if !approximately_equal(self.meters_per_unit, expected) {
                 return Err(invalid_argument(format!(
                     "meters_per_unit {} contradicts declared frame unit {:?}, expected {expected}",
@@ -613,7 +618,9 @@ impl SpatialBinding {
     /// Serializes and attaches a selector owned by another capability.
     pub fn with_source_selector<T: Serialize>(mut self, selector: T) -> Result<Self> {
         self.source_selector = Some(serde_json::to_value(selector).map_err(|error| {
-            invalid_argument(format!("could not serialize spatial source selector: {error}"))
+            invalid_argument(format!(
+                "could not serialize spatial source selector: {error}"
+            ))
         })?);
         self.validate()?;
         Ok(self)
@@ -723,9 +730,10 @@ mod tests {
         let local_degrees = CoordinateFrameRef::local("bad-local-degrees")
             .unwrap()
             .unit(CoordinateUnit::Degree);
-        let camera_pixels = CoordinateFrameRef::new("bad-camera-pixels", CoordinateFrameKind::Camera)
-            .unwrap()
-            .unit(CoordinateUnit::Pixel);
+        let camera_pixels =
+            CoordinateFrameRef::new("bad-camera-pixels", CoordinateFrameKind::Camera)
+                .unwrap()
+                .unit(CoordinateUnit::Pixel);
 
         for invalid_frame in [geographic, image, local_degrees, camera_pixels] {
             assert!(CoordinateFrameTransform3d::new(
@@ -773,7 +781,7 @@ mod tests {
         )
         .is_err());
         assert!(CoordinateFrameTransform3d::new(
-            meters.clone(),
+            meters,
             CoordinateFrameRef::local("meters-2")
                 .unwrap()
                 .unit(CoordinateUnit::Meter),
@@ -836,10 +844,8 @@ mod tests {
 
     #[test]
     fn colmap_camera_pose_binds_losslessly_to_a_video_frame_selector() {
-        let pose = CameraPose3d::from_colmap_world_to_camera(
-            1.0, 0.0, 0.0, 0.0, 1.25, -2.5, 3.75,
-        )
-        .unwrap();
+        let pose = CameraPose3d::from_colmap_world_to_camera(1.0, 0.0, 0.0, 0.0, 1.25, -2.5, 3.75)
+            .unwrap();
         let selector = SpatialSelector::CameraPose {
             frame: scene_frame(),
             pose,
