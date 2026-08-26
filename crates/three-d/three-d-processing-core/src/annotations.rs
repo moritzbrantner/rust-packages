@@ -1,14 +1,13 @@
-//! Typed spatial annotation contracts that compose canonical 3D math with neutral media annotations.
+//! Typed, product-agnostic spatial annotation contracts.
 //!
 //! This module deliberately does not define COLMAP, Gaussian-splatting, GIS, image, or video
-//! product models. It provides a small interoperability vocabulary for referring to coordinate
-//! frames, geographic anchors, 3D selections, poses, and camera poses while preserving the
-//! canonical math types owned by this crate and the neutral annotation envelope owned by
-//! `media-core`.
+//! product models. It provides a small interoperability vocabulary for coordinate frames,
+//! geographic anchors, 3D selections, poses, camera poses, and correspondences to selectors owned
+//! by other capabilities. Canonical spatial math remains owned by this crate; media, image, video,
+//! and geo packages can compose these values at their own boundaries without becoming dependencies
+//! of the 3D core.
 
-use std::collections::BTreeMap;
-
-use media_core::annotations::{AnnotationSelector, MediaAnnotation};
+use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use video_analysis_core::Result;
@@ -18,11 +17,8 @@ use crate::{
     SimilarityTransform3d,
 };
 
-/// Current schema version used when a spatial binding is embedded in a neutral annotation selector.
+/// Current serialized schema version for [`SpatialBinding`].
 pub const SPATIAL_ANNOTATION_SCHEMA_VERSION: u32 = 1;
-
-/// Neutral custom-selector kind used for spatial annotation bindings.
-pub const SPATIAL_ANNOTATION_SELECTOR_KIND: &str = "spatial";
 
 /// Broad semantic role of a coordinate frame.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -120,8 +116,8 @@ impl CoordinateFrameRef {
 
 /// Similarity transform between two Cartesian coordinate frames.
 ///
-/// `transform` maps a point expressed in `from` into `to`. Similarity rather than rigid
-/// transforms are used because reconstruction spaces such as COLMAP can have arbitrary scale.
+/// `transform` maps a point expressed in `from` into `to`. Similarity rather than rigid transforms
+/// are used because reconstruction spaces such as COLMAP can have arbitrary scale.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct CoordinateFrameTransform3d {
@@ -291,7 +287,7 @@ impl GeographicFrameAnchor {
 /// Independent uncertainty attached to a spatial location or orientation.
 ///
 /// This is intentionally separate from annotation confidence: semantic confidence answers whether
-/// a finding is believed, while these fields describe where/or how accurately it is located.
+/// a finding is believed, while these fields describe where or how accurately it is located.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SpatialUncertainty {
@@ -350,7 +346,7 @@ impl SpatialEntityRef {
     }
 }
 
-/// Typed spatial location selected by an annotation.
+/// Typed spatial location selected by an annotation or correspondence.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(tag = "kind", rename_all = "snake_case")]
 pub enum SpatialSelector {
@@ -398,7 +394,7 @@ pub enum SpatialSelector {
         frame: CoordinateFrameRef,
         /// Double-precision camera pose using the canonical workspace camera convention.
         pose: CameraPose3d,
-        /// Optional pinhole calibration when it is representable by the canonical core type.
+        /// Optional pinhole calibration when representable by the canonical core type.
         #[serde(default, skip_serializing_if = "Option::is_none")]
         intrinsics: Option<PinholeIntrinsicsd>,
         /// Optional reference to richer calibration owned by another domain model.
@@ -520,143 +516,69 @@ impl SpatialSelector {
     }
 }
 
-/// Spatial selection bound to an optional neutral media selector.
+/// Versioned correspondence between a spatial selection and an optional selector owned elsewhere.
 ///
-/// The nested `source_selector` is what lets one annotation say, for example, "video frame 42
-/// has this camera pose" or "this image region corresponds to this 3D point" without making the
-/// neutral media layer depend on 3D concepts.
+/// The source selector is serialized as JSON on purpose. A consumer that already depends on a
+/// source capability can insert and recover that capability's real selector type through
+/// [`SpatialBinding::with_source_selector`] and [`SpatialBinding::source_selector_as`]. For
+/// example, an integration crate can use the neutral media annotation selector for a video frame
+/// or image region without forcing `three-d-processing-core` to depend on `media-core`.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SpatialBinding {
+    /// Serialized contract version.
+    pub schema_version: u32,
     /// Typed spatial selection.
     pub spatial: SpatialSelector,
-    /// Optional media-local selector such as frame, 2D region, text span, or track.
+    /// Optional selector from another capability, serialized without taking ownership of its type.
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub source_selector: Option<AnnotationSelector>,
+    pub source_selector: Option<Value>,
 }
 
 impl SpatialBinding {
-    /// Creates a binding without a media-local selector.
+    /// Creates a spatial binding without a source-capability selector.
     pub fn new(spatial: SpatialSelector) -> Result<Self> {
-        let binding = Self {
+        let value = Self {
+            schema_version: SPATIAL_ANNOTATION_SCHEMA_VERSION,
             spatial,
             source_selector: None,
         };
-        binding.validate()?;
-        Ok(binding)
+        value.validate()?;
+        Ok(value)
     }
 
-    /// Returns this binding tied to a neutral media selector.
-    pub fn source_selector(mut self, selector: AnnotationSelector) -> Result<Self> {
-        selector
-            .validate()
-            .map_err(|error| invalid_argument(format!("invalid media source selector: {error}")))?;
-        self.source_selector = Some(selector);
+    /// Serializes and attaches a selector owned by another capability.
+    pub fn with_source_selector<T: Serialize>(mut self, selector: T) -> Result<Self> {
+        self.source_selector = Some(serde_json::to_value(selector).map_err(|error| {
+            invalid_argument(format!("could not serialize spatial source selector: {error}"))
+        })?);
         self.validate()?;
         Ok(self)
     }
 
-    /// Validates both the spatial and media-local parts.
+    /// Recovers the source selector as a consumer-owned type.
+    pub fn source_selector_as<T: DeserializeOwned>(&self) -> Result<Option<T>> {
+        self.source_selector
+            .as_ref()
+            .map(|selector| {
+                serde_json::from_value(selector.clone()).map_err(|error| {
+                    invalid_argument(format!(
+                        "could not deserialize spatial source selector: {error}"
+                    ))
+                })
+            })
+            .transpose()
+    }
+
+    /// Validates schema and spatial invariants.
     pub fn validate(&self) -> Result<()> {
-        self.spatial.validate()?;
-        if let Some(selector) = &self.source_selector {
-            selector.validate().map_err(|error| {
-                invalid_argument(format!("invalid media source selector: {error}"))
-            })?;
-        }
-        Ok(())
-    }
-
-    /// Encodes this binding as the versioned custom selector understood by neutral annotations.
-    pub fn to_annotation_selector(&self) -> Result<AnnotationSelector> {
-        self.validate()?;
-        let mut fields = BTreeMap::new();
-        fields.insert(
-            "schemaVersion".to_string(),
-            Value::from(SPATIAL_ANNOTATION_SCHEMA_VERSION),
-        );
-        fields.insert(
-            "binding".to_string(),
-            serde_json::to_value(self).map_err(|error| {
-                invalid_argument(format!("could not serialize spatial binding: {error}"))
-            })?,
-        );
-        Ok(AnnotationSelector::Custom {
-            selector_kind: SPATIAL_ANNOTATION_SELECTOR_KIND.to_string(),
-            fields,
-        })
-    }
-
-    /// Decodes a spatial binding when the supplied neutral selector is a supported spatial selector.
-    ///
-    /// Non-spatial selectors return `Ok(None)` so domain adapters can probe annotations without
-    /// claiming selectors they do not own.
-    pub fn from_annotation_selector(selector: &AnnotationSelector) -> Result<Option<Self>> {
-        let AnnotationSelector::Custom {
-            selector_kind,
-            fields,
-        } = selector
-        else {
-            return Ok(None);
-        };
-        if selector_kind != SPATIAL_ANNOTATION_SELECTOR_KIND {
-            return Ok(None);
-        }
-
-        let schema_version = fields
-            .get("schemaVersion")
-            .and_then(Value::as_u64)
-            .ok_or_else(|| invalid_argument("spatial selector is missing schemaVersion"))?;
-        if schema_version != u64::from(SPATIAL_ANNOTATION_SCHEMA_VERSION) {
+        if self.schema_version != SPATIAL_ANNOTATION_SCHEMA_VERSION {
             return Err(invalid_argument(format!(
-                "unsupported spatial annotation schema version {schema_version}"
+                "unsupported spatial annotation schema version {}",
+                self.schema_version
             )));
         }
-        let binding = fields
-            .get("binding")
-            .cloned()
-            .ok_or_else(|| invalid_argument("spatial selector is missing binding"))?;
-        let binding: Self = serde_json::from_value(binding).map_err(|error| {
-            invalid_argument(format!("could not deserialize spatial binding: {error}"))
-        })?;
-        binding.validate()?;
-        Ok(Some(binding))
-    }
-}
-
-/// Convenience methods for attaching/recovering spatial bindings from neutral media annotations.
-pub trait MediaAnnotationSpatialExt: Sized {
-    /// Attaches a typed spatial selector while preserving an existing media-local selector.
-    fn with_spatial_selector(self, spatial: SpatialSelector) -> Result<Self>;
-
-    /// Returns the typed spatial binding when this annotation carries one.
-    fn spatial_binding(&self) -> Result<Option<SpatialBinding>>;
-}
-
-impl MediaAnnotationSpatialExt for MediaAnnotation {
-    fn with_spatial_selector(mut self, spatial: SpatialSelector) -> Result<Self> {
-        if let Some(existing) = &self.selector {
-            if SpatialBinding::from_annotation_selector(existing)?.is_some() {
-                return Err(invalid_argument(
-                    "media annotation already carries a spatial binding",
-                ));
-            }
-        }
-        let source_selector = self.selector.take();
-        let mut binding = SpatialBinding::new(spatial)?;
-        binding.source_selector = source_selector;
-        binding.validate()?;
-        self.selector = Some(binding.to_annotation_selector()?);
-        self.validate()
-            .map_err(|error| invalid_argument(format!("invalid media annotation: {error}")))?;
-        Ok(self)
-    }
-
-    fn spatial_binding(&self) -> Result<Option<SpatialBinding>> {
-        match &self.selector {
-            Some(selector) => SpatialBinding::from_annotation_selector(selector),
-            None => Ok(None),
-        }
+        self.spatial.validate()
     }
 }
 
@@ -680,9 +602,22 @@ fn validate_optional_non_negative(value: Option<f64>, field: &str) -> Result<()>
 
 #[cfg(test)]
 mod tests {
-    use media_core::annotations::{MediaSourceRef, MediaAnnotation};
-
     use super::*;
+
+    #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+    #[serde(tag = "kind", rename_all = "snake_case")]
+    enum ExampleMediaSelector {
+        Frame {
+            #[serde(rename = "frameIndex")]
+            frame_index: u64,
+        },
+        Region2d {
+            x: u32,
+            y: u32,
+            width: u32,
+            height: u32,
+        },
+    }
 
     fn scene_frame() -> CoordinateFrameRef {
         CoordinateFrameRef::local("colmap-world")
@@ -729,7 +664,7 @@ mod tests {
     }
 
     #[test]
-    fn colmap_camera_pose_binds_losslessly_to_a_video_frame() {
+    fn colmap_camera_pose_binds_losslessly_to_a_video_frame_selector() {
         let pose = CameraPose3d::from_colmap_world_to_camera(
             1.0, 0.0, 0.0, 0.0, 1.25, -2.5, 3.75,
         )
@@ -746,54 +681,60 @@ mod tests {
                 angular_radians: Some(0.000_5),
             }),
         };
-        let annotation = MediaAnnotation::new("camera-frame-42", "camera_pose")
-            .source(MediaSourceRef::stream("video-0").source_kind("video"))
-            .selector(AnnotationSelector::Frame { frame_index: 42 })
-            .with_spatial_selector(selector.clone())
+        let source_selector = ExampleMediaSelector::Frame { frame_index: 42 };
+        let binding = SpatialBinding::new(selector.clone())
+            .unwrap()
+            .with_source_selector(source_selector.clone())
             .unwrap();
 
-        let binding = annotation.spatial_binding().unwrap().unwrap();
         assert_eq!(binding.spatial, selector);
         assert_eq!(
-            binding.source_selector,
-            Some(AnnotationSelector::Frame { frame_index: 42 })
+            binding
+                .source_selector_as::<ExampleMediaSelector>()
+                .unwrap(),
+            Some(source_selector)
         );
 
-        let encoded = serde_json::to_string(&annotation).unwrap();
-        let decoded: MediaAnnotation = serde_json::from_str(&encoded).unwrap();
-        assert_eq!(decoded.spatial_binding().unwrap().unwrap(), binding);
+        let encoded = serde_json::to_string(&binding).unwrap();
+        let decoded: SpatialBinding = serde_json::from_str(&encoded).unwrap();
+        assert_eq!(decoded, binding);
     }
 
     #[test]
-    fn image_region_can_correspond_to_a_scene_point_without_duplicating_region_types() {
-        let annotation = MediaAnnotation::new("observation-1", "feature_observation")
-            .source(MediaSourceRef::source("image-0001.jpg").source_kind("image"))
-            .selector(AnnotationSelector::Region2d {
-                x: 120.0,
-                y: 80.0,
-                width: 24.0,
-                height: 30.0,
-                coordinate_space: Some("pixels".to_string()),
-            })
-            .with_spatial_selector(SpatialSelector::Point3 {
-                frame: scene_frame(),
-                point: Point3d::new(1.25, -0.5, 4.75),
-                uncertainty: None,
-            })
-            .unwrap();
+    fn image_region_can_correspond_to_a_scene_point_without_duplicating_public_region_types() {
+        let source_selector = ExampleMediaSelector::Region2d {
+            x: 120,
+            y: 80,
+            width: 24,
+            height: 30,
+        };
+        let binding = SpatialBinding::new(SpatialSelector::Point3 {
+            frame: scene_frame(),
+            point: Point3d::new(1.25, -0.5, 4.75),
+            uncertainty: None,
+        })
+        .unwrap()
+        .with_source_selector(source_selector.clone())
+        .unwrap();
 
-        let binding = annotation.spatial_binding().unwrap().unwrap();
         assert!(matches!(binding.spatial, SpatialSelector::Point3 { .. }));
-        assert!(matches!(
-            binding.source_selector,
-            Some(AnnotationSelector::Region2d { .. })
-        ));
+        assert_eq!(
+            binding
+                .source_selector_as::<ExampleMediaSelector>()
+                .unwrap(),
+            Some(source_selector)
+        );
     }
 
     #[test]
     fn generic_pose_keeps_quaternion_rotation_and_translation() {
         let pose = RigidTransform3d::new(
-            Quaterniond::new(0.0, 0.0, 0.707_106_781_186_547_5, 0.707_106_781_186_547_6),
+            Quaterniond::new(
+                0.0,
+                0.0,
+                std::f64::consts::FRAC_1_SQRT_2,
+                std::f64::consts::FRAC_1_SQRT_2,
+            ),
             crate::Vector3d::new(1.0, 2.0, 3.0),
         )
         .unwrap();
@@ -807,5 +748,18 @@ mod tests {
         let encoded = serde_json::to_string(&selector).unwrap();
         let decoded: SpatialSelector = serde_json::from_str(&encoded).unwrap();
         assert_eq!(decoded, selector);
+    }
+
+    #[test]
+    fn spatial_binding_rejects_unknown_schema_versions() {
+        let mut binding = SpatialBinding::new(SpatialSelector::GeographicPoint {
+            position: GeographicPosition::new(8.0, 49.0, None).unwrap(),
+            horizontal_accuracy_meters: Some(2.0),
+            vertical_accuracy_meters: None,
+        })
+        .unwrap();
+        binding.schema_version += 1;
+
+        assert!(binding.validate().is_err());
     }
 }
