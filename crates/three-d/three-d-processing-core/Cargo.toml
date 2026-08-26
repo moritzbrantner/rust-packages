@@ -16,7 +16,6 @@ categories.workspace = true
 name = "three_d_processing_core"
 
 [dependencies]
-media-core.workspace = true
 nalgebra.workspace = true
 runtime-core.workspace = true
 serde_json.workspace = true
