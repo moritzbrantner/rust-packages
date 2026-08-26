@@ -765,12 +765,9 @@ mod tests {
         let centimeters = CoordinateFrameRef::local("centimeters")
             .unwrap()
             .unit(CoordinateUnit::Centimeter);
-        let reflected_meter_to_centimeter = SimilarityTransform3d::new(
-            crate::Vector3d::ZERO,
-            Quaterniond::IDENTITY,
-            -100.0,
-        )
-        .unwrap();
+        let reflected_meter_to_centimeter =
+            SimilarityTransform3d::new(crate::Vector3d::ZERO, Quaterniond::IDENTITY, -100.0)
+                .unwrap();
 
         CoordinateFrameTransform3d::new(
             meters.clone(),
@@ -924,9 +921,7 @@ mod tests {
         };
         let binding = SpatialBinding::new(spatial.clone()).unwrap();
 
-        assert!(binding
-            .with_source_selector(Option::<u64>::None)
-            .is_err());
+        assert!(binding.with_source_selector(Option::<u64>::None).is_err());
 
         let mut invalid = SpatialBinding::new(spatial).unwrap();
         invalid.source_selector = Some(Value::Null);
