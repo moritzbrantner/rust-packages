@@ -1026,9 +1026,18 @@ mod tests {
             .insert("right".to_string(), "present".to_string());
 
         let merged = AnnotationDataset::merge(&[left.clone(), right.clone()]).unwrap();
-        assert_eq!(merged.attributes.get("owner").map(String::as_str), Some("shared"));
-        assert_eq!(merged.attributes.get("left").map(String::as_str), Some("present"));
-        assert_eq!(merged.attributes.get("right").map(String::as_str), Some("present"));
+        assert_eq!(
+            merged.attributes.get("owner").map(String::as_str),
+            Some("shared")
+        );
+        assert_eq!(
+            merged.attributes.get("left").map(String::as_str),
+            Some("present")
+        );
+        assert_eq!(
+            merged.attributes.get("right").map(String::as_str),
+            Some("present")
+        );
 
         right
             .attributes
