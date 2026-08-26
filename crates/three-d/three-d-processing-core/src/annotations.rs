@@ -56,6 +56,23 @@ pub enum CoordinateUnit {
     Arbitrary,
 }
 
+impl CoordinateUnit {
+    /// Returns the canonical number of meters represented by one coordinate unit when metric.
+    pub const fn metric_meters_per_unit(self) -> Option<f64> {
+        match self {
+            Self::Meter => Some(1.0),
+            Self::Centimeter => Some(0.01),
+            Self::Millimeter => Some(0.001),
+            Self::Pixel | Self::Degree | Self::Unitless | Self::Arbitrary => None,
+        }
+    }
+
+    /// Returns whether this unit can describe a Cartesian 3D coordinate frame.
+    pub const fn supports_cartesian_3d(self) -> bool {
+        !matches!(self, Self::Pixel | Self::Degree)
+    }
+}
+
 /// Stable reference to a coordinate frame plus enough metadata to interpret its coordinates.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -117,16 +134,26 @@ impl CoordinateFrameRef {
     pub fn validate_cartesian_3d(&self) -> Result<()> {
         self.validate()?;
         match self.kind {
-            CoordinateFrameKind::Geographic => Err(invalid_argument(
-                "geographic frames cannot be used as Cartesian 3D coordinate frames",
-            )),
-            CoordinateFrameKind::Image => Err(invalid_argument(
-                "image frames cannot be used as Cartesian 3D coordinate frames",
-            )),
+            CoordinateFrameKind::Geographic => {
+                return Err(invalid_argument(
+                    "geographic frames cannot be used as Cartesian 3D coordinate frames",
+                ));
+            }
+            CoordinateFrameKind::Image => {
+                return Err(invalid_argument(
+                    "image frames cannot be used as Cartesian 3D coordinate frames",
+                ));
+            }
             CoordinateFrameKind::Local
             | CoordinateFrameKind::Camera
-            | CoordinateFrameKind::Custom => Ok(()),
+            | CoordinateFrameKind::Custom => {}
         }
+        if self.unit.is_some_and(|unit| !unit.supports_cartesian_3d()) {
+            return Err(invalid_argument(
+                "pixel and degree units cannot be used for Cartesian 3D coordinate frames",
+            ));
+        }
+        Ok(())
     }
 }
 
@@ -286,7 +313,7 @@ impl GeographicFrameAnchor {
         Ok(value)
     }
 
-    /// Validates the frame, anchor, orientation, and positive scale.
+    /// Validates the frame, anchor, orientation, and metric scale.
     pub fn validate(&self) -> Result<()> {
         self.frame.validate_cartesian_3d()?;
         self.origin.validate()?;
@@ -295,6 +322,14 @@ impl GeographicFrameAnchor {
             return Err(invalid_argument(
                 "meters_per_unit must be finite and greater than zero",
             ));
+        }
+        if let Some(expected) = self.frame.unit.and_then(CoordinateUnit::metric_meters_per_unit) {
+            if !approximately_equal(self.meters_per_unit, expected) {
+                return Err(invalid_argument(format!(
+                    "meters_per_unit {} contradicts declared frame unit {:?}, expected {expected}",
+                    self.meters_per_unit, self.frame.unit
+                )));
+            }
         }
         Ok(())
     }
@@ -616,6 +651,11 @@ fn validate_optional_non_negative(value: Option<f64>, field: &str) -> Result<()>
     }
 }
 
+fn approximately_equal(left: f64, right: f64) -> bool {
+    let scale = left.abs().max(right.abs()).max(1.0);
+    (left - right).abs() <= 1e-12 * scale
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -661,24 +701,58 @@ mod tests {
     }
 
     #[test]
-    fn cartesian_transforms_reject_geographic_and_image_frames() {
+    fn cartesian_transforms_reject_non_cartesian_frames_and_units() {
         let geographic = CoordinateFrameRef::new("wgs84", CoordinateFrameKind::Geographic)
             .unwrap()
             .unit(CoordinateUnit::Degree);
         let image = CoordinateFrameRef::new("image-1", CoordinateFrameKind::Image)
             .unwrap()
             .unit(CoordinateUnit::Pixel);
+        let local_degrees = CoordinateFrameRef::local("bad-local-degrees")
+            .unwrap()
+            .unit(CoordinateUnit::Degree);
+        let camera_pixels = CoordinateFrameRef::new("bad-camera-pixels", CoordinateFrameKind::Camera)
+            .unwrap()
+            .unit(CoordinateUnit::Pixel);
 
-        assert!(CoordinateFrameTransform3d::new(
-            geographic,
-            scene_frame(),
-            SimilarityTransform3d::IDENTITY,
-        )
-        .is_err());
-        assert!(CoordinateFrameTransform3d::new(
-            image,
-            scene_frame(),
-            SimilarityTransform3d::IDENTITY,
+        for invalid_frame in [geographic, image, local_degrees, camera_pixels] {
+            assert!(CoordinateFrameTransform3d::new(
+                invalid_frame,
+                scene_frame(),
+                SimilarityTransform3d::IDENTITY,
+            )
+            .is_err());
+        }
+    }
+
+    #[test]
+    fn geographic_anchor_enforces_declared_metric_units() {
+        let origin = GeographicPosition::new(8.682_127, 50.110_924, Some(112.5)).unwrap();
+        for (unit, expected_scale) in [
+            (CoordinateUnit::Meter, 1.0),
+            (CoordinateUnit::Centimeter, 0.01),
+            (CoordinateUnit::Millimeter, 0.001),
+        ] {
+            GeographicFrameAnchor::new(
+                CoordinateFrameRef::local(format!("metric-{unit:?}"))
+                    .unwrap()
+                    .unit(unit),
+                origin,
+                GeographicTangentFrame::EastNorthUp,
+                Quaterniond::IDENTITY,
+                expected_scale,
+            )
+            .unwrap();
+        }
+
+        assert!(GeographicFrameAnchor::new(
+            CoordinateFrameRef::local("contradictory-meter-frame")
+                .unwrap()
+                .unit(CoordinateUnit::Meter),
+            origin,
+            GeographicTangentFrame::EastNorthUp,
+            Quaterniond::IDENTITY,
+            0.025,
         )
         .is_err());
     }
