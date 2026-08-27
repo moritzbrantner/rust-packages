@@ -1,5 +1,6 @@
 #![doc = include_str!("../README.md")]
 
+pub mod annotations;
 mod bounds;
 mod broad_phase;
 mod geometry;
