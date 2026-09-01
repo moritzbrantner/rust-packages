@@ -3581,6 +3581,11 @@ dependencies = [
 [[package]]
 name = "moenarch-media-core"
 version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror 2.0.18",
+]
 
 [[package]]
 name = "moenarch-model-runtime"
@@ -5774,6 +5779,7 @@ dependencies = [
 name = "moenarch-video-analysis-storage"
 version = "0.1.0"
 dependencies = [
+ "moenarch-media-core",
  "moenarch-runtime-core",
  "moenarch-video-analysis-core",
  "moenarch-video-analysis-dataset",
