@@ -26,7 +26,7 @@ jobs:
       browser_e2e_checks: ${{ steps.scope.outputs.browser_e2e_checks }}
       full_workspace_checks: ${{ steps.scope.outputs.full_workspace_checks }}
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
           fetch-depth: 0
 
@@ -60,7 +60,7 @@ jobs:
   architecture-checks:
     if: needs.planner.outputs.architecture_checks == 'true'
     needs: planner
-    uses: moritzbrantner/reusable-workflows/.github/workflows/fast-validation.yml@workflow-standard-v1
+    uses: moritzbrantner/reusable-workflows/.github/workflows/fast-validation.yml@0415977e9d98d7708ee0e094ed558c95ff72b3bc # workflow-standard-v1
     with:
       bun_version: ""
       node_version: ""
@@ -80,7 +80,7 @@ jobs:
   rust-checks:
     if: needs.planner.outputs.rust_checks == 'true'
     needs: planner
-    uses: moritzbrantner/reusable-workflows/.github/workflows/fast-validation.yml@workflow-standard-v1
+    uses: moritzbrantner/reusable-workflows/.github/workflows/fast-validation.yml@0415977e9d98d7708ee0e094ed558c95ff72b3bc # workflow-standard-v1
     with:
       bun_version: ""
       node_version: ""
@@ -94,7 +94,7 @@ jobs:
   frontend-checks:
     if: needs.planner.outputs.frontend_checks == 'true'
     needs: planner
-    uses: moritzbrantner/reusable-workflows/.github/workflows/fast-validation.yml@workflow-standard-v1
+    uses: moritzbrantner/reusable-workflows/.github/workflows/fast-validation.yml@0415977e9d98d7708ee0e094ed558c95ff72b3bc # workflow-standard-v1
     with:
       bun_version: "1.3.14"
       node_version: ""
@@ -106,7 +106,7 @@ jobs:
   wasm-checks:
     if: needs.planner.outputs.wasm_checks == 'true'
     needs: planner
-    uses: moritzbrantner/reusable-workflows/.github/workflows/fast-validation.yml@workflow-standard-v1
+    uses: moritzbrantner/reusable-workflows/.github/workflows/fast-validation.yml@0415977e9d98d7708ee0e094ed558c95ff72b3bc # workflow-standard-v1
     with:
       bun_version: "1.3.14"
       node_version: ""
@@ -120,7 +120,7 @@ jobs:
   storybook-checks:
     if: needs.planner.outputs.storybook_checks == 'true'
     needs: planner
-    uses: moritzbrantner/reusable-workflows/.github/workflows/e2e-validation.yml@workflow-standard-v1
+    uses: moritzbrantner/reusable-workflows/.github/workflows/e2e-validation.yml@0415977e9d98d7708ee0e094ed558c95ff72b3bc # workflow-standard-v1
     with:
       bun_version: "1.3.14"
       node_version: ""
@@ -136,7 +136,7 @@ jobs:
   browser-e2e-checks:
     if: needs.planner.outputs.browser_e2e_checks == 'true'
     needs: planner
-    uses: moritzbrantner/reusable-workflows/.github/workflows/e2e-validation.yml@workflow-standard-v1
+    uses: moritzbrantner/reusable-workflows/.github/workflows/e2e-validation.yml@0415977e9d98d7708ee0e094ed558c95ff72b3bc # workflow-standard-v1
     with:
       bun_version: "1.3.14"
       node_version: ""
@@ -152,7 +152,7 @@ jobs:
   full-workspace-checks:
     if: needs.planner.outputs.full_workspace_checks == 'true'
     needs: planner
-    uses: moritzbrantner/reusable-workflows/.github/workflows/e2e-validation.yml@workflow-standard-v1
+    uses: moritzbrantner/reusable-workflows/.github/workflows/e2e-validation.yml@0415977e9d98d7708ee0e094ed558c95ff72b3bc # workflow-standard-v1
     with:
       bun_version: "1.3.14"
       node_version: ""
@@ -180,7 +180,7 @@ jobs:
       - browser-e2e-checks
       - full-workspace-checks
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
       - name: Require every selected job to succeed
         run: >-
           python3 scripts/check_ci_gate.py
