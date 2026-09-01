@@ -1,0 +1,13 @@
+name: Foundation branch trigger
+
+on:
+  push:
+    branches:
+      - chore/repository-foundation-v1
+
+permissions:
+  contents: read
+
+jobs:
+  foundation:
+    uses: ./.github/workflows/repository-foundation.yml
