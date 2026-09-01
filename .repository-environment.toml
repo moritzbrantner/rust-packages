@@ -1,0 +1,28 @@
+schema_version = 1
+
+[policy]
+track = "latest-stable"
+
+[system]
+apt = []
+
+[setup]
+commands = [
+  "bun install --frozen-lockfile",
+  "rustup target add wasm32-unknown-unknown",
+  "command -v wasm-pack >/dev/null 2>&1 && test \"$(wasm-pack --version | awk '{print $2}')\" = \"0.14.0\" || cargo install wasm-pack --locked --version 0.14.0",
+  "cargo fetch --locked"
+]
+
+[maintenance]
+commands = [
+  "bun install --frozen-lockfile",
+  "rustup target add wasm32-unknown-unknown",
+  "command -v wasm-pack >/dev/null 2>&1 && test \"$(wasm-pack --version | awk '{print $2}')\" = \"0.14.0\" || cargo install wasm-pack --locked --version 0.14.0",
+  "cargo fetch --locked"
+]
+
+[cache]
+paths = ["~/.cargo", "~/.bun/install/cache"]
+
+[compatibility_holds]
