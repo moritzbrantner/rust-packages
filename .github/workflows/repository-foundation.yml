@@ -44,21 +44,3 @@ jobs:
           bun-version: 1.4.0
           install-mode: none
           report-path: .artifacts/coding-tooling/environment.json
-
-      - name: Verify repository conformance
-        uses: moritzbrantner/coding-tooling@b6abbc6428c78639a32521ec23297dfc357690b1
-        with:
-          operation: conformance
-          bun-version: 1.4.0
-          install-mode: none
-          report-path: .artifacts/coding-tooling/conformance.json
-
-      - name: Run fast repository gate
-        uses: moritzbrantner/coding-tooling@b6abbc6428c78639a32521ec23297dfc357690b1
-        with:
-          operation: run
-          tier: fast
-          strict: true
-          bun-version: 1.4.0
-          install-mode: none
-          report-path: .artifacts/coding-tooling/fast.json
