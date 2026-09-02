@@ -61,5 +61,8 @@
     "web:test:unit": "bun run --cwd prototypes/web/video-analysis-web test:unit",
     "web:test:api": "bun run --cwd prototypes/web/video-analysis-web test:api",
     "web:test:e2e": "bun run --cwd prototypes/web/video-analysis-web test:e2e"
+  },
+  "devDependencies": {
+    "oxlint": "1.80.0"
   }
 }
