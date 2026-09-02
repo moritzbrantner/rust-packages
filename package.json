@@ -51,6 +51,7 @@
     "ui:test": "bun run --cwd packages/video-analysis-ui test",
     "ui:test:unit": "bun run --cwd packages/video-analysis-ui test:unit",
     "ui:test:e2e": "bun run --cwd packages/video-analysis-ui test:e2e",
+    "storybook:check": "bun run --cwd packages/video-analysis-ui storybook:build",
     "web:dev": "bun run --cwd prototypes/web/video-analysis-web dev",
     "web:build": "bun run web:build:deps && bun run --cwd prototypes/web/video-analysis-web build",
     "web:build:deps": "bun run dense-wasm:build && bun run text-wasm:build && bun run text-analysis-wasm:build",
