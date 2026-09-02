@@ -22,7 +22,7 @@ Read this section first. Open the linked managed source when a rule is relevant,
 - **AGENT-007 — Run cheap validation before expensive validation** — Run required checks from narrowest and cheapest to broadest and most expensive; stop at the first failure. ([details](modules/base/conventions/agents/README.md))
 - **AGENT-008 — Revalidate downward after broader-scope fixes** — After fixing a broad validation failure with production-code changes, restart at the narrowest affected layer. ([details](modules/base/conventions/agents/README.md))
 - **AGENT-009 — Delegate one bounded capability per implementation run** — Give each delegated implementation run one independently verifiable capability slice. ([details](modules/base/conventions/agents/README.md))
-- **AGENT-010 — Apply progressive composition to agent execution** — Resolve execution-layer choices to `PRINCIPLE-006`; AGENT-010 is the agent-category pointer and adds no second copy of that policy. ([details](modules/base/conventions/agents/README.md))
+- **AGENT-010 — Apply progressive composition to agent execution** — Resolve execution-layer choices to `PRINCIPLE-006` and progressive verification to `PRINCIPLE-003`; AGENT-010 is the agent-category pointer and adds no second copy of those policies. ([details](modules/base/conventions/agents/README.md))
 - **DESIGN-001 — Prefer deep modules over pass-through layers** — Prefer a small, stable interface that hides meaningful behavior. ([details](modules/base/conventions/codebase-design/README.md))
 - **DESIGN-002 — Treat seam placement as a design decision** — Introduce a seam where behavior actually varies or where a stable public testing/calling surface is valuable. ([details](modules/base/conventions/codebase-design/README.md))
 - **DESIGN-003 — Make the interface the natural verification surface** — Design modules so callers and tests can exercise important behavior through the same stable interface. ([details](modules/base/conventions/codebase-design/README.md))
@@ -115,10 +115,6 @@ Read this section first. Open the linked managed source when a rule is relevant,
 - **DEP-012 — Declare dependency versions according to the consumer contract** — Applications, internal tooling, and other leaf deliverables prefer exact dependency versions for predictable resolution. ([details](modules/dependencies/conventions/dependencies/README.md))
 - **DEP-013 — Make dependency changes explicit transactions** — Ordinary install and verification commands use the committed lockfile without modifying it. ([details](modules/dependencies/conventions/dependencies/README.md))
 - **DEP-014 — Keep production dependency graphs acyclic by default** — Production package, module, project, and repository dependency graphs should be acyclic where the ecosystem can model and verify the relationship. ([details](modules/dependencies/conventions/dependencies/README.md))
-- **ENV-001 — Keep irreplaceable development state outside disposable containers** — Containers provide reproducible execution, not source, Git, credentials, worktrees, or agent-session state. ([details](modules/environment/conventions/environment/README.md))
-- **ENV-002 — Use Docker Compose as the canonical local development and test topology** — Define required local services in Compose and reuse those definitions across development and tests. ([details](modules/environment/conventions/environment/README.md))
-- **ENV-003 — .env.example is the committed environment contract** — Keep .env local and uncommitted; commit a secret-free .env.example covering supported setup. ([details](modules/environment/conventions/environment/README.md))
-- **ENV-004 — Fingerprint semantic environment identity and verify it before interpreting failures** — Derive an expected environment fingerprint deterministically from repository-owned semantic inputs rather than from raw machine state. Initial layers should distinguish toolchains, native capabilities, locked dependencies, source-development mode, and environment configuration so a changed layer is diagnosable without treating the combined digest as another source of truth. ([details](modules/environment/conventions/environment/README.md))
 - **GIT-001 — Every agent run has an explicit baseline** — Define the source-of-truth starting point; do not assume a local or remote ref is current. ([details](modules/git/conventions/git/README.md))
 - **GIT-002 — Separate implementation from publishing** — Implementation produces candidate changes; integration, pushing, merging, and publishing are separate steps. ([details](modules/git/conventions/git/README.md))
 - **GIT-003 — Use tiered local hooks without duplicating validation logic** — Pre-commit runs only very fast deterministic checks such as format checks, linting, schema/config validation, forbidden-pattern checks, and secret scanning. ([details](modules/git/conventions/git/README.md))
@@ -183,11 +179,6 @@ Read this section first. Open the linked managed source when a rule is relevant,
 ### dependencies
 
 - [modules/dependencies/conventions/dependencies/README.md](modules/dependencies/conventions/dependencies/README.md)
-
-### environment
-
-- [modules/environment/conventions/environment/README.md](modules/environment/conventions/environment/README.md)
-- [modules/environment/conventions/environment/ENV-003.json](modules/environment/conventions/environment/ENV-003.json)
 
 ### git
 
