@@ -1,0 +1,19 @@
+{
+  "schemaVersion": 1,
+  "registry": "coding-agent-conventions",
+  "modules": [
+    "dependencies",
+    "environment",
+    "git",
+    "playwright",
+    "react",
+    "rust",
+    "storybook",
+    "testing-library",
+    "tooling",
+    "typescript",
+    "ui",
+    "vite",
+    "vitest"
+  ]
+}
