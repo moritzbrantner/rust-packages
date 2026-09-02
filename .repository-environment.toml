@@ -10,7 +10,7 @@ apt = []
 commands = [
   "bun install --frozen-lockfile",
   "rustup target add wasm32-unknown-unknown",
-  "command -v wasm-pack >/dev/null 2>&1 && test \"$(wasm-pack --version | awk '{print $2}')\" = \"0.14.0\" || cargo install wasm-pack --locked --version 0.14.0",
+  "bash scripts/install-wasm-pack.sh",
   "cargo fetch --locked"
 ]
 
@@ -18,7 +18,7 @@ commands = [
 commands = [
   "bun install --frozen-lockfile",
   "rustup target add wasm32-unknown-unknown",
-  "command -v wasm-pack >/dev/null 2>&1 && test \"$(wasm-pack --version | awk '{print $2}')\" = \"0.14.0\" || cargo install wasm-pack --locked --version 0.14.0",
+  "bash scripts/install-wasm-pack.sh",
   "cargo fetch --locked"
 ]
 
