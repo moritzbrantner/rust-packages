@@ -124,30 +124,16 @@ Read this section first. Open the linked managed source when a rule is relevant,
 - **TAILWIND-002 — Use semantic tokens and named variants** — Use semantic tokens and named variants for visual decisions. ([details](modules/tooling/technologies/tooling/README.md))
 - **PLAYWRIGHT-001 — Test critical observable workflows** — Cover user-visible workflows that focused tests cannot prove using accessible selectors, URLs, and observable outcomes. ([details](modules/playwright/technologies/tooling/playwright/README.md))
 - **PLAYWRIGHT-002 — Own the environment and preserve failure evidence** — Explicitly provision servers, data, services, ports, and teardown; retain enough artifacts to reproduce failures. ([details](modules/playwright/technologies/tooling/playwright/README.md))
-- **TS-002 — Model invalid states out of the type system** — Prefer types, especially discriminated unions, that make invalid combinations unrepresentable. ([details](modules/typescript/technologies/typescript/README.md))
-- **TS-003 — Prefer type over interface** — Use type aliases instead of interfaces for TypeScript models and declarations. ([details](modules/typescript/technologies/typescript/README.md))
-- **TS-004 — Use strict compiler options that expose missing-state mistakes** — Enable `strict`, `noUncheckedIndexedAccess`, `exactOptionalPropertyTypes`, `noImplicitOverride`, and `noFallthroughCasesInSwitch` by default. ([details](modules/typescript/technologies/typescript/README.md))
-- **TS-005 — Handle closed variants exhaustively** — Switches over enums and discriminated unions owned by the application should be exhaustive so adding a new variant produces a deterministic failure until callers handle it. ([details](modules/typescript/technologies/typescript/README.md))
-- **TS-006 — Do not leave promises unobserved** — Await or return promises by default. ([details](modules/typescript/technologies/typescript/README.md))
-- **REACT-001 — Colocate components and directly related artifacts** — Keep a component and its focused tests, styles, hooks, and types in their smallest shared directory. ([details](modules/react/technologies/typescript/react/README.md))
-- **REACT-002 — Keep React state local by default** — Own state in the smallest subtree that needs it; widen only for real shared ownership. ([details](modules/react/technologies/typescript/react/README.md))
-- **REACT-003 — Put important navigational state in URL query parameters** — Put durable, shareable view state in query parameters; keep ephemeral and sensitive state out of URLs. ([details](modules/react/technologies/typescript/react/README.md))
-- **REACT-004 — Use effects for external synchronization** — Use effects for systems outside React, not derived values or ordinary control flow. ([details](modules/react/technologies/typescript/react/README.md))
-- **REACT-005 — Prefer composition over highly configurable mega-components** — Prefer focused composition over unrelated flags and modes. ([details](modules/react/technologies/typescript/react/README.md))
-- **REACT-006 — Keep component boundaries structurally clear** — Names, directories, props, and immediate dependencies must make a component's purpose locally understandable. ([details](modules/react/technologies/typescript/react/README.md))
-- **REACT-007 — Reuse shared UI before creating local primitives** — Inspect and reuse the established UI package before creating local primitives. ([details](modules/react/technologies/typescript/react/README.md))
 - **RUST-001 — Encode invariants in types** — Prefer types that make invalid domain states unrepresentable. ([details](modules/rust/technologies/rust/README.md))
 - **RUST-002 — Avoid `unwrap` and `expect` in normal production control flow** — Handle or propagate recoverable errors explicitly. ([details](modules/rust/technologies/rust/README.md))
 - **RUST-003 — Do not clone merely to satisfy the borrow checker** — Treat unnecessary cloning as a signal to inspect ownership boundaries first. ([details](modules/rust/technologies/rust/README.md))
 - **STORYBOOK-001 — Stories are executable UI contracts** — Keep meaningful reusable UI states in deterministic, colocated stories with explicit fixtures or mocks. ([details](modules/storybook/technologies/tooling/storybook/README.md))
 - **STORYBOOK-002 — Build and audit Storybook in automation** — Treat the static build and accessibility audit of every included story as deterministic automation gates. ([details](modules/storybook/technologies/tooling/storybook/README.md))
-- **RTL-001 — Test observable user behavior** — Interact through user-facing controls and assert observable outcomes, not React internals. ([details](modules/testing-library/technologies/typescript/react/testing-library/README.md))
-- **RTL-002 — Use Testing Library's semantic query APIs** — Apply TEST-020 through Testing Library's user-facing query APIs, preferring roles with accessible names, then labels and visible text where appropriate. ([details](modules/testing-library/technologies/typescript/react/testing-library/README.md))
-- **RTL-003 — Apply DOM testing progressively** — Do not require a React Testing Library test merely because a React component exists. ([details](modules/testing-library/technologies/typescript/react/testing-library/README.md))
-- **RTL-004 — Model interactions through user events** — Prefer `userEvent.setup()` and awaited user interactions for normal input, pointer, and keyboard behavior. ([details](modules/testing-library/technologies/typescript/react/testing-library/README.md))
-- **RTL-005 — Wait for observable asynchronous state** — Wait for the state the user can observe with semantic async queries or bounded waiting helpers. ([details](modules/testing-library/technologies/typescript/react/testing-library/README.md))
-- **RTL-006 — Keep component composition real by default** — Prefer rendering real child components and providers over mocking React implementation boundaries. ([details](modules/testing-library/technologies/typescript/react/testing-library/README.md))
-- **RTL-007 — Avoid snapshot-only and duplicate confidence** — Prefer explicit behavioral assertions over broad DOM snapshots. Use small snapshots only when the serialized or rendered shape is itself a meaningful contract. ([details](modules/testing-library/technologies/typescript/react/testing-library/README.md))
+- **TS-002 — Model invalid states out of the type system** — Prefer types, especially discriminated unions, that make invalid combinations unrepresentable. ([details](modules/typescript/technologies/typescript/README.md))
+- **TS-003 — Prefer type over interface** — Use type aliases instead of interfaces for TypeScript models and declarations. ([details](modules/typescript/technologies/typescript/README.md))
+- **TS-004 — Use strict compiler options that expose missing-state mistakes** — Enable `strict`, `noUncheckedIndexedAccess`, `exactOptionalPropertyTypes`, `noImplicitOverride`, and `noFallthroughCasesInSwitch` by default. ([details](modules/typescript/technologies/typescript/README.md))
+- **TS-005 — Handle closed variants exhaustively** — Switches over enums and discriminated unions owned by the application should be exhaustive so adding a new variant produces a deterministic failure until callers handle it. ([details](modules/typescript/technologies/typescript/README.md))
+- **TS-006 — Do not leave promises unobserved** — Await or return promises by default. ([details](modules/typescript/technologies/typescript/README.md))
 - **UI-001 — Use surfaces to communicate structure, not to decorate every section** — Use raised surfaces for meaningful semantic units; otherwise use hierarchy, spacing, headings, separators, lists, tables, or rows. ([details](modules/ui/conventions/interface-design/README.md))
 - **UI-002 — Show information where it changes a decision** — Give prominence only to information that changes understanding or next action; do not repeat facts already visible. ([details](modules/ui/conventions/interface-design/README.md))
 - **UI-003 — Treat theme preference as a product contract** — Support light, dark, and system modes unless explicitly opted out. ([details](modules/ui/conventions/interface-design/README.md))
@@ -194,18 +180,6 @@ Read this section first. Open the linked managed source when a rule is relevant,
 
 - [modules/playwright/technologies/tooling/playwright/README.md](modules/playwright/technologies/tooling/playwright/README.md)
 
-### typescript
-
-- [modules/typescript/technologies/typescript/README.md](modules/typescript/technologies/typescript/README.md)
-- [modules/typescript/technologies/typescript/TS-003.json](modules/typescript/technologies/typescript/TS-003.json)
-- [modules/typescript/technologies/typescript/TS-005.json](modules/typescript/technologies/typescript/TS-005.json)
-- [modules/typescript/technologies/typescript/TS-006.json](modules/typescript/technologies/typescript/TS-006.json)
-
-### react
-
-- [modules/react/technologies/typescript/react/README.md](modules/react/technologies/typescript/react/README.md)
-- [modules/react/technologies/typescript/react/REACT-004.json](modules/react/technologies/typescript/react/REACT-004.json)
-
 ### rust
 
 - [modules/rust/technologies/rust/README.md](modules/rust/technologies/rust/README.md)
@@ -216,9 +190,12 @@ Read this section first. Open the linked managed source when a rule is relevant,
 - [modules/storybook/technologies/tooling/storybook/README.md](modules/storybook/technologies/tooling/storybook/README.md)
 - [modules/storybook/technologies/tooling/storybook/STORYBOOK-002.json](modules/storybook/technologies/tooling/storybook/STORYBOOK-002.json)
 
-### testing-library
+### typescript
 
-- [modules/testing-library/technologies/typescript/react/testing-library/README.md](modules/testing-library/technologies/typescript/react/testing-library/README.md)
+- [modules/typescript/technologies/typescript/README.md](modules/typescript/technologies/typescript/README.md)
+- [modules/typescript/technologies/typescript/TS-003.json](modules/typescript/technologies/typescript/TS-003.json)
+- [modules/typescript/technologies/typescript/TS-005.json](modules/typescript/technologies/typescript/TS-005.json)
+- [modules/typescript/technologies/typescript/TS-006.json](modules/typescript/technologies/typescript/TS-006.json)
 
 ### ui
 
@@ -239,9 +216,3 @@ Read this section first. Open the linked managed source when a rule is relevant,
 ### typescript
 
 - [modules/typescript/technologies/typescript/TS-003.oxlint.json](modules/typescript/technologies/typescript/TS-003.oxlint.json)
-
-### react
-
-- [modules/react/technologies/typescript/react/generators/react-component/generator.json](modules/react/technologies/typescript/react/generators/react-component/generator.json)
-- [modules/react/technologies/typescript/react/generators/react-component/templates/Component.tsx.tmpl](modules/react/technologies/typescript/react/generators/react-component/templates/Component.tsx.tmpl)
-- [modules/react/technologies/typescript/react/generators/react-component/templates/index.ts.tmpl](modules/react/technologies/typescript/react/generators/react-component/templates/index.ts.tmpl)
