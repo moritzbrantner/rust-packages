@@ -3,7 +3,6 @@
   "registry": "coding-agent-conventions",
   "modules": [
     "dependencies",
-    "environment",
     "git",
     "playwright",
     "react",
