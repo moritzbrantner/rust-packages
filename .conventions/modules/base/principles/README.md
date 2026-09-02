@@ -12,6 +12,8 @@
 
 - Run the narrowest, cheapest affected checks first; expand only after they pass.
 - Re-run invalidated lower layers after a production-code change.
+- During an implementation loop, use focused checks for fast feedback; run the repository-owned full gate as completion evidence rather than after every edit.
+- Do not make a worker repeat a full gate that the coordinating layer will immediately and independently run again unless the worker needs that full result to continue reasoning.
 
 ## PRINCIPLE-004 — Make completion observable
 
@@ -28,6 +30,13 @@
 - Add reusable skills when a procedure should be shared; add a loop when iteration should be automated; add tasks or orchestration only when coordination, dependency management, concurrency, durable control state, or multi-worker ownership justify them.
 - Higher-level execution layers may compose lower-level capabilities, but lower-level capabilities must not require higher-level machinery merely because it exists.
 - Prefer escalation from a simple invocation over configuration that makes a large framework tolerate simple work.
+- Treat model inference as a scarce execution resource: obtain deterministic evidence first and invoke stronger or more stateful agent execution only when cheaper layers cannot resolve the task.
+- Prefer an escalation funnel such as deterministic inspection/checks → narrow direct or repository edit → focused verification → iterative local agent work → full environment-backed debugging. Skip directly to a later stage when the failure is inherently runtime-, browser-, service-, numerical-, or environment-dependent.
+- Escalate because the current layer has stopped producing useful information, not merely because an arbitrary retry count elapsed. Repeated unchanged failures, ambiguous environment behavior, or a need for runtime feedback are strong escalation signals.
+- Preserve evidence across attempts—baseline/candidate identity, relevant commands, exit status, focused output, failure classification, prior patch/result, and environment identity where available—so a later agent continues the investigation instead of rediscovering it.
+- Let deterministic control logic decide whether another expensive attempt is justified whenever the decision can be made from observed state; do not spend a coding-model invocation merely to decide whether to invoke the coding model again.
+- Reuse stable environments, dependency/tool caches, and already-known repository context where doing so preserves correctness and isolation.
+- Record enough execution metadata to evaluate the routing policy over time, including attempts, provider/model, verification failures, escalation stage, and time or work required to reach a checked candidate.
 
 ## PRINCIPLE-007 — Keep capabilities replaceable; internalize with evidence
 
