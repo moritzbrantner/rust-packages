@@ -1,0 +1,31 @@
+{
+  "schemaVersion": 1,
+  "cutoverPolicy": "canonical-destination",
+  "rustPackagesRoleAfterCutover": "compatibility-provenance-only",
+  "families": [
+    {
+      "targetRepository": "moenarch-foundation",
+      "canonicalRepository": "moritzbrantner/moenarch-foundation",
+      "ecosystem": "cargo",
+      "authority": ["source", "tests", "issues", "versions", "releases"]
+    },
+    {
+      "targetRepository": "nlp-stack",
+      "canonicalRepository": "moritzbrantner/nlp-stack",
+      "ecosystem": "cargo",
+      "authority": ["source", "tests", "issues", "versions", "releases"]
+    },
+    {
+      "targetRepository": "audio-analysis",
+      "canonicalRepository": "moritzbrantner/audio-analysis",
+      "ecosystem": "cargo",
+      "authority": ["source", "tests", "issues", "versions", "releases"]
+    },
+    {
+      "targetRepository": "visual-analysis",
+      "canonicalRepository": "moritzbrantner/visual-analysis",
+      "ecosystem": "cargo",
+      "authority": ["source", "tests", "issues", "versions", "releases"]
+    }
+  ]
+}
