@@ -1239,6 +1239,7 @@ flowchart LR
   crate_moenarch_video_analysis_split_server --> crate_moenarch_runtime_core
   crate_moenarch_video_analysis_storage --> crate_moenarch_video_analysis_core
   crate_moenarch_video_analysis_storage --> crate_moenarch_video_analysis_dataset
+  crate_moenarch_video_analysis_storage --> crate_moenarch_media_core
   crate_moenarch_video_analysis_storage --> crate_moenarch_runtime_core
   crate_moenarch_video_analysis_storage_cli --> crate_moenarch_video_analysis_storage
   crate_moenarch_video_analysis_storage_cli --> crate_moenarch_runtime_core
