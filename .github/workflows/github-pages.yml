@@ -14,8 +14,66 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  pages-context:
+    name: Resolve Pages build context
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pages: read
+    outputs:
+      base_path: ${{ steps.pages.outputs.base_path }}
+    steps:
+      - name: Resolve Pages base path
+        id: pages
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          python3 - <<'PY'
+          import json
+          import os
+          import urllib.error
+          import urllib.request
+          from urllib.parse import urlparse
+
+          repository = os.environ["GITHUB_REPOSITORY"]
+          api_url = os.environ.get("GITHUB_API_URL", "https://api.github.com").rstrip("/")
+          owner, repo = repository.split("/", 1)
+          request = urllib.request.Request(
+              f"{api_url}/repos/{repository}/pages",
+              headers={
+                  "Accept": "application/vnd.github+json",
+                  "Authorization": f"Bearer {os.environ['GITHUB_TOKEN']}",
+                  "X-GitHub-Api-Version": "2022-11-28",
+              },
+          )
+
+          try:
+              with urllib.request.urlopen(request) as response:
+                  payload = json.load(response)
+              base_url = str(payload.get("html_url") or "").rstrip("/")
+          except urllib.error.HTTPError as error:
+              if error.code != 404:
+                  raise
+              base_url = ""
+
+          if not base_url:
+              is_user_or_organization_site = repo.lower() == f"{owner.lower()}.github.io"
+              base_url = f"https://{owner}.github.io{'' if is_user_or_organization_site else f'/{repo}'}"
+
+          base_path = urlparse(base_url).path.rstrip("/")
+          pages_base_path = f"{base_path}/"
+          if not pages_base_path.startswith("/"):
+              pages_base_path = f"/{pages_base_path}"
+
+          with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as output:
+              output.write(f"base_path={pages_base_path}\n")
+
+          print(f"Resolved GitHub Pages base path: {pages_base_path}")
+          PY
+
   build-pages:
     name: Build or reuse Pages artifact
+    needs: pages-context
     permissions:
       actions: read
       contents: read
@@ -30,7 +88,7 @@ jobs:
       use_environment_v1: false
       setup_command: |
         bun install --frozen-lockfile --ignore-scripts
-        bun scripts/configure_pages_base_path.ts
+        printf 'PAGES_BASE_PATH=%s\n' '${{ needs.pages-context.outputs.base_path }}' >> "$GITHUB_ENV"
       build_command: bun run ui:build && bun run web:build:pages
       artifact_paths: prototypes/web/video-analysis-web/dist
       reuse_across_runs: true
