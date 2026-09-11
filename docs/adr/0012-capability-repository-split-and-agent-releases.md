@@ -2,7 +2,8 @@
 
 ## Status
 
-Accepted.
+Accepted, with canonical destination ownership refined by
+[`OWNERSHIP_CUTOVER.md`](../repository-split/OWNERSHIP_CUTOVER.md).
 
 This ADR supersedes only the guidance in
 [ADR 0011](0011-hybrid-geo-extraction-and-namespace.md) and the
@@ -12,77 +13,102 @@ provenance, namespace, signpost, and source-removal lessons remain in force.
 
 ## Context
 
-The 347-crate Rust workspace and its 173 Bun package surfaces impose a broad
-verification and context cost on focused changes. Release ownership is unclear,
-and applications consume a mixture of registry, path, Git, file, and shim
-dependencies. A split is justified by maintainability, focused agent loops,
+The original 347-crate Rust workspace and its Bun package surfaces imposed a
+broad verification and context cost on focused changes. Release ownership was
+unclear, and applications consumed a mixture of registry, path, Git, file, and
+shim dependencies. A split is justified by maintainability, focused agent loops,
 independent release cadence, explicit public-contract ownership, and smaller
 verification surfaces—not checkout or build-cache size.
 
+The repository topology has continued to evolve after the initial split plan.
+The old registry-gated `spatial-analysis` publication train was retired; spatial
+work is now source-first and is being reconciled against the narrower current
+repositories rather than recreating a distributed monolith.
+
 ## Decision
 
-Split by capability:
+The proven canonical capability repositories are:
 
-- `moritzbrantner/moenarch-foundation` owns domain-neutral runtime, job,
-  progress, cancellation, diagnostic, artifact, model-lifecycle, media/time,
-  data, math, tensor, graph, geometry, signal, and vector contracts.
-- `moritzbrantner/nlp-stack` owns text, lexical/linguistic analysis,
-  classification, embeddings, indexing, retrieval, QA, generation, and purified
-  transcript documents.
-- `moritzbrantner/audio-analysis` owns audio IO/analysis, recognition,
+- `moritzbrantner/moenarch-foundation` for domain-neutral runtime, jobs,
+  progress, cancellation, diagnostics, artifacts, model lifecycle, media/time,
+  data, math, tensor, graph, geometry, signal, vector, and neutral interchange
+  contracts;
+- `moritzbrantner/nlp-stack` for text, lexical/linguistic analysis,
+  classification, embeddings, indexing, retrieval, QA, generation, transcript
+  document semantics, parsing, formatting, and NLP enrichment;
+- `moritzbrantner/audio-analysis` for audio IO/analysis, recognition,
   separation, transcription execution, synthesis, MIDI, TTS, and native audio
-  adapters.
-- `moritzbrantner/visual-analysis` owns image/vision and non-spatial video
+  adapters;
+- `moritzbrantner/visual-analysis` for image/vision and non-spatial video
   contracts and implementations.
-- `moritzbrantner/spatial-analysis` owns 3D, animation, posture, SFM, MVS,
-  reconstruction, radiance fields, and Gaussian splatting.
-- `moritzbrantner/rust-packages` becomes the compatibility facade, integration
-  suite, incubator, migration-signpost home, cross-domain prototype home, and
-  temporary ComfyUI owner.
 
-The allowed production graph is:
+For those extracted Rust families, canonical ownership has cut over according to
+[`ownership-cutover.json`](../repository-split/ownership-cutover.json).
+Historical copies in `rust-packages` are compatibility/provenance material and
+are not competing implementation or release authorities.
+
+Spatial ownership is deliberately not assigned wholesale here. The original
+single `moritzbrantner/spatial-analysis` target is no longer authoritative.
+Current renderer-independent 3D authorities exist in `moritzbrantner/3d-lab`,
+while reusable reconstruction semantics exist in `moritzbrantner/video-to-3d`.
+Remaining legacy spatial packages in `rust-packages` are reconciled package by
+package under issue #179 before their ownership records change.
+
+`moritzbrantner/rust-packages` remains the compatibility facade, integration
+suite, incubator, migration-signpost home, cross-domain prototype home, and
+owner of packages that have not yet reached a proven canonical destination.
+
+The preferred production graph is:
 
 ```text
-foundation
-  ↑
-  ├── nlp
-  ├── audio ──→ narrowly scoped nlp contracts
-  └── visual ─→ narrowly scoped nlp contracts
-       ↑
-       └── spatial
+                     foundation
+                 /       |       \
+                /        |        \
+              nlp      audio     visual
 
-rust-packages compatibility/integration ─→ every released capability repository
+             adapters / applications
+             may compose capabilities
+
+rust-packages compatibility/integration -> proven capability repositories
 ```
 
-Foundation depends on no target repository. NLP depends only on foundation.
-Audio and visual may depend on foundation and narrow NLP contracts. Spatial may
-depend on foundation and visual. Reverse edges and cycles are forbidden. The
-machine ownership source, exact reviewed baseline, and checker under
+Foundation depends on no domain repository. Domain capability repositories
+should depend downward on foundation rather than sideways on another domain's
+implementation merely to exchange data. Genuine cross-domain behavior belongs
+behind an explicit adapter or application composition boundary. Reverse edges
+and cycles are forbidden. Any narrower spatial dependency direction must be
+proved by the owning repositories rather than inferred from the retired
+`spatial-analysis` plan.
+
+The machine ownership source, exact reviewed baseline, and checker under
 `docs/repository-split/` and `scripts/check_repository_boundaries.py` enforce
-this direction while the current monolith is neutralized.
+these boundaries while the monolith is neutralized. Historical temporary
+exceptions are migration debt, not precedent for new edges.
 
 ### Neutral contracts and cycle breaking
 
-No media-family source extraction begins until issue
-[#108](https://github.com/moritzbrantner/rust-packages/issues/108) establishes
-the domain-neutral media/time crate. The provisional `moenarch-media-core` name
-must be checked against Cargo packages, crates.io, npm, and repositories. It may
-own timebases, timestamps, time ranges, generic media/source metadata, neutral
-events, and neutral source/stream traits. It must not own scenes, frames,
-buffers, text documents, detections, keypoints, 2D geometry, or model-runtime
-behavior.
+Issue [#108](https://github.com/moritzbrantner/rust-packages/issues/108)
+established the domain-neutral media/time crate. `moenarch-media-core` owns
+neutral timebases, timestamps, time ranges, generic media/source metadata,
+neutral events, stream-format identifiers, and neutral timed-text interchange
+DTOs. It must not own scenes, frames, audio/image buffers, NLP transcript
+parsing/formatting, detections, keypoints, domain model execution, or
+linguistic enrichment.
 
-Issue [#112](https://github.com/moritzbrantner/rust-packages/issues/112)
-purifies `text-transcripts` around transcript/segment/timing/speaker and
-SRT/WebVTT/Whisper JSON semantics. Audio decoding, transcription/VAD execution,
-speaker models, FFmpeg, and downloads stay out. Audio transcription produces
-those contracts.
+The original issue [#112](https://github.com/moritzbrantner/rust-packages/issues/112)
+purified `text-transcripts` around transcript/segment/timing/speaker plus
+SRT/WebVTT/Whisper JSON semantics. Later decoupling separated those concerns
+further: neutral text-plus-media-timing interchange belongs in foundation,
+while `nlp-stack` keeps transcript document semantics, parsing, formatting,
+text-document conversion, heuristics, and NLP enrichment. Audio transcription
+produces neutral media contracts; consumers select NLP only when they need NLP
+behavior.
 
 Generic probing, finite-source selection, container metadata, and audio-track
 decoding must not force audio applications through visual-analysis. Generic
 source metadata belongs in foundation, visual frames in visual-analysis, and
-audio sample preparation in audio-analysis. A narrow neutral IO/FFmpeg adapter
-is permitted only where implementation behavior is genuinely shared.
+audio sample preparation in audio-analysis. A narrow neutral IO adapter is
+permitted only where implementation behavior is genuinely shared.
 
 ### Names, semver, adapters, and provenance
 
@@ -93,75 +119,72 @@ additive stable APIs use minor bumps; stable breaking APIs use major bumps at
 versioned old-name deprecation release. One repository is the sole release
 owner at every step.
 
-Each extraction is a clean copy from an exact source commit. The destination
-records every copied path, licenses, notices, attribution, and relevant history
-notes and starts a focused history. History rewriting, force pushing, repository
-deletion, and source removal before release proof are excluded.
+Each extraction records an exact source commit, copied paths, licenses, notices,
+attribution, and relevant history notes. History rewriting, force pushing,
+repository deletion, and destructive source removal before destination and
+consumer proof are excluded.
 
 Focused CLI, server, WASM, npm, and app adapters remain during initial
-extraction. A repository-level registry may be piloted additively. Removing a
-focused adapter requires usage evidence, migration notes, deployment analysis,
-and a separate semver/release decision.
+extraction. Removing a focused adapter requires usage evidence, migration notes,
+deployment analysis, and a separate compatibility decision.
 
 ### Consumer and release gates
 
-Before publication, destination code must pass independent clean-checkout
-builds, its repository checks, `cargo package`, package-surface/operation-ID
-parity, provenance review, and candidate consumer checks using temporary,
-uncommitted patches. After publication, agents verify the exact registry
-version, resolve it in a clean consumer without patches, run the narrow consumer
-check, and create a repository-scoped update PR. Manifest inspection is never
-reported as a passing consumer check.
+Source development and publication are separate. Ordinary cross-repository
+feature work may use exact source revisions from canonical repositories before a
+registry version exists. Source-mode evidence does not authorize publication and
+does not transfer authority back to `rust-packages`.
 
-Each publication wave is authorized by this ADR, its exact GitHub release issue,
-and a reviewed machine release manifest. Agents may choose documented semver
-bumps, open/merge ordinary release PRs when gates permit, publish, verify, tag,
-create GitHub Releases, and open consumer PRs without another confirmation.
-They may not use administrator bypasses, publish an unspecified package, or
-publish a version absent from the authorization.
+Where publication is required, destination code must pass its repository checks,
+package-surface and operation-ID parity, provenance review, and appropriate
+candidate-consumer checks. After publication, agents verify the exact registry
+version and run the required clean-consumer evidence. Manifest inspection alone
+is never reported as a passing consumer check.
 
-Agents may publish locally through Cargo's already-configured credential.
-GitHub Actions/OIDC trusted publishing is an optional alternative, not a
-prerequisite. Before either path, the validator fetches the exact live release
-issue and binds its structured authorization to the repository, issue URL,
-immutable source/base SHAs, required checks, and exact package versions. The
-publisher packages and publishes topologically, verifies each registry version,
-resumes idempotently from the first unpublished crate, and tags only
-registry-verified versions. Credential values are never inspected, printed,
-copied, placed in arguments, or logged.
+A publication wave requires an exact live release authority and reviewed
+machine-readable manifest for the canonical source repository. Agents may not
+use administrator bypasses, publish an unspecified package, publish from a
+non-canonical source repository, or publish a version absent from the release
+authorization.
 
 If a wave partially publishes, already published versions remain immutable and
 are neither republished nor automatically yanked. Record the partial state, fix
-the remaining package/workflow in a follow-up commit, and resume at the first
-unpublished version. Downstream constraints wait for the required closure.
+the remaining package/workflow in a follow-up commit, and resume idempotently at
+the first unpublished version.
 
 ### Source-removal and repository-creation gates
 
-Source leaves `rust-packages` only after the destination is independently green,
-release ownership is active, required crates are verified on the registry,
-consumer migration is possible, compatibility signposts exist, the facade can
-consume released crates, and rollback is documented. Source removal,
-deprecation releases, and consumer migration are separate PRs unless an issue
-proves the family tiny.
+Canonical ownership may precede physical source removal. Source leaves
+`rust-packages` only after the destination is independently proven, affected
+consumers can migrate without relying on the historical path, compatibility
+signposts exist where required, and rollback is documented. Registry proof is
+required only when registry publication is part of the distribution contract.
 
-An agent may create a named target repository only when its issue specifies the
-exact `moritzbrantner` repository and visibility and authenticated permissions
-are sufficient. Unspecified visibility defaults private. Existing repository
-visibility does not change under this ADR.
+Source removal, compatibility releases, and consumer migration remain separate
+changes unless an exact issue proves the family tiny and the combined change
+retains equivalent evidence.
+
+A new repository should not be created merely because an old destination matrix
+named one. Repository creation requires a current ownership need that cannot be
+served coherently by an existing authority. Issue #179 applies this rule to the
+remaining spatial family.
 
 ## Rollback
 
-Before registry publication, close the extraction/release PR and retain active
-ownership in `rust-packages`. After publication, published artifacts are not
-deleted or yanked automatically: keep the last known-good source and
-compatibility facade, stop further source removal and consumer updates, record
-the exact released state, and ship a forward-compatible repair through a new
-authorized release. A reverse migration of release ownership requires its own
-ADR and issue.
+Before publication, a failed destination change is repaired or reverted at the
+canonical destination; it does not silently restore competing ownership in
+`rust-packages`. After publication, published artifacts are not deleted or
+yanked automatically. Keep the last known-good source and compatibility
+surface, stop further destructive migration, record the exact released state,
+and ship a forward-compatible repair through explicit release authority.
+
+A reverse migration of canonical ownership requires its own explicit decision.
 
 ## Consequences
 
-Release cadence and verification become capability-scoped, while neutralization
-and registry-first consumer proof add deliberate sequencing. Existing 49
-forbidden edges are visible exceptions with individual owners and phases; no
-wildcard exemption permits new coupling.
+Release cadence and verification become capability-scoped while ordinary
+source-first development remains possible. Existing forbidden or transitional
+edges remain visible migration debt with individual owners; no wildcard
+exemption permits new coupling. Cross-domain applications remain free to compose
+capabilities without forcing the capability repositories to behave as one
+implicit distributed monorepo.
