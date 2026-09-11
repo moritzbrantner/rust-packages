@@ -122,6 +122,8 @@ run_step "test repository split inventory authority" \
   python3 scripts/test_generate_repository_split_inventory.py
 run_step "test repository boundaries" python3 scripts/test_check_repository_boundaries.py
 run_step "check repository boundaries" python3 scripts/check_repository_boundaries.py --check
+run_step "test ownership cutover" python3 scripts/test_check_ownership_cutover.py
+run_step "check ownership cutover" python3 scripts/check_ownership_cutover.py
 run_step "test release plans" python3 scripts/test_check_release_plan.py
 run_step "check example release plan" \
   python3 scripts/check_release_plan.py \
