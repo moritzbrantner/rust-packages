@@ -1,0 +1,153 @@
+{
+  "schemaVersion": 1,
+  "issue": "https://github.com/moritzbrantner/rust-packages/issues/179",
+  "retiredTargetRepository": "spatial-analysis",
+  "evidence": {
+    "threeDSpatialProvider": {
+      "repository": "moritzbrantner/3d-lab",
+      "commit": "13d00fc7b69b1aceedbf4f3a67ecd2e3f4b36476",
+      "pullRequest": "https://github.com/moritzbrantner/3d-lab/pull/23"
+    },
+    "colmapProvider": {
+      "repository": "moritzbrantner/video-to-3d",
+      "commit": "3e3cb20aa2a9b79ef11d60529044349c0c54d302",
+      "pullRequest": "https://github.com/moritzbrantner/video-to-3d/pull/17"
+    },
+    "consumerGate": {
+      "repository": "moritzbrantner/spatial-media-explorer",
+      "commit": "61847291c0f58295e2bae112caad3e1c49a706c0",
+      "pullRequest": "https://github.com/moritzbrantner/spatial-media-explorer/pull/7",
+      "rustPackagesSourceDependencyRemoved": true
+    }
+  },
+  "families": [
+    {
+      "family": "animation-core",
+      "decision": "canonical-destination",
+      "currentAuthorityRepository": "moritzbrantner/3d-lab",
+      "replacementSurfaces": ["three-d-animation"],
+      "historicalPackageRole": "compatibility-provenance-only",
+      "reason": "3d-lab already owns renderer-independent clip, keyframe, quaternion interpolation, and playback semantics; future animation-domain changes belong there rather than in a revived spatial monolith."
+    },
+    {
+      "family": "three-d-processing-core",
+      "decision": "retained-temporarily",
+      "currentAuthorityRepository": "moritzbrantner/rust-packages",
+      "replacementSurfaces": [],
+      "historicalPackageRole": "residual-compatibility-authority",
+      "reason": "The package mixes several concerns. SpatialBinding and camera-pose interoperability are now canonical in 3d-lab/three-d-spatial, but the complete historical package has not yet been replaced as one coherent surface.",
+      "extractedSeams": [
+        {
+          "name": "spatial-binding-and-camera-pose",
+          "canonicalRepository": "moritzbrantner/3d-lab",
+          "surface": "three-d-spatial",
+          "evidence": "https://github.com/moritzbrantner/3d-lab/pull/23"
+        }
+      ]
+    },
+    {
+      "family": "three-d-processing-io",
+      "decision": "canonical-destination",
+      "currentAuthorityRepository": "moritzbrantner/3d-lab",
+      "replacementSurfaces": ["three-d-formats", "three-d-assets"],
+      "historicalPackageRole": "compatibility-provenance-only",
+      "reason": "3d-lab owns renderer-independent 3D asset and format boundaries and already serves real asset-tooling consumers."
+    },
+    {
+      "family": "three-d-processing-mesh",
+      "decision": "canonical-destination",
+      "currentAuthorityRepository": "moritzbrantner/3d-lab",
+      "replacementSurfaces": ["three-d-core", "three-d-lod"],
+      "historicalPackageRole": "compatibility-provenance-only",
+      "reason": "Mesh validity and deterministic simplification/LOD authority are current, tested 3d-lab capabilities and are already consumed by asset-tooling."
+    },
+    {
+      "family": "three-d-scene-svg",
+      "decision": "retained-temporarily",
+      "currentAuthorityRepository": "moritzbrantner/rust-packages",
+      "replacementSurfaces": [],
+      "historicalPackageRole": "residual-compatibility-authority",
+      "reason": "No current repository has yet proven the complete SVG scene-projection contract as a supported replacement, so moving it would invent ownership."
+    },
+    {
+      "family": "video-analysis-sfm",
+      "decision": "canonical-destination",
+      "currentAuthorityRepository": "moritzbrantner/video-to-3d",
+      "replacementSurfaces": ["video-to-3d-core"],
+      "historicalPackageRole": "compatibility-provenance-only",
+      "reason": "video-to-3d is the current Rust-owned structure-from-motion product authority with deterministic reconstruction and external COLMAP reference evidence."
+    },
+    {
+      "family": "video-analysis-reconstruction",
+      "decision": "canonical-destination",
+      "currentAuthorityRepository": "moritzbrantner/video-to-3d",
+      "replacementSurfaces": ["video-to-3d-core"],
+      "historicalPackageRole": "compatibility-provenance-only",
+      "reason": "Sparse reconstruction, registered cameras, landmarks, bundle-adjustment acceptance, and reconstruction diagnostics are current video-to-3d semantics."
+    },
+    {
+      "family": "video-analysis-mvs",
+      "decision": "canonical-destination",
+      "currentAuthorityRepository": "moritzbrantner/video-to-3d",
+      "replacementSurfaces": ["video-to-3d-core dense reconstruction"],
+      "historicalPackageRole": "compatibility-provenance-only",
+      "reason": "The current multi-view dense-depth work is being built and accepted in video-to-3d; keeping a second MVS authority in a spatial monolith would duplicate reconstruction semantics."
+    },
+    {
+      "family": "video-analysis-gaussian-splatting",
+      "decision": "retained-temporarily",
+      "currentAuthorityRepository": "moritzbrantner/rust-packages",
+      "replacementSurfaces": [],
+      "historicalPackageRole": "residual-compatibility-authority",
+      "reason": "video-to-3d does not yet claim Gaussian-splat reconstruction or rendering, so this family stays historical until a real consumer proves a destination."
+    },
+    {
+      "family": "video-analysis-posture",
+      "decision": "retained-temporarily",
+      "currentAuthorityRepository": "moritzbrantner/rust-packages",
+      "replacementSurfaces": [],
+      "historicalPackageRole": "residual-compatibility-authority",
+      "reason": "Posture analysis is not part of current video-to-3d reconstruction ownership and no narrower active repository has yet proven the full contract."
+    },
+    {
+      "family": "video-analysis-posture-io",
+      "decision": "retained-temporarily",
+      "currentAuthorityRepository": "moritzbrantner/rust-packages",
+      "replacementSurfaces": [],
+      "historicalPackageRole": "residual-compatibility-authority",
+      "reason": "The posture interchange surface follows the still-retained posture family and should not be moved independently without a proven consumer."
+    },
+    {
+      "family": "video-analysis-radiance-fields",
+      "decision": "retained-temporarily",
+      "currentAuthorityRepository": "moritzbrantner/rust-packages",
+      "replacementSurfaces": [],
+      "historicalPackageRole": "residual-compatibility-authority",
+      "reason": "video-to-3d currently stops before radiance-field product semantics; assigning this family there would overstate the supported reconstruction boundary."
+    },
+    {
+      "family": "video-analysis-radiance-io",
+      "decision": "retained-temporarily",
+      "currentAuthorityRepository": "moritzbrantner/rust-packages",
+      "replacementSurfaces": [],
+      "historicalPackageRole": "residual-compatibility-authority",
+      "reason": "The historical package combines COLMAP, radiance-field, Gaussian, and other interchange semantics. Sparse COLMAP text is now canonical in video-to-3d, but the complete mixed package has not been replaced.",
+      "extractedSeams": [
+        {
+          "name": "sparse-colmap-text",
+          "canonicalRepository": "moritzbrantner/video-to-3d",
+          "surface": "video_to_3d_core::colmap",
+          "evidence": "https://github.com/moritzbrantner/video-to-3d/pull/17"
+        }
+      ]
+    },
+    {
+      "family": "video-analysis-radiance-pipeline",
+      "decision": "retained-temporarily",
+      "currentAuthorityRepository": "moritzbrantner/rust-packages",
+      "replacementSurfaces": [],
+      "historicalPackageRole": "residual-compatibility-authority",
+      "reason": "The end-to-end radiance pipeline has no current destination that can prove equivalent semantics, so it remains explicit migration debt rather than being folded into video-to-3d prematurely."
+    }
+  ]
+}
