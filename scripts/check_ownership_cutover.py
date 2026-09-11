@@ -10,6 +10,15 @@ ROOT = Path(__file__).resolve().parents[1]
 OWNERSHIP = ROOT / "docs/repository-split/package-ownership.json"
 CUTOVER = ROOT / "docs/repository-split/ownership-cutover.json"
 
+EXPECTED_FAMILIES = {
+    "moenarch-foundation": "moritzbrantner/moenarch-foundation",
+    "nlp-stack": "moritzbrantner/nlp-stack",
+    "audio-analysis": "moritzbrantner/audio-analysis",
+    "visual-analysis": "moritzbrantner/visual-analysis",
+}
+EXPECTED_AUTHORITY = {"source", "tests", "issues", "versions", "releases"}
+EXPECTED_ROLE = "compatibility-provenance-only-for-cutover-families"
+
 
 def load(path: Path) -> dict:
     with path.open(encoding="utf-8") as handle:
@@ -26,44 +35,58 @@ def records(authority: dict) -> list[dict]:
 def main() -> int:
     authority = load(OWNERSHIP)
     cutover = load(CUTOVER)
-    families = {
-        item["targetRepository"]: item
-        for item in cutover.get("families", [])
-        if item.get("ecosystem") == "cargo"
-    }
+    family_items = [
+        item for item in cutover.get("families", []) if item.get("ecosystem") == "cargo"
+    ]
+    targets = [item.get("targetRepository") for item in family_items]
+    families = {item.get("targetRepository"): item for item in family_items}
 
     errors: list[str] = []
-    expected_authority = {"source", "tests", "issues", "versions", "releases"}
-    for target, item in sorted(families.items()):
+    if len(targets) != len(set(targets)):
+        errors.append("cutover contains duplicate Cargo target repositories")
+
+    expected_targets = set(EXPECTED_FAMILIES)
+    actual_targets = set(families)
+    for target in sorted(expected_targets - actual_targets):
+        errors.append(f"{target}: required cutover family is missing")
+    for target in sorted(actual_targets - expected_targets):
+        errors.append(f"{target}: unexpected cutover family")
+
+    for target, expected_canonical in sorted(EXPECTED_FAMILIES.items()):
+        item = families.get(target)
+        if item is None:
+            continue
         canonical = item.get("canonicalRepository")
-        if not canonical or canonical == "moritzbrantner/rust-packages":
-            errors.append(f"{target}: canonical repository must be a destination repository")
-        if set(item.get("authority", [])) != expected_authority:
+        if canonical != expected_canonical:
+            errors.append(
+                f"{target}: canonical repository must be {expected_canonical!r}, got {canonical!r}"
+            )
+        if set(item.get("authority", [])) != EXPECTED_AUTHORITY:
             errors.append(f"{target}: authority must cover source/tests/issues/versions/releases")
 
     migrated = [
         record
         for record in records(authority)
-        if record.get("ecosystem") == "cargo" and record.get("target_repository") in families
+        if record.get("ecosystem") == "cargo"
+        and record.get("target_repository") in EXPECTED_FAMILIES
     ]
     seen_targets = {record.get("target_repository") for record in migrated}
-    for target in sorted(families):
+    for target in sorted(expected_targets):
         if target not in seen_targets:
             errors.append(f"{target}: cutover target has no Cargo packages in ownership authority")
 
     for record in migrated:
         target = record.get("target_repository")
         intended_owner = record.get("intended_next_release_owner")
-        canonical = families[target]["canonicalRepository"]
+        canonical = EXPECTED_FAMILIES[target]
         if intended_owner is not None and intended_owner != canonical:
             errors.append(
                 f"{record.get('current_package_name')}: intended release owner {intended_owner!r} "
                 f"does not match canonical {canonical!r}"
             )
 
-    expected_role = "compatibility-provenance-only-for-cutover-families"
-    if cutover.get("rustPackagesRoleAfterCutover") != expected_role:
-        errors.append(f"rustPackagesRoleAfterCutover must be {expected_role}")
+    if cutover.get("rustPackagesRoleAfterCutover") != EXPECTED_ROLE:
+        errors.append(f"rustPackagesRoleAfterCutover must be {EXPECTED_ROLE}")
 
     if errors:
         print("ownership cutover violations:")
