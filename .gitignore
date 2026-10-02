@@ -10,7 +10,6 @@ audio-tools/
 test-corpora/
 .video-analysis-models/
 .model-runtime/
-.agent-loop/
 .env
 .env.*
 !.env.example
