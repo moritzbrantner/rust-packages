@@ -9,7 +9,7 @@ runs:
     - name: Setup FFmpeg (latest)
       id: latest
       continue-on-error: true
-      uses: FedericoCarboni/setup-ffmpeg@v3
+      uses: FedericoCarboni/setup-ffmpeg@36c6454b5a2348e7794ba2d82a21506605921e3d # v3
       with:
         github-token: ${{ inputs.github-token }}
 
@@ -17,7 +17,7 @@ runs:
       if: ${{ steps.latest.outcome == 'failure' }}
       id: v7-0-0
       continue-on-error: true
-      uses: FedericoCarboni/setup-ffmpeg@v3
+      uses: FedericoCarboni/setup-ffmpeg@36c6454b5a2348e7794ba2d82a21506605921e3d # v3
       with:
         github-token: ${{ inputs.github-token }}
         ffmpeg-version: "7.0.0"
@@ -26,7 +26,7 @@ runs:
       if: ${{ steps.v7-0-0.outcome == 'failure' }}
       id: v6-1-1
       continue-on-error: true
-      uses: FedericoCarboni/setup-ffmpeg@v3
+      uses: FedericoCarboni/setup-ffmpeg@36c6454b5a2348e7794ba2d82a21506605921e3d # v3
       with:
         github-token: ${{ inputs.github-token }}
         ffmpeg-version: "6.1.1"
@@ -35,7 +35,7 @@ runs:
     - name: Setup FFmpeg (6.1.0)
       if: ${{ steps.v6-1-1.outcome == 'failure' }}
       id: v6-1-0
-      uses: FedericoCarboni/setup-ffmpeg@v3
+      uses: FedericoCarboni/setup-ffmpeg@36c6454b5a2348e7794ba2d82a21506605921e3d # v3
       with:
         github-token: ${{ inputs.github-token }}
         ffmpeg-version: "6.1.0"
