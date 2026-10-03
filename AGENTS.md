@@ -30,7 +30,6 @@ For non-trivial work, act as a coordinator:
 5. Run the narrowest meaningful checks.
 6. Repair relevant failures without weakening expected behavior.
 7. Commit every intended change.
-8. Return the compact worker report requested by the context pack.
 
 Always check git state before and after edits:
 
@@ -49,62 +48,10 @@ cargo metadata --no-deps
 Use `cargo metadata --no-deps` whenever workspace membership, crate boundaries,
 features, or dependency relationships matter.
 
-## Agent skills
+## Domain context
 
-This repository uses GitHub Issues as the source of truth for agent workflow.
-Agents should use the configured issue tracker and labels instead of local
-markdown task lists for triage, PRDs, assignment, blocking state, and
-completion state.
-
-Read the agent setup docs before running workflow skills:
-
-* Issue tracker: [docs/agents/issue-tracker.md](docs/agents/issue-tracker.md)
-* Triage labels: [docs/agents/triage-labels.md](docs/agents/triage-labels.md)
-* Domain context: [docs/agents/domain.md](docs/agents/domain.md)
-* Planning workflow: [docs/agents/planning-workflow.md](docs/agents/planning-workflow.md)
-
-The triage labels in `docs/agents/triage-labels.md` are canonical for this
-repo. Domain context starts with `CONTEXT.md` and the ADRs under `docs/adr/`.
-
-### Planning workflow
-
-Substantial new work should be planned into GitHub PRD issues instead of
-implemented directly. See `docs/agents/planning-workflow.md`.
-
-## Agent Loop Contract
-
-The complete operational label set is:
-
-* `ready-for-agent`
-* `agent-loop:active`
-* `agent-loop:blocked`
-* `agent-loop:ready-to-merge`
-
-These labels describe transient queue state. Closed issues and merged pull
-requests record completion through native GitHub state.
-
-Every implementation slice must begin with canonical YAML frontmatter:
-
-```yaml
----
-parent: 106
-blocked_by:
-  - 154
-scope:
-  - crates/example/**
----
-```
-
-Keep `blocked_by` present as an empty list when there are no blockers. Treat
-`scope` as the worker's write boundary.
-
-Before merge, verify the exact pull-request head in an isolated checkout by
-running the ordered `[verification]` commands from `.agent-loop.toml`. Readiness
-requires a passing exact-head receipt; hosted checks are informational.
-
-Workers keep all intended changes committed and return only the compact
-`schemaVersion: 2` JSON report requested by the generated context pack. Do not
-paste long diagnostics or command output into that report.
+See [docs/agents/domain.md](docs/agents/domain.md). Domain context starts with
+`CONTEXT.md` and the ADRs under `docs/adr/`.
 
 ## Ownership Boundaries
 
