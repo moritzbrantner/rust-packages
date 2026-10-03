@@ -1,5 +1,5 @@
 const repository = process.env.GITHUB_REPOSITORY;
-const token = process.env.GITHUB_TOKEN ?? process.env.GH_PACKAGES_TOKEN ?? process.env.NODE_AUTH_TOKEN;
+const token = process.env.GITHUB_TOKEN;
 const apiUrl = process.env.GITHUB_API_URL ?? "https://api.github.com";
 
 if (!repository) {
