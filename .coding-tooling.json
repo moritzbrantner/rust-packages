@@ -53,5 +53,9 @@
     "benchmark",
     "benchmark:smoke",
     "storybook:check"
-  ]
+  ],
+  "merge": {
+    "authority": "hosted",
+    "requiredChecks": ["CI gate"]
+  }
 }
