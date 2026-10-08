@@ -751,6 +751,28 @@ describe("PackageSurfaceWorkbench", () => {
     ]);
   });
 
+  test("exposes pending runtime initialization even when the runtime panel is hidden", async () => {
+    const initialization = Promise.withResolvers<void>();
+    render(
+      <PackageSurfaceWorkbench
+        config={config({
+          workbench: { sidePanels: { runtime: false } },
+          wasm: {
+            init: vi.fn(() => initialization.promise),
+            packageSurface: vi.fn(),
+            runOperation: vi.fn(),
+          },
+        })}
+      />,
+    );
+
+    const runtimeControls = screen.getByRole("group", { name: "Runtime mode" });
+    expect(runtimeControls.getAttribute("aria-busy")).toBe("true");
+    initialization.reject(new Error("missing generated wasm"));
+    await waitFor(() => expect(runtimeControls.getAttribute("aria-busy")).toBe("false"));
+    expect(screen.getByRole("button", { name: "Client WASM" })).toHaveProperty("disabled", true);
+  });
+
   test("falls back to overview server when WASM initialization fails", async () => {
     const runOperation = vi.fn(async () => operationResponse);
     const packageConfig = config({

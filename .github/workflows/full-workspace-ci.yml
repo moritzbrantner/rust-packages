@@ -20,5 +20,9 @@ jobs:
       build_command: BASE_REF=HEAD scripts/check-preflight.sh
       e2e_command: bun run --cwd packages/video-analysis-ui storybook:test:ci
       install_playwright: false
+      artifact_paths: |
+        prototypes/web/video-analysis-web/playwright-report
+        prototypes/web/video-analysis-web/test-results
+        packages/video-analysis-ui/test-results
       cache_cargo: true
       timeout_minutes: 120

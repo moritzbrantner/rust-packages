@@ -397,7 +397,7 @@ function RuntimeButtons({
   onRuntimeMode: (mode: RuntimeMode) => void;
 }) {
   return (
-    <div className="inline-grid overflow-hidden rounded-md border border-zinc-300 bg-white sm:grid-cols-3" role="group" aria-label="Runtime mode">
+    <div className="inline-grid overflow-hidden rounded-md border border-zinc-300 bg-white sm:grid-cols-3" role="group" aria-label="Runtime mode" aria-busy={wasmState === "loading" || serverState === "loading"}>
       <ModeButton
         active={runtimeMode === "client-wasm"}
         disabled={!config.wasm || wasmState === "error" || operation?.wasmSupported === false}
