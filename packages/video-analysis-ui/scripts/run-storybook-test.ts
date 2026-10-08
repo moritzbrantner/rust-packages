@@ -1,7 +1,11 @@
+import { createRequire } from "node:module";
+
 const url = readArg("--url") ?? "http://127.0.0.1:6006";
 
 if (await hasRealNode()) {
-  const result = Bun.spawnSync(["node", "node_modules/.bin/test-storybook", "--url", url], {
+  const require = createRequire(import.meta.url);
+  const runner = require.resolve("@storybook/test-runner/dist/test-storybook.js");
+  const result = Bun.spawnSync(["node", runner, "--index-json", "--url", url], {
     stdin: "inherit",
     stdout: "inherit",
     stderr: "inherit",
