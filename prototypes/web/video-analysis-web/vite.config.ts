@@ -1,5 +1,6 @@
 import react from "@vitejs/plugin-react";
 import { readdirSync, readFileSync } from "node:fs";
+import { createRequire } from "node:module";
 import { fileURLToPath } from "node:url";
 import { defineConfig, type Plugin } from "vite";
 
@@ -14,7 +15,7 @@ const textCoreWasmEntry = fileURLToPath(
 const textLinguisticsWasmEntry = fileURLToPath(
   new URL("../../../packages/text-linguistics-wasm/index.js", import.meta.url),
 );
-const rootNodeModules = fileURLToPath(new URL("../../../node_modules/.bun/node_modules/", import.meta.url));
+const require = createRequire(import.meta.url);
 
 export default defineConfig({
   base: process.env.PAGES_BASE_PATH ?? "/",
@@ -33,10 +34,10 @@ export default defineConfig({
         replacement: `${uiSourceRoot}/tailwind-content.ts`,
       },
       { find: /^@moritzbrantner\/video-analysis-ui\/([^/]+)$/, replacement: `${uiSourceRoot}/$1/index.tsx` },
-      { find: /^react\/jsx-runtime$/, replacement: `${rootNodeModules}react/jsx-runtime.js` },
-      { find: /^react\/jsx-dev-runtime$/, replacement: `${rootNodeModules}react/jsx-dev-runtime.js` },
-      { find: /^react-dom\/client$/, replacement: `${rootNodeModules}react-dom/client.js` },
-      { find: /^react$/, replacement: `${rootNodeModules}react/index.js` },
+      { find: /^react\/jsx-runtime$/, replacement: require.resolve("react/jsx-runtime") },
+      { find: /^react\/jsx-dev-runtime$/, replacement: require.resolve("react/jsx-dev-runtime") },
+      { find: /^react-dom\/client$/, replacement: require.resolve("react-dom/client") },
+      { find: /^react$/, replacement: require.resolve("react") },
     ],
   },
 });
