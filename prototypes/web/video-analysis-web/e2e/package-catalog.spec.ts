@@ -328,6 +328,11 @@ async function expectStructuredJsonResult(page: Page, expectedOperation?: string
 }
 
 async function selectWorkbenchOperation(page: Page, operation: string) {
+  // Surface metadata replaces the initially empty Operation selector with
+  // curated Scenarios. Choose a control only after its options have loaded.
+  await expect.poll(() =>
+    page.getByRole("combobox", { name: /^(Operation|Scenario)$/ }).locator("option").count(),
+  ).toBeGreaterThan(0);
   const operationSelect = page.getByRole("combobox", { name: "Operation" });
   if (await operationSelect.first().isVisible({ timeout: 1_000 }).catch(() => false)) {
     await operationSelect.selectOption(operation);
