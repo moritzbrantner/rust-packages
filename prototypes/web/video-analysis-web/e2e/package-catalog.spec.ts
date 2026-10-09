@@ -242,6 +242,23 @@ test("runs every audited text operation through supported runtimes", async ({ pa
   }
 });
 
+test("a delayed missing WASM package is not run through the server as client WASM", async ({ page }) => {
+  let serverRuns = 0;
+  page.on("request", (request) => {
+    if (request.method() === "POST" && request.url().endsWith("/api/run")) serverRuns += 1;
+  });
+  await page.route("**/moenarch_text_linguistics_wasm.js?import", async (route) => {
+    // Keep initialization pending after server metadata has populated the controls.
+    await page.waitForTimeout(1_000);
+    await route.fulfill({ status: 404, body: "WASM package not generated" });
+  });
+
+  await runTextOperationAndExpectStructuredResult(page, "text-linguistics", "linguistics.analyze", "client-wasm");
+
+  await expect(page.getByRole("button", { name: "Client WASM" })).toBeDisabled();
+  expect(serverRuns, "an unavailable client runtime must not silently run on the server").toBe(0);
+});
+
 test("missing generated WASM falls back to the overview server", async ({ page }) => {
   await page.goto(wrapperHref("animation-core"));
 
@@ -297,8 +314,9 @@ async function runTextOperationAndExpectStructuredResult(
   await selectWorkbenchOperation(page, operation);
 
   const runtimeButton = page.getByRole("button", { name: runtime === "overview-server" ? "Overview Server" : "Client WASM" });
-  if (runtime === "client-wasm" && (await runtimeButton.isDisabled())) {
-    return;
+  if (runtime === "client-wasm") {
+    await expect(page.getByRole("group", { name: "Runtime mode" }), `${wrapper} runtime initialization must settle`).toHaveAttribute("aria-busy", "false");
+    if (await runtimeButton.isDisabled()) return;
   }
   await expect(runtimeButton, `${wrapper} ${operation} ${runtime} runtime must be selectable`).toBeEnabled();
   await runtimeButton.click();
@@ -328,6 +346,11 @@ async function expectStructuredJsonResult(page: Page, expectedOperation?: string
 }
 
 async function selectWorkbenchOperation(page: Page, operation: string) {
+  // Surface metadata replaces the initially empty Operation selector with
+  // curated Scenarios. Choose a control only after its options have loaded.
+  await expect.poll(() =>
+    page.getByRole("combobox", { name: /^(Operation|Scenario)$/ }).locator("option").count(),
+  ).toBeGreaterThan(0);
   const operationSelect = page.getByRole("combobox", { name: "Operation" });
   if (await operationSelect.first().isVisible({ timeout: 1_000 }).catch(() => false)) {
     await operationSelect.selectOption(operation);
