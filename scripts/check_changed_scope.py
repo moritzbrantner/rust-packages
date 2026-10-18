@@ -332,9 +332,9 @@ def cargo_packages(root: Path) -> list[CargoPackage]:
 def git_changed_paths(root: Path, base: str) -> list[str]:
     merge_base = git_output(root, ["git", "merge-base", base, "HEAD"])
     commands = [
-        ["git", "diff", "--name-only", f"{merge_base}...HEAD"],
-        ["git", "diff", "--name-only"],
-        ["git", "diff", "--name-only", "--cached"],
+        ["git", "diff", "--no-renames", "--name-only", f"{merge_base}...HEAD"],
+        ["git", "diff", "--no-renames", "--name-only"],
+        ["git", "diff", "--no-renames", "--name-only", "--cached"],
     ]
     paths: set[str] = set()
     for command in commands:

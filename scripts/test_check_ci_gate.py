@@ -56,6 +56,28 @@ class CheckCiGateTests(unittest.TestCase):
         )
         self.assertEqual(result["failures"], ["planner:failure"])
 
+    def test_missing_planner_selection_is_not_an_intentional_skip(self) -> None:
+        with self.assertRaisesRegex(ValueError, "expected true or false"):
+            gate.parse_assignments(["rust_checks="], boolean=True)
+
+    def test_cancelled_or_missing_required_results_fail(self) -> None:
+        for results in ({"rust_checks": "cancelled"}, {}):
+            with self.subTest(results=results):
+                result = gate.evaluate_gate(
+                    planner_result="success",
+                    selected={"rust_checks": True},
+                    results=results,
+                )
+                self.assertFalse(result["passed"])
+
+    def test_documentation_scope_can_intentionally_skip_all_heavy_jobs(self) -> None:
+        result = gate.evaluate_gate(
+            planner_result="success",
+            selected={"rust_checks": False, "frontend_checks": False},
+            results={"rust_checks": "skipped", "frontend_checks": "skipped"},
+        )
+        self.assertTrue(result["passed"])
+
 
 if __name__ == "__main__":
     unittest.main()

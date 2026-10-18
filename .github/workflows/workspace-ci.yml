@@ -178,7 +178,7 @@ jobs:
       timeout_minutes: 90
 
   ci-gate:
-    name: CI gate
+    name: merge-ready
     if: always()
     runs-on: ubuntu-latest
     timeout-minutes: 5
@@ -197,13 +197,13 @@ jobs:
         run: >-
           python3 scripts/check_ci_gate.py
           --planner-result '${{ needs.planner.result }}'
-          --selected architecture_checks=${{ needs.planner.outputs.architecture_checks || 'false' }}
-          --selected rust_checks=${{ needs.planner.outputs.rust_checks || 'false' }}
-          --selected frontend_checks=${{ needs.planner.outputs.frontend_checks || 'false' }}
-          --selected wasm_checks=${{ needs.planner.outputs.wasm_checks || 'false' }}
-          --selected storybook_checks=${{ needs.planner.outputs.storybook_checks || 'false' }}
-          --selected browser_e2e_checks=${{ needs.planner.outputs.browser_e2e_checks || 'false' }}
-          --selected full_workspace_checks=${{ needs.planner.outputs.full_workspace_checks || 'false' }}
+          --selected architecture_checks=${{ needs.planner.outputs.architecture_checks }}
+          --selected rust_checks=${{ needs.planner.outputs.rust_checks }}
+          --selected frontend_checks=${{ needs.planner.outputs.frontend_checks }}
+          --selected wasm_checks=${{ needs.planner.outputs.wasm_checks }}
+          --selected storybook_checks=${{ needs.planner.outputs.storybook_checks }}
+          --selected browser_e2e_checks=${{ needs.planner.outputs.browser_e2e_checks }}
+          --selected full_workspace_checks=${{ needs.planner.outputs.full_workspace_checks }}
           --result architecture_checks=${{ needs.architecture-checks.result }}
           --result rust_checks=${{ needs.rust-checks.result }}
           --result frontend_checks=${{ needs.frontend-checks.result }}
