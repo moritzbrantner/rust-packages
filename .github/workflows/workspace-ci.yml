@@ -2,6 +2,7 @@ name: workspace-ci
 
 on:
   pull_request:
+    types: [opened, synchronize, reopened, labeled, unlabeled]
   workflow_dispatch:
 
 permissions:
@@ -9,11 +10,17 @@ permissions:
   packages: read
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}-${{ github.event_name == 'pull_request' && (github.event.action == 'labeled' || github.event.action == 'unlabeled') && github.event.label.name != 'full-ci' && 'other-label' || 'validation' }}
   cancel-in-progress: true
 
 jobs:
   planner:
+    if: >-
+      github.event_name != 'pull_request' || (github.event.action != 'labeled' && github.event.action != 'unlabeled') || github.event.label.name == 'full-ci'
+    permissions:
+      contents: read
+      packages: read
+      pull-requests: read
     name: Plan affected CI surfaces
     runs-on: ubuntu-latest
     timeout-minutes: 10
@@ -36,10 +43,21 @@ jobs:
       - name: Classify changed surfaces
         id: scope
         env:
-          FULL_CI: ${{ contains(github.event.pull_request.labels.*.name, 'full-ci') }}
+          GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
         run: |
+          set -euo pipefail
+          full_ci=false
+          if [[ "$GITHUB_EVENT_NAME" == "pull_request" ]]; then
+            # Reruns retain their original event payload; current labels own the required tier.
+            full_ci="$(gh api "repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER}" --jq 'any(.labels[]; .name == "full-ci")')"
+            if [[ "$full_ci" != "true" && "$full_ci" != "false" ]]; then
+              echo "Unable to determine the current full-ci label" >&2
+              exit 1
+            fi
+          fi
           args=(--base "origin/${GITHUB_BASE_REF:-main}" --github-output "$GITHUB_OUTPUT")
-          if [[ "$FULL_CI" == "true" ]]; then
+          if [[ "$full_ci" == "true" ]]; then
             args+=(--full-ci)
           fi
           python3 scripts/check_changed_scope.py "${args[@]}"
@@ -178,8 +196,12 @@ jobs:
       timeout_minutes: 90
 
   ci-gate:
-    name: merge-ready
-    if: always()
+    name: >-
+      ${{ github.event_name == 'pull_request' &&
+      ((github.event.action != 'labeled' && github.event.action != 'unlabeled') || github.event.label.name == 'full-ci') &&
+      'merge-ready' || 'validation-summary' }}
+    if: >-
+      always() && (github.event_name != 'pull_request' || (github.event.action != 'labeled' && github.event.action != 'unlabeled') || github.event.label.name == 'full-ci')
     runs-on: ubuntu-latest
     timeout-minutes: 5
     needs:

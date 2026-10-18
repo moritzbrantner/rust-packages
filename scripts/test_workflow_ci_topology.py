@@ -4,12 +4,40 @@
 from __future__ import annotations
 
 import unittest
+import os
+import subprocess
+import tempfile
+import textwrap
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 
 
 class WorkflowCiTopologyTests(unittest.TestCase):
+    def test_required_full_ci_tier_uses_current_labels_and_fails_closed(self) -> None:
+        workflow = (ROOT / ".github/workflows/workspace-ci.yml").read_text(encoding="utf-8")
+        step = workflow.split("      - name: Classify changed surfaces\n", 1)[1].split("      - name:", 1)[0]
+        script = textwrap.dedent(step.split("        run: |\n", 1)[1])
+        with tempfile.TemporaryDirectory() as directory:
+            fixture = Path(directory)
+            gh = fixture / "gh"
+            gh.write_text('#!/bin/sh\n[ "$CURRENT_LABEL" != error ] || exit 9\nprintf "%s\\n" "$CURRENT_LABEL"\n')
+            gh.chmod(0o755)
+            python = fixture / "python3"
+            python.write_text('#!/bin/sh\nprintf "%s\\n" "$@" > "$FIXTURE_ARGV"\n')
+            python.chmod(0o755)
+            for current, stale, success in [("true", "false", True), ("false", "true", True), ("error", "false", False), ("unknown", "false", False)]:
+                with self.subTest(current=current, stale=stale):
+                    arguments = fixture / "arguments"
+                    arguments.unlink(missing_ok=True)
+                    env = dict(os.environ, PATH=f"{fixture}:{os.environ['PATH']}", CURRENT_LABEL=current, FULL_CI=stale, GITHUB_EVENT_NAME="pull_request", GITHUB_REPOSITORY="owner/repo", PR_NUMBER="1", GITHUB_OUTPUT=str(fixture / "output"), FIXTURE_ARGV=str(arguments))
+                    result = subprocess.run(["bash", "-c", script], cwd=ROOT, env=env, capture_output=True, text=True)
+                    self.assertEqual(result.returncode == 0, success, result.stderr)
+                    if success:
+                        self.assertEqual("--full-ci" in arguments.read_text().splitlines(), current == "true")
+                    else:
+                        self.assertFalse(arguments.exists(), "scope planning must not proceed after a label-read failure")
+
     def test_pr_runs_cancel_obsolete_runs_but_not_sibling_jobs(self) -> None:
         workflow = (ROOT / ".github/workflows/workspace-ci.yml").read_text(
             encoding="utf-8"
