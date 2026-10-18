@@ -5,6 +5,8 @@ from __future__ import annotations
 
 import importlib.util
 import sys
+import subprocess
+import tempfile
 import unittest
 from pathlib import Path
 
@@ -19,6 +21,32 @@ spec.loader.exec_module(scope_mod)
 
 
 class CheckChangedScopeTests(unittest.TestCase):
+    def test_committed_source_to_docs_rename_keeps_both_paths(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+
+            def git(*args: str) -> str:
+                return subprocess.run(
+                    ["git", *args], cwd=root, check=True,
+                    text=True, capture_output=True,
+                ).stdout.strip()
+
+            git("init", "--quiet")
+            git("config", "user.name", "CI Test")
+            git("config", "user.email", "ci-test@example.invalid")
+            (root / "src").mkdir()
+            (root / "src/lib.rs").write_text("pub fn original() {}\n")
+            git("add", ".")
+            git("commit", "--quiet", "-m", "baseline")
+            baseline = git("rev-parse", "HEAD")
+            (root / "docs").mkdir()
+            git("mv", "src/lib.rs", "docs/lib.rs")
+            git("commit", "--quiet", "-m", "rename")
+            self.assertEqual(
+                scope_mod.git_changed_paths(root, baseline),
+                ["docs/lib.rs", "src/lib.rs"],
+            )
+
     def test_rust_library_change_maps_to_one_package(self) -> None:
         scope = self.classify(["crates/text/text-core/src/lib.rs"])
         self.assertEqual(scope["rust_scope"], "changed")
