@@ -894,7 +894,9 @@ impl AudioTransform for Pan {
                 let left_gain = angle.cos() * std::f32::consts::SQRT_2;
                 let right_gain = angle.sin() * std::f32::consts::SQRT_2;
                 let output = samples
-                    .chunks_exact(2)
+                    .as_chunks::<2>()
+                    .0
+                    .iter()
                     .flat_map(|frame| [frame[0] * left_gain, frame[1] * right_gain])
                     .collect();
                 owned_like(frame, output).map(Some)
@@ -1091,7 +1093,7 @@ fn apply_width(samples: &mut [f32], width: f32, channels: usize) {
     if channels != 2 {
         return;
     }
-    for frame in samples.chunks_exact_mut(2) {
+    for frame in samples.as_chunks_mut::<2>().0 {
         let mid = (frame[0] + frame[1]) * 0.5;
         let side = (frame[0] - frame[1]) * 0.5 * width;
         frame[0] = mid + side;

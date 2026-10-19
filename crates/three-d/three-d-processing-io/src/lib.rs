@@ -280,7 +280,9 @@ pub fn read_gltf_mesh(path: impl AsRef<Path>) -> Result<Mesh> {
         ));
     }
     let triangles = indices
-        .chunks_exact(3)
+        .as_chunks::<3>()
+        .0
+        .iter()
         .map(|chunk| Triangle::new(chunk[0], chunk[1], chunk[2]))
         .collect::<Vec<_>>();
     Mesh::new(positions, triangles)
@@ -522,7 +524,7 @@ fn decode_vec3_accessor(
         .get(start..end)
         .ok_or_else(|| invalid_argument("glTF POSITION accessor exceeds buffer length"))?;
     let mut points = Vec::with_capacity(accessor.count as usize);
-    for chunk in slice.chunks_exact(12) {
+    for chunk in slice.as_chunks::<12>().0.iter() {
         points.push(Point3::new(
             f32::from_le_bytes([chunk[0], chunk[1], chunk[2], chunk[3]]),
             f32::from_le_bytes([chunk[4], chunk[5], chunk[6], chunk[7]]),
@@ -556,7 +558,9 @@ fn decode_index_accessor(
         .get(start..end)
         .ok_or_else(|| invalid_argument("glTF index accessor exceeds buffer length"))?;
     Ok(slice
-        .chunks_exact(4)
+        .as_chunks::<4>()
+        .0
+        .iter()
         .map(|chunk| u32::from_le_bytes([chunk[0], chunk[1], chunk[2], chunk[3]]) as usize)
         .collect())
 }
