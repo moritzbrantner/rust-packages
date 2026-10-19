@@ -141,7 +141,7 @@ fn bench_content_hot_paths(c: &mut Criterion, width: u32, height: u32) {
     group.bench_function(format!("rgb_to_hsv_{suffix}"), |b| {
         b.iter(|| {
             let mut total = 0usize;
-            for pixel in first.data.chunks_exact(3) {
+            for pixel in first.data.as_chunks::<3>().0.iter() {
                 let (h, s, v) = rgb_to_hsv_compat(pixel[0], pixel[1], pixel[2]);
                 total += h as usize + s as usize + v as usize;
             }
@@ -205,7 +205,7 @@ fn frame_data_from_frame(frame: VideoFrame<'_>) -> (Vec<u8>, Vec<u8>, Vec<u8>) {
     for y in 0..frame.height {
         let start = y as usize * frame.stride;
         let row = &frame.data[start..start + row_len];
-        for pixel in row.chunks_exact(3) {
+        for pixel in row.as_chunks::<3>().0.iter() {
             let (r, g, b) = match frame.pixel_format {
                 PixelFormat::Rgb24 => (pixel[0], pixel[1], pixel[2]),
                 PixelFormat::Bgr24 => (pixel[2], pixel[1], pixel[0]),

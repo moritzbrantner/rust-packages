@@ -78,17 +78,12 @@ fn main() -> io::Result<()> {
 fn serve(addr: &str) -> io::Result<()> {
     let listener = TcpListener::bind(addr)?;
     for stream in listener.incoming() {
-        match stream {
-            Ok(stream) => {
-                if let Err(error) = handle_stream(stream) {
-                    if is_client_disconnect(&error) {
-                        eprintln!("ignored client disconnect: {error}");
-                    } else {
-                        return Err(error);
-                    }
-                }
+        if let Err(error) = handle_stream(stream?) {
+            if is_client_disconnect(&error) {
+                eprintln!("ignored client disconnect: {error}");
+            } else {
+                return Err(error);
             }
-            Err(error) => return Err(error),
         }
     }
     Ok(())

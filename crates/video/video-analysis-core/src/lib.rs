@@ -810,7 +810,7 @@ impl FrameData {
                         expected: start + row_len,
                         actual: frame.data.len(),
                     })?;
-            for pixel in row.chunks_exact(3) {
+            for pixel in row.as_chunks::<3>().0 {
                 let (r, g, b) = (pixel[0], pixel[1], pixel[2]);
                 let (h, s, v) = rgb_to_hsv(r, g, b);
                 self.hue.push(h);
@@ -841,7 +841,7 @@ impl FrameData {
                         expected: start + row_len,
                         actual: frame.data.len(),
                     })?;
-            for pixel in row.chunks_exact(3) {
+            for pixel in row.as_chunks::<3>().0 {
                 let (h, s, v) = rgb_to_hsv(pixel[0], pixel[1], pixel[2]);
                 dh += abs_diff_u8(h, previous.hue[index]) as u64;
                 ds += abs_diff_u8(s, previous.sat[index]) as u64;
@@ -867,7 +867,7 @@ impl FrameData {
                         expected: start + row_len,
                         actual: frame.data.len(),
                     })?;
-            for pixel in row.chunks_exact(3) {
+            for pixel in row.as_chunks::<3>().0 {
                 let (r, g, b) = (pixel[2], pixel[1], pixel[0]);
                 let (h, s, v) = rgb_to_hsv(r, g, b);
                 self.hue.push(h);
@@ -898,7 +898,7 @@ impl FrameData {
                         expected: start + row_len,
                         actual: frame.data.len(),
                     })?;
-            for pixel in row.chunks_exact(3) {
+            for pixel in row.as_chunks::<3>().0 {
                 let (h, s, v) = rgb_to_hsv(pixel[2], pixel[1], pixel[0]);
                 dh += abs_diff_u8(h, previous.hue[index]) as u64;
                 ds += abs_diff_u8(s, previous.sat[index]) as u64;

@@ -1571,7 +1571,7 @@ fn decode_yunet_prior(prior: &YunetPrior, values: &[f32]) -> DecodedYunetPrior {
     let width = prior.width * (values[2] * 0.2).exp();
     let height = prior.height * (values[3] * 0.2).exp();
     let mut landmarks = Vec::with_capacity(10);
-    for pair in values[4..14].chunks_exact(2) {
+    for pair in values[4..14].as_chunks::<2>().0.iter() {
         landmarks.push(prior.cx + pair[0] * 0.1 * prior.width);
         landmarks.push(prior.cy + pair[1] * 0.1 * prior.height);
     }
@@ -1667,7 +1667,9 @@ fn face_detection_from_xyxy(
     let mut detection = FaceDetection::new(face_box, score)?;
     if landmarks.len() >= 10 {
         let points = landmarks
-            .chunks_exact(2)
+            .as_chunks::<2>()
+            .0
+            .iter()
             .take(5)
             .map(|pair| map_yunet_point(pair[0], pair[1], options, original_size))
             .collect::<Vec<_>>();

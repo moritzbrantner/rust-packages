@@ -351,7 +351,7 @@ fn in_range(frame_index: u64, start_frame: u64, end_frame: u64) -> bool {
 }
 
 fn fill_frame(frame: &mut OwnedVideoFrame, rgb: [u8; 3]) {
-    for pixel in frame.data.chunks_exact_mut(3) {
+    for pixel in frame.data.as_chunks_mut::<3>().0 {
         pixel.copy_from_slice(&rgb);
     }
 }
