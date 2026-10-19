@@ -468,7 +468,9 @@ fn owned_image_to_video_frame(image: &OwnedImage) -> Result<video_analysis_core:
         ImagePixelFormat::Rgb24 => image.data.clone(),
         ImagePixelFormat::Bgr24 => image
             .data
-            .chunks_exact(3)
+            .as_chunks::<3>()
+            .0
+            .iter()
             .flat_map(|chunk| [chunk[2], chunk[1], chunk[0]])
             .collect(),
         ImagePixelFormat::Gray8 => image
