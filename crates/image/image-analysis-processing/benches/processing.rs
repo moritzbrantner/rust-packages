@@ -1,9 +1,10 @@
-use criterion::{black_box, criterion_group, criterion_main, Criterion};
+use criterion::{criterion_group, criterion_main, Criterion};
 use image_analysis_core::{ImagePixelFormat, OwnedImage};
 use image_analysis_processing::{
     convolve_3x3_kernel, grayscale_image, resize_nearest, ImageOperation, ImageProcessor,
 };
 use math_linear::Kernel2d;
+use std::hint::black_box;
 
 fn image(width: u32, height: u32) -> OwnedImage {
     let mut data = Vec::with_capacity(width as usize * height as usize * 3);

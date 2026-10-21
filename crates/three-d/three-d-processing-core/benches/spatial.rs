@@ -1,4 +1,5 @@
-use criterion::{black_box, criterion_group, criterion_main, Criterion};
+use criterion::{criterion_group, criterion_main, Criterion};
+use std::hint::black_box;
 use three_d_processing_core::{
     broad_phase_pairs_3d, Bounds3, BroadPhase3Config, BroadPhase3Strategy, Point3, SpatialCellSize3,
 };

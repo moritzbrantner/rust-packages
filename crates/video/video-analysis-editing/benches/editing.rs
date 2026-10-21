@@ -1,6 +1,7 @@
-use criterion::{black_box, criterion_group, criterion_main, Criterion};
+use criterion::{criterion_group, criterion_main, Criterion};
 use math_linear::Kernel2d;
 use num_rational::Rational64;
+use std::hint::black_box;
 use video_analysis_core::{FramePosition, OwnedVideoFrame, PixelFormat};
 use video_analysis_editing::{box_blur_frame, edge_detect_frame, grayscale_frame, FrameEditor};
 

@@ -1,6 +1,7 @@
+use std::hint::black_box;
 use std::time::Duration;
 
-use criterion::{black_box, criterion_group, criterion_main, BatchSize, Criterion};
+use criterion::{criterion_group, criterion_main, BatchSize, Criterion};
 use num_rational::Rational64;
 use video_analysis_core::{OwnedVideoFrame, PixelFormat, SceneDetector, ScenePipeline, VideoFrame};
 use video_analysis_detectors::{
