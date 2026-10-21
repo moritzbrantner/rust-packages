@@ -1121,7 +1121,7 @@ mod tests {
     fn catalog_migration_creates_tables() {
         let conn = Connection::open_in_memory().unwrap();
         migrate_catalog(&conn).unwrap();
-        let count: u64 = conn
+        let count: i64 = conn
             .query_row(
                 "SELECT count(*) FROM sqlite_master WHERE type = 'table' AND name IN ('tracks', 'fingerprint_chunks')",
                 [],

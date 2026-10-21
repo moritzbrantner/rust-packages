@@ -51,7 +51,7 @@ keywords = ["video", "audio", "image", "multimodal", "analysis"]
 categories = ["multimedia", "computer-vision", "science", "algorithms"]
 
 [workspace.dependencies]
-base64 = "0.22.1"
+base64 = "0.23.0"
 clap = { version = "4.5.51", features = ["derive"] }
 chrono = { version = "0.4.42", default-features = false, features = ["clock", "serde"] }
 ffmpeg-next = { version = "8.0.0", default-features = false }
@@ -59,10 +59,10 @@ flate2 = "1.1.9"
 hf-hub = { version = "0.5.0", default-features = false, features = ["ureq"] }
 num-rational = "0.4.2"
 num-traits = "0.2.19"
-rusqlite = "0.32.1"
+rusqlite = "0.40.0"
 serde = { version = "1.0.228", features = ["derive"] }
 serde_json = "1.0.150"
-sha2 = "0.10.9"
+sha2 = "0.11.0"
 regex = "1"
 rayon = "1.11.0"
 redb = "4.1"
@@ -71,18 +71,18 @@ rustfft = "6.2.0"
 hound = "3.5.1"
 tempfile = "3.23.0"
 thiserror = "2.0.17"
-criterion = "0.5.1"
+criterion = "0.8.0"
 faer = { version = "0.24.0", default-features = false, features = ["std", "linalg"] }
 nalgebra = { version = "0.35.0", default-features = false, features = ["std"] }
 proptest = "1.6.0"
 unicode-normalization = "0.1.24"
 unicode-segmentation = "1.12.0"
-tokenizers = { version = "0.22.2", default-features = false, features = ["unstable_wasm"] }
+tokenizers = { version = "0.23.0", default-features = false, features = ["unstable_wasm"] }
 ort = { version = "2.0.0-rc.12", default-features = false, features = ["std", "ndarray", "load-dynamic", "api-24"] }
 ndarray = "0.17.2"
-candle-core = "0.10.2"
-candle-nn = "0.10.2"
-candle-transformers = "0.10.2"
+candle-core = "0.11.0"
+candle-nn = "0.11.0"
+candle-transformers = "0.11.0"
 image = { version = "0.25", default-features = false, features = ["png", "jpeg", "webp"] }
 animation-core = { package = "moenarch-animation-core", version = "0.1.0", path = "crates/animation/animation-core" }
 comfyui-data = { package = "moenarch-comfyui-data", version = "0.1.0", path = "crates/comfyui/comfyui-data" }
