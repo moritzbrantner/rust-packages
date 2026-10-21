@@ -1053,7 +1053,7 @@ def write_app(name: str, description: str) -> None:
                 "description": f"React app for {name}: {description}",
                 "private": True,
                 "type": "module",
-                "packageManager": "bun@1.3.14",
+                "packageManager": "bun@1.4.3",
                 "scripts": {
                     "dev": "vite --host 0.0.0.0",
                     "build": "tsc -p tsconfig.json && vite build",

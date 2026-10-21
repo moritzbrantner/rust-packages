@@ -83,7 +83,7 @@ jobs:
       source_sha: ${{ github.sha }}
       artifact_key: rust-packages-video-analysis-pages-v1
       node_version: ""
-      bun_version: "1.3.14"
+      bun_version: "1.4.3"
       cache_bun: true
       use_environment_v1: false
       setup_command: |
