@@ -103,7 +103,7 @@ jobs:
       bun_version: ""
       node_version: ""
       install_command: ""
-      pre_command: rustup toolchain install 1.95.0 --profile minimal --component clippy --component rustfmt && rustup default 1.95.0
+      pre_command: rustup toolchain install stable --profile minimal --component clippy --component rustfmt && rustup default stable
       unit_test_command: git fetch --no-tags --unshallow origin && CHECK_FAST_FRONTEND=none BASE_REF="origin/${GITHUB_BASE_REF:-main}" scripts/check-fast.sh
       cache_cargo: true
       concurrency_group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}-rust
@@ -114,7 +114,7 @@ jobs:
     needs: planner
     uses: moritzbrantner/reusable-workflows/.github/workflows/fast-validation.yml@0415977e9d98d7708ee0e094ed558c95ff72b3bc # workflow-standard-v1
     with:
-      bun_version: "1.4.3"
+      bun_version: latest
       node_version: ""
       install_command: bun install --frozen-lockfile
       unit_test_command: git fetch --no-tags --unshallow origin && python3 scripts/run_changed_frontend.py --base "origin/${GITHUB_BASE_REF:-main}" --kind application
@@ -126,7 +126,7 @@ jobs:
     needs: planner
     uses: moritzbrantner/reusable-workflows/.github/workflows/fast-validation.yml@0415977e9d98d7708ee0e094ed558c95ff72b3bc # workflow-standard-v1
     with:
-      bun_version: "1.4.3"
+      bun_version: latest
       node_version: ""
       install_command: bun install --frozen-lockfile
       pre_command: rustup target add wasm32-unknown-unknown && cargo install wasm-pack --locked --version 0.14.0
@@ -140,7 +140,7 @@ jobs:
     needs: planner
     uses: moritzbrantner/reusable-workflows/.github/workflows/e2e-validation.yml@0415977e9d98d7708ee0e094ed558c95ff72b3bc # workflow-standard-v1
     with:
-      bun_version: "1.4.3"
+      bun_version: latest
       node_version: ""
       install_command: bun install --frozen-lockfile
       pre_command: rustup target add wasm32-unknown-unknown && cargo install wasm-pack --locked --version 0.14.0 && bun run --cwd packages/video-analysis-ui playwright install --with-deps chromium
@@ -160,7 +160,7 @@ jobs:
     needs: planner
     uses: moritzbrantner/reusable-workflows/.github/workflows/e2e-validation.yml@0415977e9d98d7708ee0e094ed558c95ff72b3bc # workflow-standard-v1
     with:
-      bun_version: "1.4.3"
+      bun_version: latest
       node_version: ""
       install_command: bun install --frozen-lockfile
       pre_command: rustup target add wasm32-unknown-unknown && cargo install wasm-pack --locked --version 0.14.0 && bun run --cwd packages/video-analysis-ui playwright install --with-deps chromium
@@ -180,10 +180,10 @@ jobs:
     needs: planner
     uses: moritzbrantner/reusable-workflows/.github/workflows/e2e-validation.yml@0415977e9d98d7708ee0e094ed558c95ff72b3bc # workflow-standard-v1
     with:
-      bun_version: "1.4.3"
+      bun_version: latest
       node_version: ""
       install_command: bun install --frozen-lockfile
-      pre_command: rustup toolchain install 1.95.0 --profile minimal --component clippy --component rustfmt && rustup default 1.95.0 && rustup target add wasm32-unknown-unknown && cargo install wasm-pack --locked --version 0.14.0 && bun run --cwd packages/video-analysis-ui playwright install --with-deps chromium
+      pre_command: rustup toolchain install stable --profile minimal --component clippy --component rustfmt && rustup default stable && rustup target add wasm32-unknown-unknown && cargo install wasm-pack --locked --version 0.14.0 && bun run --cwd packages/video-analysis-ui playwright install --with-deps chromium
       build_command: git fetch --no-tags --unshallow origin && BASE_REF="origin/${GITHUB_BASE_REF:-main}" scripts/check-preflight.sh
       e2e_command: bun run --cwd packages/video-analysis-ui storybook:test:ci
       install_playwright: false
