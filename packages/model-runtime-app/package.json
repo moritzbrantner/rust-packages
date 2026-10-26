@@ -4,7 +4,7 @@
   "description": "React app for model-runtime: Generic model specs, bundles, downloads, and job helpers for multimodal runtimes.",
   "private": true,
   "type": "module",
-  "packageManager": "bun@1.4.3",
+  "packageManager": "bun@1.4.4",
   "scripts": {
     "dev": "vite --host 0.0.0.0",
     "build": "tsc -p tsconfig.json && vite build",
