@@ -15,8 +15,6 @@ ROOT = Path(__file__).resolve().parents[1]
 MATRIX_PATH = ROOT / "docs" / "PACKAGE_SURFACE_MATRIX.md"
 CONTRACT_ONLY_FOUNDATION_POLICY_PATH = ROOT / "docs" / "contract-only-foundation-crates.json"
 EXCLUDED_LIBRARY_CRATES = {
-    "moritzbrantner-audio-analysis-test-support",
-    "moenarch-audio-analysis-test-support",
     "moritzbrantner-runtime-core",
     "moenarch-runtime-core",
     "moritzbrantner-runtime-onnx",
@@ -32,19 +30,6 @@ SCAFFOLD_STRINGS = [
     "JSON request metadata for the operation-specific package surface",
 ]
 LEGACY_WASM_TEST_STRING = "run default wasm operation"
-LEGACY_WASM_TEST_ALLOWLIST = {
-    "crates/bindings/audio-analysis-core-wasm/src/lib.rs",
-    "crates/bindings/audio-analysis-fourier-wasm/src/lib.rs",
-    "crates/bindings/audio-analysis-io-wasm/src/lib.rs",
-    "crates/bindings/audio-analysis-pitch-wasm/src/lib.rs",
-    "crates/bindings/audio-analysis-processing-wasm/src/lib.rs",
-    "crates/bindings/audio-analysis-recognition-wasm/src/lib.rs",
-    "crates/bindings/audio-analysis-rhythm-wasm/src/lib.rs",
-    "crates/bindings/audio-analysis-separation-wasm/src/lib.rs",
-    "crates/bindings/audio-analysis-speakers-wasm/src/lib.rs",
-    "crates/bindings/audio-analysis-synthesis-wasm/src/lib.rs",
-    "crates/bindings/audio-generation-midi-wasm/src/lib.rs",
-}
 MOD_DECLARATION_RE = re.compile(r"^\s*(?:pub(?:\([^)]*\))?\s+)?mod\s+([A-Za-z_][A-Za-z0-9_]*)\s*;")
 DEBUG_OPERATION_KEYWORDS = (
     "describe",
@@ -409,8 +394,6 @@ def module_file_candidates(path: Path, module_name: str) -> bool:
 def validate_no_new_legacy_wasm_tests(failures: list[str]) -> None:
     for path in sorted((ROOT / "crates" / "bindings").rglob("*.rs")):
         relative = path.relative_to(ROOT).as_posix()
-        if relative in LEGACY_WASM_TEST_ALLOWLIST:
-            continue
         text = path.read_text(encoding="utf-8")
         if LEGACY_WASM_TEST_STRING in text:
             failures.append(

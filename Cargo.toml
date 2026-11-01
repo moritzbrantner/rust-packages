@@ -16,7 +16,7 @@ categories = ["multimedia", "computer-vision", "science", "algorithms"]
 members = [
     ".",
     "crates/animation/*",
-    "crates/audio/*",
+    "crates/audio/audio-contracts",
     "crates/bindings/*",
     "crates/comfyui/*",
     "crates/data/*",
@@ -104,20 +104,6 @@ math-linear = { package = "moenarch-math-linear", version = "0.1.0", path = "cra
 math-signal-core = { package = "moenarch-math-signal-core", version = "0.1.0", path = "crates/math/math-signal-core" }
 math-sparse-data = { package = "moenarch-math-sparse-data", version = "0.1.0", path = "crates/math/math-sparse-data" }
 math-statistics = { package = "moenarch-math-statistics", version = "0.1.0", path = "crates/math/math-statistics" }
-audio-analysis-core = { package = "moenarch-audio-analysis-core", version = "0.1.0", path = "crates/audio/audio-analysis-core" }
-audio-generation-midi = { package = "moenarch-audio-generation-midi", version = "0.1.0", path = "crates/audio/audio-generation-midi" }
-audio-generation-tts = { package = "moenarch-audio-generation-tts", version = "0.1.0", path = "crates/audio/audio-generation-tts" }
-audio-analysis-fourier = { package = "moenarch-audio-analysis-fourier", version = "0.1.0", path = "crates/audio/audio-analysis-fourier" }
-audio-analysis-io = { package = "moenarch-audio-analysis-io", version = "0.1.1", path = "crates/audio/audio-analysis-io" }
-audio-analysis-pitch = { package = "moenarch-audio-analysis-pitch", version = "0.1.0", path = "crates/audio/audio-analysis-pitch" }
-audio-analysis-processing = { package = "moenarch-audio-analysis-processing", version = "0.1.0", path = "crates/audio/audio-analysis-processing" }
-audio-analysis-recognition = { package = "moenarch-audio-analysis-recognition", version = "0.1.0", path = "crates/audio/audio-analysis-recognition" }
-audio-analysis-rhythm = { package = "moenarch-audio-analysis-rhythm", version = "0.1.0", path = "crates/audio/audio-analysis-rhythm" }
-audio-analysis-separation = { package = "moenarch-audio-analysis-separation", version = "0.1.0", path = "crates/audio/audio-analysis-separation" }
-audio-analysis-speakers = { package = "moenarch-audio-analysis-speakers", version = "0.1.4", path = "crates/audio/audio-analysis-speakers" }
-audio-analysis-synthesis = { package = "moenarch-audio-analysis-synthesis", version = "0.1.0", path = "crates/audio/audio-analysis-synthesis" }
-audio-analysis-transcription = { package = "moenarch-audio-analysis-transcription", version = "0.1.15", path = "crates/audio/audio-analysis-transcription" }
-audio-analysis-test-support = { package = "moenarch-audio-analysis-test-support", version = "0.1.0", path = "crates/audio/audio-analysis-test-support" }
 video-analysis-test-support = { package = "moenarch-video-analysis-test-support", version = "0.1.0", path = "crates/test-support/video-analysis-test-support" }
 image-analysis-core = { package = "moenarch-image-analysis-core", version = "0.1.0", path = "crates/image/image-analysis-core" }
 image-analysis-captioning = { package = "moenarch-image-analysis-captioning", version = "0.1.0", path = "crates/image/image-analysis-captioning" }
@@ -184,7 +170,6 @@ name = "video_analysis"
 default = ["full"]
 full = [
     "animation",
-    "audio",
     "image",
     "text",
     "video",
@@ -197,21 +182,6 @@ full = [
     "runtime",
 ]
 animation = ["dep:animation-core"]
-audio = [
-    "dep:audio-analysis-core",
-    "dep:audio-generation-midi",
-    "dep:audio-generation-tts",
-    "dep:audio-analysis-fourier",
-    "dep:audio-analysis-io",
-    "dep:audio-analysis-pitch",
-    "dep:audio-analysis-processing",
-    "dep:audio-analysis-recognition",
-    "dep:audio-analysis-rhythm",
-    "dep:audio-analysis-separation",
-    "dep:audio-analysis-speakers",
-    "dep:audio-analysis-synthesis",
-    "dep:audio-analysis-transcription",
-]
 image = [
     "dep:image-analysis-comfyui",
     "dep:image-analysis-captioning",
@@ -370,19 +340,6 @@ video-analysis-synthesis = { workspace = true, optional = true }
 video-analysis-segmentation = { workspace = true, optional = true }
 video-analysis-tracking = { workspace = true, optional = true }
 video-analysis-transform = { workspace = true, optional = true }
-audio-analysis-core = { workspace = true, optional = true }
-audio-generation-midi = { workspace = true, optional = true }
-audio-generation-tts = { workspace = true, optional = true }
-audio-analysis-fourier = { workspace = true, optional = true }
-audio-analysis-io = { workspace = true, optional = true }
-audio-analysis-pitch = { workspace = true, optional = true }
-audio-analysis-processing = { workspace = true, optional = true }
-audio-analysis-recognition = { workspace = true, optional = true }
-audio-analysis-rhythm = { workspace = true, optional = true }
-audio-analysis-separation = { workspace = true, optional = true }
-audio-analysis-speakers = { workspace = true, optional = true }
-audio-analysis-synthesis = { workspace = true, optional = true }
-audio-analysis-transcription = { workspace = true, optional = true }
 data-inversion-core = { workspace = true, optional = true }
 graph-analysis-core = { workspace = true, optional = true }
 dense-data = { workspace = true, optional = true }
@@ -469,6 +426,3 @@ text-retrieval-cli = { package = "moenarch-text-retrieval-cli", path = "crates/t
 text-retrieval-server = { package = "moenarch-text-retrieval-server", path = "crates/text/text-retrieval-server" }
 text-transcripts-cli = { package = "moenarch-text-transcripts-cli", path = "crates/text/text-transcripts-cli" }
 text-transcripts-server = { package = "moenarch-text-transcripts-server", path = "crates/text/text-transcripts-server" }
-audio-generation-tts-cli = { package = "moenarch-audio-generation-tts-cli", path = "crates/audio/audio-generation-tts-cli" }
-audio-generation-tts-server = { package = "moenarch-audio-generation-tts-server", path = "crates/audio/audio-generation-tts-server" }
-audio-generation-tts-wasm = { package = "moenarch-audio-generation-tts-wasm", path = "crates/bindings/audio-generation-tts-wasm" }

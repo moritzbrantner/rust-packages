@@ -12,7 +12,6 @@ python3 scripts/audit_curated_landscape.py --write
 
 | Group | Package | Operation | Curated function | Curated types | Source |
 |---|---|---|---|---|---|
-| foundation | `moritzbrantner-audio-analysis-core` | `audio.levels` | `audio.core.levels` | `audio.frame`, `numbers.summary` | `crates/audio/audio-analysis-core/src/surface.rs` |
 | foundation | `moritzbrantner-image-analysis-core` | `image.core.summary` | `image.core.summarizeImage` | `image.image`, `numbers.summary` | `crates/image/image-analysis-core/src/surface.rs` |
 | foundation | `moritzbrantner-math-geometry-2d` | `geometry.transform` | `geometry.transformPoints` | `geometry.point2f` | `crates/math/math-geometry-2d/src/surface.rs` |
 | foundation | `moritzbrantner-numbers-core` | `numbers.summary` | `numbers.summary` | `vector.vector`, `numbers.summary` | `crates/data/numbers-core/src/surface.rs` |
@@ -22,8 +21,6 @@ python3 scripts/audit_curated_landscape.py --write
 | foundation | `moritzbrantner-vector-analysis-core` | `vector.normalize` | `vector.normalize` | `vector.vector` | `crates/vector/vector-analysis-core/src/surface.rs` |
 | foundation | `moritzbrantner-vision-core` | `vision.validateDetection` | `vision.validateDetection` | `vision.detection` | `crates/vision/vision-core/src/surface.rs` |
 | foundation | `moritzbrantner-vision-core` | `vision.validateEmbedding` | `vision.validateEmbedding` | `vision.embedding` | `crates/vision/vision-core/src/surface.rs` |
-| workflow | `moritzbrantner-audio-analysis-transcription` | `audio.transcription.importWhisperX` | `audio.transcription.importWhisperX` | `audio.source`, `text.transcriptSegment`, `text.document` | `crates/audio/audio-analysis-transcription/src/surface.rs` |
-| workflow | `moritzbrantner-audio-analysis-transcription` | `audio.transcription.transcribe` | `audio.transcription.transcribe` | `audio.source`, `audio.transcriptionConfig`, `text.transcriptSegment`, `text.document` | `crates/audio/audio-analysis-transcription/src/surface.rs` |
 | workflow | `moritzbrantner-image-analysis-detection` | `image.detection.colorBlob` | `image.detection.detectColorBlob` | `image.image`, `image.detectionRequest`, `vision.detection` | `crates/image/image-analysis-detection/src/surface.rs` |
 | workflow | `moritzbrantner-text-analysis` | `analysis.document` | `text.analysis.analyzeDocument` | `text.document`, `text.analysisReport` | `crates/text/text-analysis/src/surface.rs` |
 | workflow | `moritzbrantner-text-retrieval` | `retrieval.search` | `text.retrieval.search` | `text.retrievalQuery`, `text.document`, `text.searchResult` | `crates/text/text-retrieval/src/surface.rs` |

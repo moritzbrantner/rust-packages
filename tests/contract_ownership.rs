@@ -198,14 +198,6 @@ fn root_facade_does_not_promote_domain_model_crates() {
         "root facade should expose the generic model infrastructure under model_runtime"
     );
     assert!(
-        !source.contains("pub use audio_analysis_tasks"),
-        "root facade must not promote aggregate audio task crates"
-    );
-    assert!(
-        source.contains("pub use audio_analysis_recognition as audio_recognition;"),
-        "root facade should expose concrete audio recognition APIs"
-    );
-    assert!(
         !source.contains("pub use image_analysis_tasks"),
         "root facade must not promote aggregate image task crates"
     );
@@ -408,80 +400,7 @@ fn manifest_declares_dependency(source: &str, dependency: &str) -> bool {
 }
 
 #[test]
-fn audio_analysis_models_crate_is_removed() {
-    let root = Path::new(env!("CARGO_MANIFEST_DIR"));
-    assert!(
-        !root.join("crates/audio/audio-analysis-models").exists(),
-        "audio-analysis-models must not remain in the workspace"
-    );
-}
-
-#[test]
-fn no_audio_analysis_models_imports_remain() {
-    let root = Path::new(env!("CARGO_MANIFEST_DIR"));
-    let mut violations = Vec::new();
-    for dir in ["crates", "src", "tests", "prototypes"] {
-        collect_text_sources(&root.join(dir), &mut |path| {
-            let source = fs::read_to_string(path).expect("read source");
-            if source.contains(concat!("use audio_analysis_", "models"))
-                || source.contains(concat!("audio_analysis_", "models::"))
-                || source.contains(concat!("audio-analysis-", "models.workspace"))
-                || source.contains(concat!("name = \"audio-analysis-", "models\""))
-            {
-                violations.push(path.display().to_string());
-            }
-        });
-    }
-
-    assert!(
-        violations.is_empty(),
-        "audio-analysis-models references must be removed: {}",
-        violations.join(", ")
-    );
-}
-
-#[test]
-fn audio_tasks_crate_is_execution_free_and_jobs_are_feature_gated() {
-    let separation_manifest = read_manifest("crates/audio/audio-analysis-separation/Cargo.toml");
-    assert!(
-        separation_manifest.contains("jobs-core = { workspace = true, optional = true }"),
-        "source separation job helpers must keep jobs-core optional"
-    );
-    assert!(
-        separation_manifest.contains("jobs = [\"dep:jobs-core\"]"),
-        "source separation job helpers must be behind a jobs feature"
-    );
-}
-
-#[test]
-fn audio_asr_contract_uses_text_transcript_contracts() {
-    let source = fs::read_to_string(
-        Path::new(env!("CARGO_MANIFEST_DIR"))
-            .join("crates/audio/audio-analysis-recognition/src/lib.rs"),
-    )
-    .expect("read audio-analysis-recognition source");
-
-    assert!(source
-        .contains("pub use text_transcripts::{TranscriptSegmentContract, TranscriptionContract};"));
-    assert!(source.contains("pub imported_segments: Vec<TranscriptSegmentContract>"));
-    assert!(source.contains("pub transcript: TranscriptionContract"));
-}
-
-#[test]
-fn foundational_audio_and_image_cores_stay_runtime_independent() {
-    let audio_core = read_manifest("crates/audio/audio-analysis-core/Cargo.toml");
-    for forbidden in [
-        "video-analysis-ffmpeg",
-        "model-runtime",
-        "text-transcripts",
-        "text-core",
-    ] {
-        assert!(
-            !audio_core.contains(forbidden),
-            "audio-analysis-core must not depend on runtime or transcript crate `{forbidden}`"
-        );
-    }
-
+fn foundational_image_core_stays_runtime_independent() {
     let image_core = read_manifest("crates/image/image-analysis-core/Cargo.toml");
     for forbidden in [
         concat!("image-analysis-", "onnx"),
@@ -707,7 +626,6 @@ fn runtime_backend_defaults_stay_empty_and_opt_in() {
         "crates/image/image-analysis-embeddings/Cargo.toml",
         "crates/video/video-analysis-posture/Cargo.toml",
         "crates/video/video-analysis-recognition/Cargo.toml",
-        "crates/audio/audio-analysis-separation/Cargo.toml",
         "crates/video/video-analysis-cli/Cargo.toml",
     ] {
         let manifest_path = Path::new(env!("CARGO_MANIFEST_DIR")).join(path);
@@ -738,8 +656,7 @@ fn transcript_dtos_are_owned_by_text_transcripts() {
             }
             let path_text = path.to_string_lossy();
             let allowed = path_text.contains("crates/text/text-transcripts/")
-                || line.contains("TranscriptStatsExtractor")
-                || is_audio_transcription_surface_type(&path_text, line);
+                || line.contains("TranscriptStatsExtractor");
             if !allowed {
                 violations.push(format!("{}:{}", path.display(), line_index + 1));
             }
@@ -749,29 +666,6 @@ fn transcript_dtos_are_owned_by_text_transcripts() {
     assert!(
         violations.is_empty(),
         "new public Transcript* DTOs must live in text-transcripts or be allowlisted compatibility shims: {}",
-        violations.join(", ")
-    );
-}
-
-#[test]
-fn audio_crates_do_not_define_transcript_dtos() {
-    let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("crates/audio");
-    let mut violations = Vec::new();
-    collect_rust_sources(&root, &mut |path| {
-        let source = fs::read_to_string(path).expect("read Rust source");
-        for (line_index, line) in source.lines().enumerate() {
-            let path_text = path.to_string_lossy();
-            if declares_public_transcript_dto(line)
-                && !is_audio_transcription_surface_type(&path_text, line)
-            {
-                violations.push(format!("{}:{}", path.display(), line_index + 1));
-            }
-        }
-    });
-
-    assert!(
-        violations.is_empty(),
-        "audio crates must consume/re-export text-transcripts contracts instead of defining transcript DTOs: {}",
         violations.join(", ")
     );
 }
@@ -858,9 +752,6 @@ fn foundation_contract_owner_rules_remain_enforced() {
         ("Observation", "crates/video/video-analysis-core/"),
         ("ImageView", "crates/image/image-analysis-core/"),
         ("OwnedImage", "crates/image/image-analysis-core/"),
-        ("AudioFrames", "crates/audio/audio-analysis-core/"),
-        ("AudioFeaturePoint", "crates/audio/audio-analysis-core/"),
-        ("AudioFeatureSeries", "crates/audio/audio-analysis-core/"),
         ("TextDocumentContract", "crates/text/text-core/"),
         ("TextSegmentContract", "crates/text/text-core/"),
         ("TextSegment", "crates/text/text-core/"),
@@ -1039,13 +930,6 @@ fn foundation_adapters_delegate_to_library_owned_surfaces() {
             cli: "crates/image/image-analysis-core-cli/src/lib.rs",
             server: "crates/image/image-analysis-core-server/src/lib.rs",
             wasm: "crates/bindings/image-analysis-core-wasm/src/lib.rs",
-        },
-        FoundationAdapterCase {
-            crate_name: "audio-analysis-core",
-            import_name: "audio_analysis_core",
-            cli: "crates/audio/audio-analysis-core-cli/src/lib.rs",
-            server: "crates/audio/audio-analysis-core-server/src/lib.rs",
-            wasm: "crates/bindings/audio-analysis-core-wasm/src/lib.rs",
         },
         FoundationAdapterCase {
             crate_name: "text-core",
@@ -1305,37 +1189,6 @@ fn public_field_names(body: &str) -> impl Iterator<Item = &str> {
             .and_then(|field| field.split_once(':'))
             .map(|(name, _)| name.trim())
     })
-}
-
-fn is_audio_transcription_surface_type(path: &str, line: &str) -> bool {
-    if path.contains("crates/audio/audio-analysis-recognition/src/transcription.rs") {
-        return line.contains("pub enum TranscriptionInput")
-            || line.contains("pub struct TranscriptionRuntimeSelection")
-            || line.contains("pub struct TranscriptionRequest")
-            || line.contains("pub struct TranscriptionResponse")
-            || line.contains("pub enum TranscriptionProviderKind")
-            || line.contains("pub struct TranscriptionBackendPlan")
-            || line.contains("pub struct WhisperCppTranscriptionPlan");
-    }
-
-    path.contains("crates/audio/audio-analysis-transcription/src/lib.rs")
-        && (line.contains("pub struct TranscriptionPipelineRequest")
-            || line.contains("pub enum TranscriptionSource")
-            || line.contains("pub enum TranscriptionTask")
-            || line.contains("pub enum TranscriptionProviderSelection")
-            || line.contains("pub struct TranscriptionOutputOptions")
-            || line.contains("pub struct TranscriptionArtifact")
-            || line.contains("pub struct TranscriptionPipelineResponse")
-            || line.contains("pub struct TranscriptionProviderPlan"))
-}
-
-fn declares_public_transcript_dto(line: &str) -> bool {
-    let trimmed = line.trim();
-    ["pub struct ", "pub enum "]
-        .iter()
-        .filter_map(|prefix| trimmed.strip_prefix(prefix))
-        .filter_map(|rest| rest.split_whitespace().next())
-        .any(|name| name.starts_with("Transcript") && !name.starts_with("Transcription"))
 }
 
 fn collect_text_sources(dir: &Path, visit: &mut impl FnMut(&Path)) {

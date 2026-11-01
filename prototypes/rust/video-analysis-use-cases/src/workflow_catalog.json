@@ -149,34 +149,6 @@
       ]
     },
     {
-      "id": "audio-voice-analysis-workflow",
-      "title": "Audio Voice Analysis Workflow",
-      "package_name": "video-analysis-use-cases",
-      "category": "audio",
-      "inputs": [
-        {
-          "id": "file",
-          "label": "Audio",
-          "kind": "audio_file",
-          "exposable_input": true,
-          "input_surface": "file",
-          "runtime_validation": "external_input"
-        },
-        {
-          "id": "args",
-          "label": "Args",
-          "kind": "run_config",
-          "exposable_input": true,
-          "input_surface": "config",
-          "runtime_validation": "external_input"
-        }
-      ],
-      "outputs": [
-        { "id": "audio", "label": "Audio", "kind": "audio_file" },
-        { "id": "report", "label": "Report", "kind": "json_report" }
-      ]
-    },
-    {
       "id": "image-person-edit-workflow",
       "title": "Image Person Edit Workflow",
       "package_name": "video-analysis-use-cases",
@@ -201,82 +173,6 @@
       ],
       "outputs": [
         { "id": "image", "label": "Image", "kind": "image_file" },
-        { "id": "report", "label": "Report", "kind": "json_report" }
-      ]
-    },
-    {
-      "id": "song-workflow",
-      "title": "Song Workflow",
-      "package_name": "video-analysis-use-cases",
-      "category": "song",
-      "inputs": [
-        {
-          "id": "url",
-          "label": "URL",
-          "kind": "youtube_url",
-          "optional": true,
-          "exposable_input": true,
-          "input_surface": "source_url",
-          "runtime_validation": "external_input"
-        },
-        {
-          "id": "file",
-          "label": "File",
-          "kind": "media_file",
-          "optional": true,
-          "exposable_input": true,
-          "input_surface": "file",
-          "runtime_validation": "external_input"
-        },
-        {
-          "id": "args",
-          "label": "Args",
-          "kind": "run_config",
-          "exposable_input": true,
-          "input_surface": "config",
-          "runtime_validation": "external_input"
-        }
-      ],
-      "outputs": [
-        { "id": "file", "label": "Media", "kind": "media_file" },
-        { "id": "report", "label": "Report", "kind": "json_report" }
-      ]
-    },
-    {
-      "id": "subtitle-workflow",
-      "title": "Subtitle Workflow",
-      "package_name": "text-transcripts",
-      "category": "text",
-      "inputs": [
-        {
-          "id": "url",
-          "label": "URL",
-          "kind": "youtube_url",
-          "optional": true,
-          "exposable_input": true,
-          "input_surface": "source_url",
-          "runtime_validation": "external_input"
-        },
-        {
-          "id": "file",
-          "label": "File",
-          "kind": "video_file",
-          "optional": true,
-          "exposable_input": true,
-          "input_surface": "file",
-          "runtime_validation": "external_input"
-        },
-        {
-          "id": "args",
-          "label": "Args",
-          "kind": "run_config",
-          "exposable_input": true,
-          "input_surface": "config",
-          "runtime_validation": "external_input"
-        }
-      ],
-      "outputs": [
-        { "id": "subtitle", "label": "Subtitle", "kind": "subtitle_file" },
         { "id": "report", "label": "Report", "kind": "json_report" }
       ]
     },
@@ -412,18 +308,6 @@
       ]
     },
     {
-      "id": "audio-pipeline",
-      "title": "Audio Pipeline",
-      "package_name": "audio-analysis-processing",
-      "category": "audio",
-      "inputs": [
-        { "id": "audio", "label": "Audio", "kind": "audio_waveform", "stream": true }
-      ],
-      "outputs": [
-        { "id": "events", "label": "Events", "kind": "audio_events" }
-      ]
-    },
-    {
       "id": "transcriber",
       "title": "Transcriber",
       "package_name": "text-transcripts",
@@ -484,78 +368,6 @@
         { "id": "audio", "label": "Audio Events", "kind": "audio_events", "optional": true },
         { "id": "text", "label": "Text Events", "kind": "text_events", "optional": true },
         { "id": "buckets", "label": "Buckets", "kind": "data_buckets", "optional": true }
-      ],
-      "outputs": [
-        { "id": "report", "label": "Report", "kind": "json_report" }
-      ]
-    },
-    {
-      "id": "song-fingerprinter",
-      "title": "Song Fingerprinter",
-      "package_name": "audio-analysis-recognition",
-      "category": "song",
-      "inputs": [
-        {
-          "id": "file",
-          "label": "Media",
-          "kind": "media_file",
-          "exposable_input": true,
-          "input_surface": "file",
-          "runtime_validation": "external_input"
-        }
-      ],
-      "outputs": [
-        { "id": "fingerprint", "label": "Fingerprint", "kind": "song_fingerprint" }
-      ]
-    },
-    {
-      "id": "song-catalog-matcher",
-      "title": "Song Catalog Matcher",
-      "package_name": "video-analysis-use-cases",
-      "category": "song",
-      "inputs": [
-        { "id": "fingerprint", "label": "Fingerprint", "kind": "song_fingerprint" },
-        {
-          "id": "catalog",
-          "label": "Catalog",
-          "kind": "song_catalog",
-          "exposable_input": true,
-          "input_surface": "generic",
-          "runtime_validation": "external_input"
-        }
-      ],
-      "outputs": [
-        { "id": "matches", "label": "Matches", "kind": "song_matches" }
-      ]
-    },
-    {
-      "id": "song-music-analyzer",
-      "title": "Music Analyzer",
-      "package_name": "video-analysis-use-cases",
-      "category": "song",
-      "inputs": [
-        {
-          "id": "file",
-          "label": "Media",
-          "kind": "media_file",
-          "exposable_input": true,
-          "input_surface": "file",
-          "runtime_validation": "external_input"
-        }
-      ],
-      "outputs": [
-        { "id": "features", "label": "Features", "kind": "music_features" }
-      ]
-    },
-    {
-      "id": "song-report-writer",
-      "title": "Song Report Writer",
-      "package_name": "video-analysis-use-cases",
-      "category": "song",
-      "inputs": [
-        { "id": "matches", "label": "Matches", "kind": "song_matches", "optional": true },
-        { "id": "features", "label": "Features", "kind": "music_features", "optional": true },
-        { "id": "transcript", "label": "Lyrics", "kind": "transcript", "optional": true }
       ],
       "outputs": [
         { "id": "report", "label": "Report", "kind": "json_report" }

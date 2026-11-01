@@ -23,7 +23,6 @@ python3 scripts/audit_package_surfaces.py --quality
 cargo clippy --workspace --all-targets -- -D warnings
 
 bun run text-wasm:test
-bun run audio-wasm:test
 bun run video-wasm:test
 bun run ui:build
 bun run web:typecheck

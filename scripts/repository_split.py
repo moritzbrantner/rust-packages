@@ -60,7 +60,7 @@ SEMVER_RE = re.compile(
 FULL_SHA_RE = re.compile(r"^[0-9a-f]{40}$")
 AUDITED_SOURCE_COMMIT = "d032ad2890c1df3c6a5b9eff024562f00d017fce"
 PHASE_A_PACKAGES_SHA256 = (
-    "ddfea012979f6ee13483d4c70a9702c29a595e2a4202c3490a8350ee7f78a6bd"
+    "5d4784da6505d0998c90e3e844882aede7abb43ae233c3c1a59e46f58ab66899"
 )
 CREATING_ISSUE_RE = re.compile(
     r"^https://github\.com/moritzbrantner/rust-packages/issues/[1-9]\d*$"

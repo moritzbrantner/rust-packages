@@ -21,7 +21,7 @@ class RepositorySplitInventoryTests(unittest.TestCase):
     def test_live_reviewed_authority_matches_manifests(self) -> None:
         authority, _, _, errors = generate()
         self.assertEqual(errors, [])
-        self.assertEqual(len(authority["packages"]), 520)
+        self.assertEqual(len(authority["packages"]), 441)
         self.assertEqual(
             [
                 record["id"]
@@ -46,7 +46,7 @@ class RepositorySplitInventoryTests(unittest.TestCase):
                 "issue": "https://github.com/moritzbrantner/rust-packages/issues/152",
             },
         )
-        self.assertEqual(len(authority["resolved_boundary_violations"]), 40)
+        self.assertEqual(len(authority["resolved_boundary_violations"]), 26)
         self.assertEqual(authority["schema_version"], 2)
 
     def test_boundary_resolutions_are_exact_unique_and_absent_from_baseline(

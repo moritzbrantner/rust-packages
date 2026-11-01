@@ -14,9 +14,7 @@ done
 
 "$ROOT_DIR/scripts/check_e2e_external_tools.sh"
 
-FFMPEG_EXTERNAL_TESTS=1 cargo test --jobs "$CARGO_BUILD_JOBS" -p moenarch-audio-analysis-io --test ffmpeg_decode
 cargo test --jobs "$CARGO_BUILD_JOBS" -p moenarch-video-analysis-ffmpeg --features ffmpeg-tests
-RUN_REAL_DEMUCS_TESTS=1 cargo test --jobs "$CARGO_BUILD_JOBS" -p moenarch-audio-analysis-separation --features external-tests real_demucs_smoke_test_when_requested -- --ignored
 cargo test --jobs "$CARGO_BUILD_JOBS" -p moenarch-video-analysis-use-cases --test external_tools real_whisper_cli_transcribes_generated_speech_with_timing -- --ignored --nocapture
 cargo test --jobs "$CARGO_BUILD_JOBS" -p moenarch-video-analysis-split --features external-tests --test ffmpeg_split -- --ignored
 cargo test --jobs "$CARGO_BUILD_JOBS" -p moenarch-video-analysis-cli --test cli_smoke vanalyze_detect_writes_scene_csv_for_generated_video -- --ignored

@@ -147,14 +147,7 @@ scripts/setup_model_external_tools.sh
 scripts/check_model_external_tools.sh
 ```
 
-Audio-specific helpers are available through:
-
-```bash
-scripts/setup_audio_external_tools.sh
-```
-
 ## CI Expectations
 
 - `workspace-ci` is the primary pull request gate for Rust and frontend changes.
-- `audio-ci` covers scheduled audio-specific perf and external-tool jobs.
 - `external-ci` is non-blocking scheduled coverage for ignored and tool-heavy checks.

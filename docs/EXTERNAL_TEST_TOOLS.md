@@ -5,7 +5,7 @@ models, and network downloads. Optional e2e/integration checks use local,
 ignored tool roots instead:
 
 - `.external-test-tools/` for general video/e2e/radiance tools.
-- `.audio-tools/` for the audio-specific compatibility script.
+- `.audio-tools/` for legacy audio tool installs (audio now lives in `audio-analysis`).
 
 ## Repository Rule
 
@@ -59,7 +59,6 @@ roots only when needed.
 | Bundle | Setup | Check / Run |
 | --- | --- | --- |
 | ONNX model smoke | `bash scripts/setup_model_external_tools.sh onnx` | `bash scripts/check_model_external_tools.sh onnx` then `scripts/check_onnx_external_smoke.sh` |
-| Native whisper.cpp transcription smoke | `bash scripts/setup_whisper_cpp_external_model.sh` plus a local WAV fixture | Run the env-gated audio transcription command below |
 | Video scene benchmark smoke | `scripts/setup_video_scene_benchmarks.sh bbc` | `scripts/setup_video_scene_benchmarks.sh verify` then the bounded BBC evaluator command in `VIDEO_SCENE_DETECTION_PARITY.md` |
 | Radiance / Nerfstudio smoke | `bash scripts/setup_radiance_external_tools.sh` | `scripts/check_e2e_external_tools.sh` or the dedicated radiance check required by the touched workflow |
 
@@ -120,35 +119,6 @@ The OCR smoke expects the printed TrOCR ONNX manifest at
 `.model-runtime/trocr-base-printed-onnx/main/manifest.json` and reads
 `tests/fixtures/ocr/trocr-hello.png`.
 
-Native transcription smoke tests follow the same opt-in rule. Candle Whisper
-CUDA is the primary native target and requires `candle,cuda,model-bundles`
-features plus `RUN_NATIVE_TRANSCRIPTION_TESTS=1`,
-`TRANSCRIPTION_MODEL_BUNDLE`, and `TRANSCRIPTION_AUDIO_PATH`. Candle CPU remains
-the local development fallback. CTC alignment and native diarization smoke
-tests also require their documented env vars before they run. External Python
-WhisperX remains compatibility/parity tooling only, and browser/WASM package
-surfaces do not run native ASR.
-
-Set a reusable smoke root before running native transcription checks:
-
-```bash
-export SMOKE_ROOT="${SMOKE_ROOT:-$HOME/.local/share/video-analysis-smoke}"
-export TRANSCRIPTION_MODEL_BUNDLE="$SMOKE_ROOT/whisper-tiny"
-export TRANSCRIPTION_AUDIO_PATH="$SMOKE_ROOT/audio/native-transcription-smoke.wav"
-```
-
-On the current maintainer workstation, `/usr/local/cuda` points at CUDA 13.3, so
-the passing CUDA smoke also points `RUSTFLAGS`, `LIBRARY_PATH`, and
-`LD_LIBRARY_PATH` at `$SMOKE_ROOT/cuda12-libs` for CUDA 12.3 libraries. Treat
-that as host-specific setup, not a default contributor requirement. Native
-Whisper timing now uses timestamp-token segments when available, projected word
-timing inside those segments, and chunk/window fallback timing otherwise.
-wav2vec2 CTC
-bundle/config/tokenizer/preprocessor validation exists, and supported local
-`Wav2Vec2ForCTC` safetensors bundles execute through Candle for native CTC
-alignment. Unsupported architectures or weight layouts return
-`unsupported_runtime`.
-
 The multimodal workflow smoke tests still include optional command adapters
 under `scripts/`, but image/video workflows now prefer Rust-side adapters when
 configured without commands:
@@ -174,8 +144,6 @@ configured without commands:
 
 Optional env vars used by the ignored external smoke tests:
 
-- `AUDIO_VOICE_ANALYSIS_TRANSCRIBER`: command path for a real transcription CLI
-  used by `audio-voice-analysis`.
 - `IMAGE_PERSON_EDIT_INPUT`: local image path for the real image-edit smoke
   test.
 - `IMAGE_PERSON_EDIT_DETECTOR_COMMAND`: detector command path for the real
@@ -257,15 +225,12 @@ The `training` target verifies `ns-train` and `ns-export` in addition to
 
 - `EXTERNAL_TEST_TOOLS_DIR`: override `.external-test-tools/`.
 - `RADIANCE_TOOLS_DIR`: override only the radiance setup root.
-- `AUDIO_TOOLS_DIR`: override `.audio-tools/` for
-  `setup_audio_external_tools.sh`.
 - `PYTHON_CLI_VENV`: override the shared Python virtual environment path.
 - `MODEL_TOOLS_DIR`: override `.external-test-tools/` for
   `setup_model_external_tools.sh`.
 - `MODEL_PYTHON_VENV`: override the model-backend Python virtual environment.
 - `MODEL_ONNXRUNTIME_PIP_PACKAGE`, `MODEL_TORCH_PIP_PACKAGE`, and
   `MODEL_TRANSFORMERS_PIP_PACKAGE`: override heavyweight model packages.
-- `AUDIO_DEMUCS_INSTALLER`: `auto`, `venv`, or `conda`.
 - `EXTERNAL_COLMAP_INSTALLER`: `auto`, `system`, or `conda`.
 - `NERFSTUDIO_INSTALLER`: `auto`, `conda`, or `venv`.
 - `NERFSTUDIO_TORCH_VERSION`, `NERFSTUDIO_TORCHVISION_VERSION`, and

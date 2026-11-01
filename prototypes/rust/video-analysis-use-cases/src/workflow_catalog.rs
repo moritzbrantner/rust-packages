@@ -993,10 +993,6 @@ mod tests {
         assert!(catalog
             .nodes
             .iter()
-            .any(|node| node.id == "audio-voice-analysis-workflow"));
-        assert!(catalog
-            .nodes
-            .iter()
             .any(|node| node.id == "image-person-edit-workflow"));
     }
 

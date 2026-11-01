@@ -21,8 +21,8 @@ Text package model catalogs distinguish deterministic, loadable, and reference-o
 Default builds remain deterministic and network-free. Native tokenizers,
 Candle, ONNX, and model bundles are opt-in through feature gates such as
 `tokenizers`, `candle`, `onnx`, `model-bundles`, and `external-tests`.
-whisper.cpp execution is owned by `audio-analysis-transcription` behind its
-`native` feature. Feature gates make native/model paths available; callers must
+whisper.cpp execution is owned by `audio-analysis-transcription` in the
+`audio-analysis` repository. Feature gates make native/model paths available; callers must
 still explicitly select model-backed behavior. Downloads never happen through
 generic validation helpers. The explicit exceptions are model-backed runtime
 operations such as `runtime.onnxQaProbe`, `runtime.downloadBundle`, `qa.answer`
@@ -41,16 +41,8 @@ cargo test -p moenarch-text-embeddings --features external-tests -- --ignored
 cargo test -p moenarch-text-classification --features external-tests -- --ignored
 ```
 
-whisper.cpp uses the audio-owned setup and smoke path instead:
-
-```bash
-scripts/setup_whisper_cpp_external_model.sh
-RUN_NATIVE_WHISPER_TESTS=1 \
-NATIVE_WHISPER_AUDIO_PATH=/path/to/fixture-16khz-mono.wav \
-cargo test -p moenarch-audio-analysis-transcription \
-  --features native,external-tests --test whisper_native_external \
-  native_whisper_cpp_smoke_when_requested -- --ignored --nocapture
-```
+whisper.cpp setup and smoke tests live in
+[`audio-analysis`](https://github.com/moritzbrantner/audio-analysis).
 
 ## Model-Capable And Model-Free Crates
 

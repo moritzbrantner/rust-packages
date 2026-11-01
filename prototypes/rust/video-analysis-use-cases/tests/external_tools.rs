@@ -1,11 +1,7 @@
 use std::path::PathBuf;
 
-use audio_analysis_test_support::{click_track, mixed_sources, stepped_tones, write_pcm16_wav};
 use image_analysis_core::OwnedImage;
 use image_analysis_io::write_image;
-use video_analysis_use_cases::audio_voice_analysis::{
-    run_audio_voice_analysis, AudioVoiceAnalysisRequest,
-};
 use video_analysis_use_cases::image_person_edit::{run_image_person_edit, ImagePersonEditRequest};
 use video_analysis_use_cases::video_red_cars::{run_video_red_cars, VideoRedCarsRequest};
 use video_analysis_use_cases::{run_youtube_video, YoutubeVideoRequest};
@@ -266,60 +262,6 @@ fn generated_video_red_cars_workflow_counts_red_cars() {
             .sum::<u64>()
             >= 2
     );
-}
-
-#[test]
-#[ignore = "requires ffmpeg + demucs; optional transcription via env"]
-fn audio_voice_analysis_workflow_runs_with_real_tools_when_configured() {
-    if !(video_analysis_ffmpeg::is_ffmpeg_available()
-        && video_analysis_ffmpeg::is_ffprobe_available())
-    {
-        eprintln!(
-            "skipping audio voice analysis external test because ffmpeg/ffprobe is unavailable"
-        );
-        return;
-    }
-    if !audio_analysis_separation::is_demucs_available() {
-        eprintln!("skipping audio voice analysis external test because demucs is unavailable");
-        return;
-    }
-
-    let dir = tempfile::tempdir().unwrap();
-    let audio = dir.path().join("voice.wav");
-    let samples = mixed_sources(&[
-        click_track(16_000, 120.0, 4.0),
-        stepped_tones(&[(440.0, 2.0), (493.88, 2.0)], 16_000),
-    ]);
-    write_pcm16_wav(&audio, 16_000, 1, &samples).unwrap();
-
-    let transcriber_command = std::env::var("AUDIO_VOICE_ANALYSIS_TRANSCRIBER")
-        .ok()
-        .map(PathBuf::from);
-    let report = run_audio_voice_analysis(AudioVoiceAnalysisRequest {
-        input: audio,
-        work_dir: dir.path().join("work"),
-        transcription: if let Some(command) = transcriber_command {
-            video_analysis_use_cases::TranscriptionConfig {
-                enabled: true,
-                engine: video_analysis_use_cases::TranscriptionEngine::Whisper,
-                command: Some(video_analysis_use_cases::ExternalCommandConfig {
-                    command,
-                    args: Vec::new(),
-                }),
-                whisper_cpp: video_analysis_use_cases::WhisperCppConfig::default(),
-            }
-        } else {
-            video_analysis_use_cases::TranscriptionConfig {
-                enabled: false,
-                ..video_analysis_use_cases::TranscriptionConfig::default()
-            }
-        },
-        ..AudioVoiceAnalysisRequest::default()
-    })
-    .unwrap();
-
-    assert!(report.separation.is_some());
-    assert!(!report.sung_notes.is_empty());
 }
 
 #[test]

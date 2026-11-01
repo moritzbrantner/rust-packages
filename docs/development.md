@@ -188,8 +188,8 @@ bun run web:test
 ```
 
 Use `cargo package --allow-dirty -p <crate-name>` for crate dry runs in the
-publish wave. Do not publish `audio-analysis-test-support`,
-`video-analysis-test-support`, or `video-analysis-use-cases`.
+publish wave. Do not publish
+`video-analysis-test-support` or `video-analysis-use-cases`.
 
 ## Troubleshooting
 

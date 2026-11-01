@@ -9,19 +9,17 @@ use std::net::{TcpListener, TcpStream};
 
 #[allow(unused_imports)]
 use video_analysis::{
-    animation, audio_core, audio_fourier, audio_io, audio_midi, audio_pitch, audio_processing,
-    audio_recognition, audio_rhythm, audio_separation, audio_speakers, audio_synthesis,
-    audio_transcription, audio_tts, comfyui_data, comfyui_latents, comfyui_models, data,
-    dataset_records, dense, editing, features, ffmpeg, gaussian_splatting, geometry2d, graph_core,
-    image_captioning, image_classification, image_comfyui, image_core, image_detection,
-    image_embeddings, image_io, image_ocr, image_processing, image_segmentation, image_synthesis,
-    ingest, inversion, jobs, linear, model_runtime, mvs, numbers, output, posture, posture_io,
-    radiance_fields, radiance_io, radiance_pipeline, recognition, reconstruction, sfm, signal,
-    sparse, split, stats, storage, synthesis, tensor_data, text_analysis, text_classification,
-    text_core, text_embeddings, text_generation, text_generation_linguistics, text_index,
-    text_lexical, text_linguistics, text_model_runtime, text_question_answering, text_retrieval,
-    text_transcripts, three_d_core, three_d_io, three_d_mesh, three_d_scene, tracking, transform,
-    vector_core, vector_index, video_segmentation, Timebase, Timestamp,
+    animation, comfyui_data, comfyui_latents, comfyui_models, data, dataset_records, dense,
+    editing, features, ffmpeg, gaussian_splatting, geometry2d, graph_core, image_captioning,
+    image_classification, image_comfyui, image_core, image_detection, image_embeddings, image_io,
+    image_ocr, image_processing, image_segmentation, image_synthesis, ingest, inversion, jobs,
+    linear, model_runtime, mvs, numbers, output, posture, posture_io, radiance_fields, radiance_io,
+    radiance_pipeline, recognition, reconstruction, sfm, signal, sparse, split, stats, storage,
+    synthesis, tensor_data, text_analysis, text_classification, text_core, text_embeddings,
+    text_generation, text_generation_linguistics, text_index, text_lexical, text_linguistics,
+    text_model_runtime, text_question_answering, text_retrieval, text_transcripts, three_d_core,
+    three_d_io, three_d_mesh, three_d_scene, tracking, transform, vector_core, vector_index,
+    video_segmentation, Timebase, Timestamp,
 };
 
 #[cfg(feature = "onnx-backend")]
@@ -198,14 +196,6 @@ fn package_response(method: &str, package: &str, path: &str, body: &str) -> Http
         }
         ("POST", path) if module.package == "text-linguistics" && is_text_nlp_task_path(path) => {
             text_nlp_task_response(path, body)
-        }
-        ("POST", path)
-            if module.package == "audio-analysis-recognition" && is_audio_model_task_path(path) =>
-        {
-            audio_model_task_response(path, body)
-        }
-        ("POST", "/api/transcribe") if module.package == "audio-analysis-transcription" => {
-            audio_transcription_response(body)
         }
         ("POST", "/api/run") => package_run_response(module, body),
         ("POST", path) if path.starts_with("/api/") => {
@@ -474,39 +464,6 @@ fn package_schema_response(module: ModuleInfo) -> HttpResponse {
             }),
         );
     }
-    if module.package == "audio-analysis-recognition" {
-        return json_response(
-            200,
-            "OK",
-            json!({
-                "openapi": "3.1.0",
-                "info": {
-                    "title": "audio-analysis-recognition API",
-                    "version": env!("CARGO_PKG_VERSION")
-                },
-                "paths": {
-                    "/health": { "get": { "summary": "Health check" } },
-                    "/api/package": { "get": { "summary": "Package metadata" } },
-                    "/api/schema": { "get": { "summary": "API schema" } },
-                    "/api/models": { "get": { "summary": "List audio task runtimes" } },
-                    "/api/models/{task}": { "get": { "summary": "List audio task runtimes for a task" } },
-                    "/api/classify": { "post": { "summary": "Audio classification" } },
-                    "/api/events": { "post": { "summary": "Audio event detection" } },
-                    "/api/embed": { "post": { "summary": "Audio embeddings" } },
-                    "/api/transcribe": { "post": { "summary": "Speech recognition" } },
-                    "/api/diarize": { "post": { "summary": "Speaker diarization" } },
-                    "/api/separate": { "post": { "summary": "Source separation" } },
-                    "/api/generate": { "post": { "summary": "Audio generation" } },
-                    "/api/run": { "post": { "summary": "Legacy generic operation entrypoint" } }
-                },
-                "components": {
-                    "schemas": {
-                        "audioRuntimes": audio_schema_summary()
-                    }
-                }
-            }),
-        );
-    }
     json_response(200, "OK", {
         let operation_paths = package_surface_for(module)
             .map(|surface| {
@@ -556,18 +513,6 @@ fn is_text_nlp_task_path(path: &str) -> bool {
             | "/api/summarize"
             | "/api/rerank"
             | "/api/question-answer"
-    )
-}
-
-fn is_audio_model_task_path(path: &str) -> bool {
-    matches!(
-        path,
-        "/api/classify"
-            | "/api/events"
-            | "/api/embed"
-            | "/api/diarize"
-            | "/api/separate"
-            | "/api/generate"
     )
 }
 
@@ -888,178 +833,6 @@ fn text_schema_summary() -> Value {
     })
 }
 
-fn audio_model_catalog(task: Option<&str>) -> Vec<Value> {
-    let entries = vec![
-        audio_model_entry(
-            "ast-audioset",
-            "MIT/ast-finetuned-audioset-10-10-0.4593",
-            "classify",
-            "onnx",
-            false,
-            Some("spectral-audio-classifier"),
-            Some("Hugging Face preset metadata is registered; native AST execution is explicit/fallback-gated."),
-        ),
-        audio_model_entry(
-            "spectral-audio-classifier",
-            "spectral_heuristic",
-            "classify",
-            "spectral",
-            true,
-            None,
-            Some("Uses feature summaries for deterministic local classification."),
-        ),
-        audio_model_entry(
-            "audioset-event-detector",
-            "MIT/ast-finetuned-audioset-10-10-0.4593",
-            "events",
-            "onnx",
-            false,
-            Some("energy-event-detector"),
-            Some("Windowed event schema is available; native model execution is not bundled."),
-        ),
-        audio_model_entry(
-            "energy-event-detector",
-            "energy_threshold",
-            "events",
-            "heuristic",
-            true,
-            None,
-            Some("Detects high-energy windows from supplied frame summaries."),
-        ),
-        audio_model_entry(
-            "clap-htsat-unfused",
-            "laion/clap-htsat-unfused",
-            "embed",
-            "onnx",
-            false,
-            Some("spectral-audio-embedding"),
-            Some("Use imported embeddings or explicit fallback until CLAP execution is wired."),
-        ),
-        audio_model_entry(
-            "spectral-audio-embedding",
-            "spectral_embedding",
-            "embed",
-            "spectral",
-            true,
-            None,
-            Some("Builds deterministic vectors from feature summaries."),
-        ),
-        audio_model_entry(
-            "imported-transcript",
-            "imported-transcript",
-            "transcribe",
-            "imported",
-            true,
-            None,
-            Some("Normalizes caller-supplied transcript segments or transcript contracts without native ASR."),
-        ),
-        audio_model_entry(
-            "whisper-cpp",
-            "openai/whisper-tiny.en",
-            "transcribe",
-            "whisper_cpp",
-            false,
-            Some("imported-transcript"),
-            Some("Planned native provider through text-transcripts; default audio surfaces do not download models or execute Whisper."),
-        ),
-        audio_model_entry(
-            "external-transcriber",
-            "external-command",
-            "transcribe",
-            "external",
-            false,
-            Some("imported-transcript"),
-            Some("Reference provider family for explicit external transcription tools; not executed by default routes."),
-        ),
-        audio_model_entry(
-            "wav2vec2-base-960h",
-            "facebook/wav2vec2-base-960h",
-            "transcribe",
-            "onnx",
-            false,
-            Some("imported-transcript"),
-            Some("Generic transcription schema is available; native ONNX decoding is not wired."),
-        ),
-        audio_model_entry(
-            "pyannote-speaker-diarization-3.1",
-            "pyannote/speaker-diarization-3.1",
-            "diarize",
-            "external",
-            false,
-            Some("single-speaker-heuristic"),
-            Some("Gated external model; use imported segments or heuristic fallback."),
-        ),
-        audio_model_entry(
-            "single-speaker-heuristic",
-            "single_speaker",
-            "diarize",
-            "heuristic",
-            true,
-            None,
-            Some("Creates one speaker segment over the provided duration."),
-        ),
-        audio_model_entry(
-            "demucs-music-separation",
-            "facebook/demucs",
-            "separate",
-            "demucs",
-            false,
-            Some("demucs-stem-plan"),
-            Some("Use audio-analysis-separation for command-backed Demucs execution."),
-        ),
-        audio_model_entry(
-            "demucs-stem-plan",
-            "stem_plan",
-            "separate",
-            "heuristic",
-            true,
-            None,
-            Some("Returns requested stem descriptors without writing audio files."),
-        ),
-        audio_model_entry(
-            "musicgen-small",
-            "facebook/musicgen-small",
-            "generate",
-            "external",
-            false,
-            None,
-            Some("Prompt schema is available; waveform generation is outside the default package app."),
-        ),
-    ];
-
-    entries
-        .into_iter()
-        .filter(|entry| {
-            task.map(|task| entry.get("task").and_then(Value::as_str) == Some(task))
-                .unwrap_or(true)
-        })
-        .collect()
-}
-
-fn audio_model_entry(
-    id: &str,
-    model_id: &str,
-    task: &str,
-    runtime: &str,
-    supported: bool,
-    fallback: Option<&str>,
-    note: Option<&str>,
-) -> Value {
-    json!({
-        "id": id,
-        "modelId": model_id,
-        "task": task,
-        "runtime": runtime,
-        "supported": supported,
-        "loadable": supported,
-        "fallback": fallback,
-        "requiredFeature": null,
-        "requiredSetup": null,
-        "smokeOperation": null,
-        "note": note,
-    })
-}
-
 fn benchmark_catalog_for(module: ModuleInfo) -> Vec<Value> {
     match module.package {
         "text-core" => text_benchmark_entries(&[
@@ -1164,28 +937,6 @@ fn text_benchmark_entries(entries: &[(&str, &str, &str)]) -> Vec<Value> {
         .collect()
 }
 
-fn audio_schema_summary() -> Value {
-    json!({
-        "tasks": ["classify", "events", "embed", "transcribe", "diarize", "separate", "generate"],
-        "runtimes": audio_model_catalog(None),
-        "models": audio_model_catalog(None),
-        "registeredPresets": model_runtime::ModelPreset::ALL
-            .iter()
-            .map(|preset| preset.as_str().to_string())
-            .filter(|preset| {
-                preset.contains("audio")
-                    || preset.contains("ast")
-                    || preset.contains("clap")
-                    || preset.contains("whisper")
-                    || preset.contains("wav2vec")
-                    || preset.contains("pyannote")
-                    || preset.contains("demucs")
-                    || preset.contains("musicgen")
-            })
-            .collect::<Vec<_>>()
-    })
-}
-
 fn model_catalog_for(module: ModuleInfo, task: Option<&str>) -> Vec<Value> {
     let entries = match module.package {
         "text-linguistics" => text_model_catalog(task),
@@ -1251,56 +1002,6 @@ fn model_catalog_for(module: ModuleInfo, task: Option<&str>) -> Vec<Value> {
                 Some("Uses checked-in transcript fixture style data."),
             ),
         ],
-        "audio-analysis-recognition" => audio_model_catalog(task),
-        "audio-analysis-separation" => vec![
-            model_catalog_entry(
-                "demucs-stem-plan",
-                "Demucs stem plan",
-                "separate",
-                "heuristic",
-                true,
-                None,
-                Some("Plans stems without invoking external Demucs."),
-            ),
-            model_catalog_entry(
-                "demucs-local",
-                "Demucs local",
-                "separate",
-                "external",
-                false,
-                Some("demucs-stem-plan"),
-                Some("Requires external audio tooling."),
-            ),
-        ],
-        "audio-analysis-speakers" => vec![
-            model_catalog_entry(
-                "single-speaker-heuristic",
-                "Single speaker heuristic",
-                "diarize",
-                "heuristic",
-                true,
-                None,
-                Some("Creates one speaker segment for quick testing."),
-            ),
-            model_catalog_entry(
-                "pyannote-local",
-                "Pyannote local",
-                "diarize",
-                "external",
-                false,
-                Some("single-speaker-heuristic"),
-                Some("Requires gated external model access."),
-            ),
-        ],
-        package if package.starts_with("audio-") => vec![model_catalog_entry(
-            "deterministic-audio",
-            "Deterministic audio runtime",
-            "analyze",
-            "deterministic",
-            true,
-            None,
-            Some("Uses frame summaries and local feature calculations."),
-        )],
         "image-analysis-classification" => vec![
             model_catalog_entry(
                 "color-histogram-classifier",
@@ -1512,207 +1213,6 @@ fn model_catalog_entry(
         "fallback": fallback,
         "note": note,
     })
-}
-
-fn audio_model_task_response(path: &str, body: &str) -> HttpResponse {
-    match path {
-        "/api/classify" => {
-            match serde_json::from_str::<audio_analysis_recognition::AudioClassificationRequest>(
-                body,
-            ) {
-                Ok(request) => {
-                    audio_model_result_response(audio_analysis_recognition::classify_audio(request))
-                }
-                Err(error) => audio_model_error_response(
-                    400,
-                    "Bad Request",
-                    "invalid_request",
-                    &error.to_string(),
-                ),
-            }
-        }
-        "/api/events" => {
-            match serde_json::from_str::<audio_analysis_recognition::AudioEventDetectionRequest>(
-                body,
-            ) {
-                Ok(request) => audio_model_result_response(
-                    audio_analysis_recognition::detect_audio_events(request),
-                ),
-                Err(error) => audio_model_error_response(
-                    400,
-                    "Bad Request",
-                    "invalid_request",
-                    &error.to_string(),
-                ),
-            }
-        }
-        "/api/embed" => {
-            match serde_json::from_str::<audio_analysis_recognition::AudioEmbeddingRequest>(body) {
-                Ok(request) => {
-                    audio_model_result_response(audio_analysis_recognition::embed_audio(request))
-                }
-                Err(error) => audio_model_error_response(
-                    400,
-                    "Bad Request",
-                    "invalid_request",
-                    &error.to_string(),
-                ),
-            }
-        }
-        "/api/transcribe" => audio_transcription_response(body),
-        "/api/diarize" => {
-            match serde_json::from_str::<audio_analysis_speakers::SpeakerDiarizationRequest>(body) {
-                Ok(request) => {
-                    audio_model_result_response(audio_analysis_speakers::diarize_speakers(request))
-                }
-                Err(error) => audio_model_error_response(
-                    400,
-                    "Bad Request",
-                    "invalid_request",
-                    &error.to_string(),
-                ),
-            }
-        }
-        "/api/separate" => {
-            match serde_json::from_str::<audio_analysis_separation::SourceSeparationRequest>(body) {
-                Ok(request) => audio_model_result_response(
-                    audio_analysis_separation::separate_sources(request),
-                ),
-                Err(error) => audio_model_error_response(
-                    400,
-                    "Bad Request",
-                    "invalid_request",
-                    &error.to_string(),
-                ),
-            }
-        }
-        "/api/generate" => {
-            match serde_json::from_str::<audio_analysis_synthesis::AudioGenerationRequest>(body) {
-                Ok(request) => {
-                    audio_model_result_response(audio_analysis_synthesis::generate_audio(request))
-                }
-                Err(error) => audio_model_error_response(
-                    400,
-                    "Bad Request",
-                    "invalid_request",
-                    &error.to_string(),
-                ),
-            }
-        }
-        _ => audio_model_error_response(
-            404,
-            "Not Found",
-            "not_found",
-            "unknown audio model task endpoint",
-        ),
-    }
-}
-
-fn audio_transcription_response(body: &str) -> HttpResponse {
-    match serde_json::from_str::<audio_transcription::TranscriptionPipelineRequest>(body) {
-        Ok(request) => audio_transcription_result_response(audio_transcription::transcribe(request)),
-        Err(error) => audio_transcription_error_response(
-            400,
-            "Bad Request",
-            "invalid_request",
-            &format!(
-                "invalid audio transcription request: {error}; /api/transcribe now requires a real source path and provider config. Use /api/rust/packages/text-transcripts/api/run with operation `transcripts.normalize` for imported transcript normalization."
-            ),
-        ),
-    }
-}
-
-fn audio_transcription_result_response(
-    result: video_analysis_core::Result<audio_transcription::TranscriptionPipelineResponse>,
-) -> HttpResponse {
-    match result {
-        Ok(value) => json_response(200, "OK", json!(value)),
-        Err(error) => {
-            let message = error.to_string();
-            if message.contains("setup_error") {
-                audio_transcription_error_response(400, "Bad Request", "setup_error", &message)
-            } else if message.contains("timeout") {
-                audio_transcription_error_response(504, "Gateway Timeout", "timeout", &message)
-            } else {
-                audio_transcription_error_response(
-                    500,
-                    "Internal Server Error",
-                    "transcription_failed",
-                    &message,
-                )
-            }
-        }
-    }
-}
-
-fn audio_transcription_error_response(
-    status_code: u16,
-    reason: &'static str,
-    code: &str,
-    message: &str,
-) -> HttpResponse {
-    json_response(
-        status_code,
-        reason,
-        json!({
-            "package": "audio-analysis-transcription-server",
-            "library": "audio-analysis-transcription",
-            "accepted": false,
-            "error": {
-                "code": code,
-                "message": message
-            }
-        }),
-    )
-}
-
-fn audio_model_result_response<T: serde::Serialize>(
-    result: video_analysis_core::Result<T>,
-) -> HttpResponse {
-    match result {
-        Ok(value) => json_response(200, "OK", json!(value)),
-        Err(error) => {
-            let message = error.to_string();
-            if message.contains("unsupported_runtime") {
-                audio_model_error_response(
-                    422,
-                    "Unprocessable Entity",
-                    "unsupported_runtime",
-                    &message,
-                )
-            } else if message.contains("non-empty") || message.contains("must include") {
-                audio_model_error_response(400, "Bad Request", "empty_input", &message)
-            } else {
-                audio_model_error_response(
-                    500,
-                    "Internal Server Error",
-                    "model_output_mismatch",
-                    &message,
-                )
-            }
-        }
-    }
-}
-
-fn audio_model_error_response(
-    status_code: u16,
-    reason: &'static str,
-    code: &str,
-    message: &str,
-) -> HttpResponse {
-    json_response(
-        status_code,
-        reason,
-        json!({
-            "package": "audio-analysis-recognition-server",
-            "library": "audio-analysis-recognition",
-            "accepted": false,
-            "error": {
-                "code": code,
-                "message": message
-            }
-        }),
-    )
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -2090,20 +1590,6 @@ fn package_surface_for(module: ModuleInfo) -> Option<PackageSurface> {
 
     match module.package {
         "animation-core" => Some(animation_core::surface::package_surface()),
-        "audio-analysis-core" => Some(audio_analysis_core::surface::package_surface()),
-        "audio-analysis-fourier" => Some(audio_analysis_fourier::surface::package_surface()),
-        "audio-analysis-io" => Some(audio_analysis_io::surface::package_surface()),
-        "audio-analysis-pitch" => Some(audio_analysis_pitch::surface::package_surface()),
-        "audio-analysis-processing" => Some(audio_analysis_processing::surface::package_surface()),
-        "audio-analysis-recognition" => {
-            Some(audio_analysis_recognition::surface::package_surface())
-        }
-        "audio-analysis-rhythm" => Some(audio_analysis_rhythm::surface::package_surface()),
-        "audio-analysis-separation" => Some(audio_analysis_separation::surface::package_surface()),
-        "audio-analysis-speakers" => Some(audio_analysis_speakers::surface::package_surface()),
-        "audio-analysis-synthesis" => Some(audio_analysis_synthesis::surface::package_surface()),
-        "audio-generation-midi" => Some(audio_generation_midi::surface::package_surface()),
-        "audio-generation-tts" => Some(audio_tts::surface::package_surface()),
         "comfyui-data" => Some(comfyui_data::surface::package_surface()),
         "comfyui-latents" => Some(comfyui_latents::surface::package_surface()),
         "comfyui-models" => Some(comfyui_models::surface::package_surface()),
@@ -2208,36 +1694,6 @@ fn run_surface_operation_for(
 
     match module.package {
         "animation-core" => Some(animation_core::surface::run_surface_operation(request)),
-        "audio-analysis-core" => Some(audio_analysis_core::surface::run_surface_operation(request)),
-        "audio-analysis-fourier" => Some(audio_analysis_fourier::surface::run_surface_operation(
-            request,
-        )),
-        "audio-analysis-io" => Some(audio_analysis_io::surface::run_surface_operation(request)),
-        "audio-analysis-pitch" => Some(audio_analysis_pitch::surface::run_surface_operation(
-            request,
-        )),
-        "audio-analysis-processing" => Some(
-            audio_analysis_processing::surface::run_surface_operation(request),
-        ),
-        "audio-analysis-recognition" => Some(
-            audio_analysis_recognition::surface::run_surface_operation(request),
-        ),
-        "audio-analysis-rhythm" => Some(audio_analysis_rhythm::surface::run_surface_operation(
-            request,
-        )),
-        "audio-analysis-separation" => Some(
-            audio_analysis_separation::surface::run_surface_operation(request),
-        ),
-        "audio-analysis-speakers" => Some(audio_analysis_speakers::surface::run_surface_operation(
-            request,
-        )),
-        "audio-analysis-synthesis" => Some(
-            audio_analysis_synthesis::surface::run_surface_operation(request),
-        ),
-        "audio-generation-midi" => Some(audio_generation_midi::surface::run_surface_operation(
-            request,
-        )),
-        "audio-generation-tts" => Some(audio_tts::surface::run_surface_operation(request)),
         "comfyui-data" => Some(comfyui_data::surface::run_surface_operation(request)),
         "comfyui-latents" => Some(comfyui_latents::surface::run_surface_operation(request)),
         "comfyui-models" => Some(comfyui_models::surface::run_surface_operation(request)),
@@ -2397,90 +1853,6 @@ const MODULES: &[ModuleInfo] = &[
         package: "animation-core",
         import_path: "video_analysis::animation",
         domain: "animation",
-        linked: true,
-        required_feature: None,
-    },
-    ModuleInfo {
-        package: "audio-analysis-core",
-        import_path: "video_analysis::audio_core",
-        domain: "audio",
-        linked: true,
-        required_feature: None,
-    },
-    ModuleInfo {
-        package: "audio-analysis-fourier",
-        import_path: "video_analysis::audio_fourier",
-        domain: "audio",
-        linked: true,
-        required_feature: None,
-    },
-    ModuleInfo {
-        package: "audio-analysis-io",
-        import_path: "video_analysis::audio_io",
-        domain: "audio",
-        linked: true,
-        required_feature: None,
-    },
-    ModuleInfo {
-        package: "audio-analysis-pitch",
-        import_path: "video_analysis::audio_pitch",
-        domain: "audio",
-        linked: true,
-        required_feature: None,
-    },
-    ModuleInfo {
-        package: "audio-analysis-processing",
-        import_path: "video_analysis::audio_processing",
-        domain: "audio",
-        linked: true,
-        required_feature: None,
-    },
-    ModuleInfo {
-        package: "audio-analysis-recognition",
-        import_path: "video_analysis::audio_recognition",
-        domain: "audio",
-        linked: true,
-        required_feature: None,
-    },
-    ModuleInfo {
-        package: "audio-analysis-rhythm",
-        import_path: "video_analysis::audio_rhythm",
-        domain: "audio",
-        linked: true,
-        required_feature: None,
-    },
-    ModuleInfo {
-        package: "audio-analysis-separation",
-        import_path: "video_analysis::audio_separation",
-        domain: "audio",
-        linked: true,
-        required_feature: None,
-    },
-    ModuleInfo {
-        package: "audio-analysis-speakers",
-        import_path: "video_analysis::audio_speakers",
-        domain: "audio",
-        linked: true,
-        required_feature: None,
-    },
-    ModuleInfo {
-        package: "audio-analysis-synthesis",
-        import_path: "video_analysis::audio_synthesis",
-        domain: "audio",
-        linked: true,
-        required_feature: None,
-    },
-    ModuleInfo {
-        package: "audio-generation-midi",
-        import_path: "video_analysis::audio_midi",
-        domain: "audio",
-        linked: true,
-        required_feature: None,
-    },
-    ModuleInfo {
-        package: "audio-generation-tts",
-        import_path: "video_analysis::audio_tts",
-        domain: "audio",
         linked: true,
         required_feature: None,
     },
@@ -3201,22 +2573,6 @@ mod tests {
         assert_eq!(response.status_code, 200);
         assert!(response.body.contains("\"operation\":\"sentiment\""));
         assert!(response.body.contains("\"runtime\":\"lexical\""));
-    }
-
-    #[test]
-    fn serves_audio_model_task_endpoint_from_package_route() {
-        let request = Request {
-            method: "POST".to_string(),
-            path: "/api/rust/packages/audio-analysis-recognition/api/classify".to_string(),
-            query: HashMap::new(),
-            headers: HashMap::new(),
-            body: r#"{"features":{"rms":0.1,"peak":0.2,"spectralCentroidHz":1800},"labels":["speech","music"],"model":{"fallbackPolicy":"heuristic_fallback"}}"#
-                .to_string(),
-        };
-        let response = response_for(&request);
-        assert_eq!(response.status_code, 200);
-        assert!(response.body.contains("\"operation\":\"classify\""));
-        assert!(response.body.contains("\"runtime\":\"spectral\""));
     }
 
     #[test]
