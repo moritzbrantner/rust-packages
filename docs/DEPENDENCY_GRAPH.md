@@ -77,47 +77,7 @@ flowchart LR
 
   subgraph group_audio["Audio"]
     direction TB
-    crate_moenarch_audio_analysis_core["moenarch-audio-analysis-core"]:::crate
-    crate_moenarch_audio_analysis_core_cli["moenarch-audio-analysis-core-cli"]:::crate
-    crate_moenarch_audio_analysis_core_server["moenarch-audio-analysis-core-server"]:::crate
-    crate_moenarch_audio_analysis_fourier["moenarch-audio-analysis-fourier"]:::crate
-    crate_moenarch_audio_analysis_fourier_cli["moenarch-audio-analysis-fourier-cli"]:::crate
-    crate_moenarch_audio_analysis_fourier_server["moenarch-audio-analysis-fourier-server"]:::crate
-    crate_moenarch_audio_analysis_io["moenarch-audio-analysis-io"]:::crate
-    crate_moenarch_audio_analysis_io_cli["moenarch-audio-analysis-io-cli"]:::crate
-    crate_moenarch_audio_analysis_io_server["moenarch-audio-analysis-io-server"]:::crate
-    crate_moenarch_audio_analysis_pitch["moenarch-audio-analysis-pitch"]:::crate
-    crate_moenarch_audio_analysis_pitch_cli["moenarch-audio-analysis-pitch-cli"]:::crate
-    crate_moenarch_audio_analysis_pitch_server["moenarch-audio-analysis-pitch-server"]:::crate
-    crate_moenarch_audio_analysis_processing["moenarch-audio-analysis-processing"]:::crate
-    crate_moenarch_audio_analysis_processing_cli["moenarch-audio-analysis-processing-cli"]:::crate
-    crate_moenarch_audio_analysis_processing_server["moenarch-audio-analysis-processing-server"]:::crate
-    crate_moenarch_audio_analysis_recognition["moenarch-audio-analysis-recognition"]:::crate
-    crate_moenarch_audio_analysis_recognition_cli["moenarch-audio-analysis-recognition-cli"]:::crate
-    crate_moenarch_audio_analysis_recognition_server["moenarch-audio-analysis-recognition-server"]:::crate
-    crate_moenarch_audio_analysis_rhythm["moenarch-audio-analysis-rhythm"]:::crate
-    crate_moenarch_audio_analysis_rhythm_cli["moenarch-audio-analysis-rhythm-cli"]:::crate
-    crate_moenarch_audio_analysis_rhythm_server["moenarch-audio-analysis-rhythm-server"]:::crate
-    crate_moenarch_audio_analysis_separation["moenarch-audio-analysis-separation"]:::crate
-    crate_moenarch_audio_analysis_separation_cli["moenarch-audio-analysis-separation-cli"]:::crate
-    crate_moenarch_audio_analysis_separation_server["moenarch-audio-analysis-separation-server"]:::crate
-    crate_moenarch_audio_analysis_speakers["moenarch-audio-analysis-speakers"]:::crate
-    crate_moenarch_audio_analysis_speakers_cli["moenarch-audio-analysis-speakers-cli"]:::crate
-    crate_moenarch_audio_analysis_speakers_server["moenarch-audio-analysis-speakers-server"]:::crate
-    crate_moenarch_audio_analysis_synthesis["moenarch-audio-analysis-synthesis"]:::crate
-    crate_moenarch_audio_analysis_synthesis_cli["moenarch-audio-analysis-synthesis-cli"]:::crate
-    crate_moenarch_audio_analysis_synthesis_server["moenarch-audio-analysis-synthesis-server"]:::crate
-    crate_moenarch_audio_analysis_test_support["moenarch-audio-analysis-test-support"]:::crate
-    crate_moenarch_audio_analysis_transcription["moenarch-audio-analysis-transcription"]:::crate
-    crate_moenarch_audio_analysis_transcription_cli["moenarch-audio-analysis-transcription-cli"]:::crate
-    crate_moenarch_audio_analysis_transcription_server["moenarch-audio-analysis-transcription-server"]:::crate
     crate_moenarch_audio_contracts["moenarch-audio-contracts"]:::crate
-    crate_moenarch_audio_generation_midi["moenarch-audio-generation-midi"]:::crate
-    crate_moenarch_audio_generation_midi_cli["moenarch-audio-generation-midi-cli"]:::crate
-    crate_moenarch_audio_generation_midi_server["moenarch-audio-generation-midi-server"]:::crate
-    crate_moenarch_audio_generation_tts["moenarch-audio-generation-tts"]:::crate
-    crate_moenarch_audio_generation_tts_cli["moenarch-audio-generation-tts-cli"]:::crate
-    crate_moenarch_audio_generation_tts_server["moenarch-audio-generation-tts-server"]:::crate
   end
 
   subgraph group_image["Image"]
@@ -322,19 +282,6 @@ flowchart LR
   subgraph group_bindings["Bindings"]
     direction TB
     crate_moenarch_animation_core_wasm["moenarch-animation-core-wasm"]:::crate
-    crate_moenarch_audio_analysis_core_wasm["moenarch-audio-analysis-core-wasm"]:::crate
-    crate_moenarch_audio_analysis_fourier_wasm["moenarch-audio-analysis-fourier-wasm"]:::crate
-    crate_moenarch_audio_analysis_io_wasm["moenarch-audio-analysis-io-wasm"]:::crate
-    crate_moenarch_audio_analysis_pitch_wasm["moenarch-audio-analysis-pitch-wasm"]:::crate
-    crate_moenarch_audio_analysis_processing_wasm["moenarch-audio-analysis-processing-wasm"]:::crate
-    crate_moenarch_audio_analysis_recognition_wasm["moenarch-audio-analysis-recognition-wasm"]:::crate
-    crate_moenarch_audio_analysis_rhythm_wasm["moenarch-audio-analysis-rhythm-wasm"]:::crate
-    crate_moenarch_audio_analysis_separation_wasm["moenarch-audio-analysis-separation-wasm"]:::crate
-    crate_moenarch_audio_analysis_speakers_wasm["moenarch-audio-analysis-speakers-wasm"]:::crate
-    crate_moenarch_audio_analysis_synthesis_wasm["moenarch-audio-analysis-synthesis-wasm"]:::crate
-    crate_moenarch_audio_analysis_transcription_wasm["moenarch-audio-analysis-transcription-wasm"]:::crate
-    crate_moenarch_audio_generation_midi_wasm["moenarch-audio-generation-midi-wasm"]:::crate
-    crate_moenarch_audio_generation_tts_wasm["moenarch-audio-generation-tts-wasm"]:::crate
     crate_moenarch_comfyui_data_wasm["moenarch-comfyui-data-wasm"]:::crate
     crate_moenarch_comfyui_latents_wasm["moenarch-comfyui-latents-wasm"]:::crate
     crate_moenarch_comfyui_models_wasm["moenarch-comfyui-models-wasm"]:::crate
@@ -463,22 +410,7 @@ flowchart LR
   crate_moenarch_video_analysis -. optional .-> crate_moenarch_math_signal_core
   crate_moenarch_video_analysis -. optional .-> crate_moenarch_math_sparse_data
   crate_moenarch_video_analysis -. optional .-> crate_moenarch_math_statistics
-  crate_moenarch_video_analysis -. optional .-> crate_moenarch_audio_analysis_core
-  crate_moenarch_video_analysis -. optional .-> crate_moenarch_audio_analysis_fourier
-  crate_moenarch_video_analysis -. optional .-> crate_moenarch_audio_analysis_io
-  crate_moenarch_video_analysis -. optional .-> crate_moenarch_audio_analysis_pitch
-  crate_moenarch_video_analysis -. optional .-> crate_moenarch_audio_analysis_processing
-  crate_moenarch_video_analysis -. optional .-> crate_moenarch_audio_analysis_recognition
-  crate_moenarch_video_analysis -. optional .-> crate_moenarch_audio_analysis_rhythm
-  crate_moenarch_video_analysis -. optional .-> crate_moenarch_audio_analysis_separation
-  crate_moenarch_video_analysis -. optional .-> crate_moenarch_audio_analysis_speakers
-  crate_moenarch_video_analysis -. optional .-> crate_moenarch_audio_analysis_synthesis
-  crate_moenarch_video_analysis -. optional .-> crate_moenarch_audio_analysis_transcription
   crate_moenarch_video_analysis -. dev .-> crate_moenarch_audio_contracts
-  crate_moenarch_video_analysis -. optional .-> crate_moenarch_audio_generation_midi
-  crate_moenarch_video_analysis -. optional .-> crate_moenarch_audio_generation_tts
-  crate_moenarch_video_analysis -. dev .-> crate_moenarch_audio_generation_tts_cli
-  crate_moenarch_video_analysis -. dev .-> crate_moenarch_audio_generation_tts_server
   crate_moenarch_video_analysis -. optional .-> crate_moenarch_image_analysis_captioning
   crate_moenarch_video_analysis -. optional .-> crate_moenarch_image_analysis_classification
   crate_moenarch_video_analysis -. optional .-> crate_moenarch_image_analysis_comfyui
@@ -563,7 +495,6 @@ flowchart LR
   crate_moenarch_video_analysis -. optional .-> crate_moenarch_comfyui_data
   crate_moenarch_video_analysis -. optional .-> crate_moenarch_comfyui_latents
   crate_moenarch_video_analysis -. optional .-> crate_moenarch_comfyui_models
-  crate_moenarch_video_analysis -. dev .-> crate_moenarch_audio_generation_tts_wasm
   crate_moenarch_video_analysis -. dev .-> crate_moenarch_video_analysis_test_support
   crate_moenarch_video_analysis -. optional .-> crate_moenarch_animation_core
   crate_moenarch_video_analysis -. optional .-> crate_moenarch_jobs_core
@@ -643,121 +574,7 @@ flowchart LR
   crate_moenarch_math_statistics_cli --> crate_moenarch_runtime_core
   crate_moenarch_math_statistics_server --> crate_moenarch_math_statistics
   crate_moenarch_math_statistics_server --> crate_moenarch_runtime_core
-  crate_moenarch_audio_analysis_core --> crate_moenarch_tensor_data
-  crate_moenarch_audio_analysis_core --> crate_moenarch_math_signal_core
-  crate_moenarch_audio_analysis_core --> crate_moenarch_audio_contracts
-  crate_moenarch_audio_analysis_core --> crate_moenarch_runtime_core
-  crate_moenarch_audio_analysis_core_cli --> crate_moenarch_audio_analysis_core
-  crate_moenarch_audio_analysis_core_cli --> crate_moenarch_runtime_core
-  crate_moenarch_audio_analysis_core_server --> crate_moenarch_audio_analysis_core
-  crate_moenarch_audio_analysis_core_server --> crate_moenarch_runtime_core
-  crate_moenarch_audio_analysis_fourier --> crate_moenarch_audio_analysis_core
-  crate_moenarch_audio_analysis_fourier --> crate_moenarch_audio_contracts
-  crate_moenarch_audio_analysis_fourier --> crate_moenarch_runtime_core
-  crate_moenarch_audio_analysis_fourier_cli --> crate_moenarch_audio_analysis_fourier
-  crate_moenarch_audio_analysis_fourier_cli --> crate_moenarch_runtime_core
-  crate_moenarch_audio_analysis_fourier_server --> crate_moenarch_audio_analysis_fourier
-  crate_moenarch_audio_analysis_fourier_server --> crate_moenarch_runtime_core
-  crate_moenarch_audio_analysis_io --> crate_moenarch_audio_analysis_core
-  crate_moenarch_audio_analysis_io --> crate_moenarch_audio_contracts
-  crate_moenarch_audio_analysis_io --> crate_moenarch_video_analysis_ffmpeg
-  crate_moenarch_audio_analysis_io --> crate_moenarch_video_analysis_ingest
-  crate_moenarch_audio_analysis_io --> crate_moenarch_runtime_core
-  crate_moenarch_audio_analysis_io_cli --> crate_moenarch_audio_analysis_io
-  crate_moenarch_audio_analysis_io_cli --> crate_moenarch_runtime_core
-  crate_moenarch_audio_analysis_io_server --> crate_moenarch_audio_analysis_io
-  crate_moenarch_audio_analysis_io_server --> crate_moenarch_runtime_core
-  crate_moenarch_audio_analysis_pitch --> crate_moenarch_audio_analysis_core
-  crate_moenarch_audio_analysis_pitch --> crate_moenarch_audio_contracts
-  crate_moenarch_audio_analysis_pitch --> crate_moenarch_runtime_core
-  crate_moenarch_audio_analysis_pitch_cli --> crate_moenarch_audio_analysis_pitch
-  crate_moenarch_audio_analysis_pitch_cli --> crate_moenarch_runtime_core
-  crate_moenarch_audio_analysis_pitch_server --> crate_moenarch_audio_analysis_pitch
-  crate_moenarch_audio_analysis_pitch_server --> crate_moenarch_runtime_core
-  crate_moenarch_audio_analysis_processing --> crate_moenarch_math_signal_core
-  crate_moenarch_audio_analysis_processing --> crate_moenarch_audio_analysis_core
-  crate_moenarch_audio_analysis_processing --> crate_moenarch_audio_contracts
-  crate_moenarch_audio_analysis_processing --> crate_moenarch_video_analysis_ingest
-  crate_moenarch_audio_analysis_processing --> crate_moenarch_runtime_core
-  crate_moenarch_audio_analysis_processing_cli --> crate_moenarch_audio_analysis_processing
-  crate_moenarch_audio_analysis_processing_cli --> crate_moenarch_runtime_core
-  crate_moenarch_audio_analysis_processing_server --> crate_moenarch_audio_analysis_processing
-  crate_moenarch_audio_analysis_processing_server --> crate_moenarch_runtime_core
-  crate_moenarch_audio_analysis_recognition --> crate_moenarch_audio_analysis_core
-  crate_moenarch_audio_analysis_recognition --> crate_moenarch_audio_analysis_fourier
-  crate_moenarch_audio_analysis_recognition --> crate_moenarch_audio_contracts
-  crate_moenarch_audio_analysis_recognition --> crate_moenarch_text_transcripts
-  crate_moenarch_audio_analysis_recognition --> crate_moenarch_model_runtime
-  crate_moenarch_audio_analysis_recognition --> crate_moenarch_runtime_core
-  crate_moenarch_audio_analysis_recognition_cli --> crate_moenarch_audio_analysis_recognition
-  crate_moenarch_audio_analysis_recognition_cli --> crate_moenarch_runtime_core
-  crate_moenarch_audio_analysis_recognition_server --> crate_moenarch_audio_analysis_recognition
-  crate_moenarch_audio_analysis_recognition_server --> crate_moenarch_runtime_core
-  crate_moenarch_audio_analysis_rhythm --> crate_moenarch_audio_analysis_core
-  crate_moenarch_audio_analysis_rhythm --> crate_moenarch_audio_contracts
-  crate_moenarch_audio_analysis_rhythm --> crate_moenarch_runtime_core
-  crate_moenarch_audio_analysis_rhythm_cli --> crate_moenarch_audio_analysis_rhythm
-  crate_moenarch_audio_analysis_rhythm_cli --> crate_moenarch_runtime_core
-  crate_moenarch_audio_analysis_rhythm_server --> crate_moenarch_audio_analysis_rhythm
-  crate_moenarch_audio_analysis_rhythm_server --> crate_moenarch_runtime_core
-  crate_moenarch_audio_analysis_separation --> crate_moenarch_audio_analysis_recognition
-  crate_moenarch_audio_analysis_separation -. optional .-> crate_moenarch_jobs_core
-  crate_moenarch_audio_analysis_separation --> crate_moenarch_media_core
-  crate_moenarch_audio_analysis_separation --> crate_moenarch_runtime_core
-  crate_moenarch_audio_analysis_separation_cli --> crate_moenarch_audio_analysis_separation
-  crate_moenarch_audio_analysis_separation_cli --> crate_moenarch_runtime_core
-  crate_moenarch_audio_analysis_separation_server --> crate_moenarch_audio_analysis_separation
-  crate_moenarch_audio_analysis_separation_server --> crate_moenarch_runtime_core
-  crate_moenarch_audio_analysis_speakers --> crate_moenarch_audio_analysis_core
-  crate_moenarch_audio_analysis_speakers --> crate_moenarch_audio_analysis_recognition
-  crate_moenarch_audio_analysis_speakers --> crate_moenarch_audio_contracts
-  crate_moenarch_audio_analysis_speakers -. optional .-> crate_moenarch_model_runtime
-  crate_moenarch_audio_analysis_speakers --> crate_moenarch_runtime_core
-  crate_moenarch_audio_analysis_speakers -. optional .-> crate_moenarch_runtime_onnx
-  crate_moenarch_audio_analysis_speakers_cli --> crate_moenarch_audio_analysis_speakers
-  crate_moenarch_audio_analysis_speakers_cli --> crate_moenarch_runtime_core
-  crate_moenarch_audio_analysis_speakers_server --> crate_moenarch_audio_analysis_speakers
-  crate_moenarch_audio_analysis_speakers_server --> crate_moenarch_runtime_core
-  crate_moenarch_audio_analysis_synthesis --> crate_moenarch_data_inversion_core
-  crate_moenarch_audio_analysis_synthesis --> crate_moenarch_audio_analysis_recognition
-  crate_moenarch_audio_analysis_synthesis --> crate_moenarch_audio_contracts
-  crate_moenarch_audio_analysis_synthesis --> crate_moenarch_runtime_core
-  crate_moenarch_audio_analysis_synthesis_cli --> crate_moenarch_audio_analysis_synthesis
-  crate_moenarch_audio_analysis_synthesis_cli --> crate_moenarch_runtime_core
-  crate_moenarch_audio_analysis_synthesis_server --> crate_moenarch_audio_analysis_synthesis
-  crate_moenarch_audio_analysis_synthesis_server --> crate_moenarch_runtime_core
-  crate_moenarch_audio_analysis_test_support --> crate_moenarch_audio_contracts
-  crate_moenarch_audio_analysis_test_support --> crate_moenarch_runtime_core
-  crate_moenarch_audio_analysis_transcription -. optional .-> crate_moenarch_audio_analysis_io
-  crate_moenarch_audio_analysis_transcription --> crate_moenarch_audio_analysis_speakers
-  crate_moenarch_audio_analysis_transcription -. optional .-> crate_moenarch_text_model_runtime
-  crate_moenarch_audio_analysis_transcription --> crate_moenarch_text_transcripts
-  crate_moenarch_audio_analysis_transcription -. dev .-> crate_moenarch_video_analysis_ffmpeg
-  crate_moenarch_audio_analysis_transcription --> crate_moenarch_media_core
-  crate_moenarch_audio_analysis_transcription -. optional .-> crate_moenarch_model_runtime
-  crate_moenarch_audio_analysis_transcription --> crate_moenarch_runtime_core
-  crate_moenarch_audio_analysis_transcription -. optional .-> crate_moenarch_runtime_onnx
-  crate_moenarch_audio_analysis_transcription_cli --> crate_moenarch_audio_analysis_transcription
-  crate_moenarch_audio_analysis_transcription_cli --> crate_moenarch_runtime_core
-  crate_moenarch_audio_analysis_transcription_server --> crate_moenarch_audio_analysis_transcription
-  crate_moenarch_audio_analysis_transcription_server --> crate_moenarch_runtime_core
   crate_moenarch_audio_contracts --> crate_moenarch_media_core
-  crate_moenarch_audio_generation_midi --> crate_moenarch_data_inversion_core
-  crate_moenarch_audio_generation_midi --> crate_moenarch_audio_analysis_synthesis
-  crate_moenarch_audio_generation_midi --> crate_moenarch_audio_contracts
-  crate_moenarch_audio_generation_midi --> crate_moenarch_runtime_core
-  crate_moenarch_audio_generation_midi_cli --> crate_moenarch_audio_generation_midi
-  crate_moenarch_audio_generation_midi_cli --> crate_moenarch_runtime_core
-  crate_moenarch_audio_generation_midi_server --> crate_moenarch_audio_generation_midi
-  crate_moenarch_audio_generation_midi_server --> crate_moenarch_runtime_core
-  crate_moenarch_audio_generation_tts -. optional .-> crate_moenarch_audio_analysis_transcription
-  crate_moenarch_audio_generation_tts --> crate_moenarch_audio_contracts
-  crate_moenarch_audio_generation_tts --> crate_moenarch_model_runtime
-  crate_moenarch_audio_generation_tts --> crate_moenarch_runtime_core
-  crate_moenarch_audio_generation_tts_cli --> crate_moenarch_audio_generation_tts
-  crate_moenarch_audio_generation_tts_cli --> crate_moenarch_runtime_core
-  crate_moenarch_audio_generation_tts_server --> crate_moenarch_audio_generation_tts
-  crate_moenarch_audio_generation_tts_server --> crate_moenarch_runtime_core
   crate_moenarch_image_analysis_captioning --> crate_moenarch_image_analysis_core
   crate_moenarch_image_analysis_captioning --> crate_moenarch_image_analysis_detection
   crate_moenarch_image_analysis_captioning --> crate_moenarch_image_analysis_ocr
@@ -1287,32 +1104,6 @@ flowchart LR
   crate_moenarch_comfyui_models_server --> crate_moenarch_runtime_core
   crate_moenarch_animation_core_wasm --> crate_moenarch_animation_core
   crate_moenarch_animation_core_wasm --> crate_moenarch_runtime_core
-  crate_moenarch_audio_analysis_core_wasm --> crate_moenarch_audio_analysis_core
-  crate_moenarch_audio_analysis_core_wasm --> crate_moenarch_runtime_core
-  crate_moenarch_audio_analysis_fourier_wasm --> crate_moenarch_audio_analysis_fourier
-  crate_moenarch_audio_analysis_fourier_wasm --> crate_moenarch_runtime_core
-  crate_moenarch_audio_analysis_io_wasm --> crate_moenarch_audio_analysis_io
-  crate_moenarch_audio_analysis_io_wasm --> crate_moenarch_runtime_core
-  crate_moenarch_audio_analysis_pitch_wasm --> crate_moenarch_audio_analysis_pitch
-  crate_moenarch_audio_analysis_pitch_wasm --> crate_moenarch_runtime_core
-  crate_moenarch_audio_analysis_processing_wasm --> crate_moenarch_audio_analysis_processing
-  crate_moenarch_audio_analysis_processing_wasm --> crate_moenarch_runtime_core
-  crate_moenarch_audio_analysis_recognition_wasm --> crate_moenarch_audio_analysis_recognition
-  crate_moenarch_audio_analysis_recognition_wasm --> crate_moenarch_runtime_core
-  crate_moenarch_audio_analysis_rhythm_wasm --> crate_moenarch_audio_analysis_rhythm
-  crate_moenarch_audio_analysis_rhythm_wasm --> crate_moenarch_runtime_core
-  crate_moenarch_audio_analysis_separation_wasm --> crate_moenarch_audio_analysis_separation
-  crate_moenarch_audio_analysis_separation_wasm --> crate_moenarch_runtime_core
-  crate_moenarch_audio_analysis_speakers_wasm --> crate_moenarch_audio_analysis_speakers
-  crate_moenarch_audio_analysis_speakers_wasm --> crate_moenarch_runtime_core
-  crate_moenarch_audio_analysis_synthesis_wasm --> crate_moenarch_audio_analysis_synthesis
-  crate_moenarch_audio_analysis_synthesis_wasm --> crate_moenarch_runtime_core
-  crate_moenarch_audio_analysis_transcription_wasm --> crate_moenarch_audio_analysis_transcription
-  crate_moenarch_audio_analysis_transcription_wasm --> crate_moenarch_runtime_core
-  crate_moenarch_audio_generation_midi_wasm --> crate_moenarch_audio_generation_midi
-  crate_moenarch_audio_generation_midi_wasm --> crate_moenarch_runtime_core
-  crate_moenarch_audio_generation_tts_wasm --> crate_moenarch_audio_generation_tts
-  crate_moenarch_audio_generation_tts_wasm --> crate_moenarch_runtime_core
   crate_moenarch_comfyui_data_wasm --> crate_moenarch_comfyui_data
   crate_moenarch_comfyui_data_wasm --> crate_moenarch_runtime_core
   crate_moenarch_comfyui_latents_wasm --> crate_moenarch_comfyui_latents
@@ -1460,15 +1251,6 @@ flowchart LR
   crate_moenarch_video_analysis_test_support --> crate_moenarch_video_analysis_radiance_fields
   crate_moenarch_video_analysis_test_support --> crate_moenarch_video_analysis_radiance_io
   crate_moenarch_video_analysis_test_support --> crate_moenarch_runtime_core
-  crate_moenarch_video_analysis_use_cases --> crate_moenarch_audio_analysis_core
-  crate_moenarch_video_analysis_use_cases --> crate_moenarch_audio_analysis_io
-  crate_moenarch_video_analysis_use_cases --> crate_moenarch_audio_analysis_pitch
-  crate_moenarch_video_analysis_use_cases --> crate_moenarch_audio_analysis_processing
-  crate_moenarch_video_analysis_use_cases --> crate_moenarch_audio_analysis_recognition
-  crate_moenarch_video_analysis_use_cases --> crate_moenarch_audio_analysis_rhythm
-  crate_moenarch_video_analysis_use_cases --> crate_moenarch_audio_analysis_separation
-  crate_moenarch_video_analysis_use_cases -. dev .-> crate_moenarch_audio_analysis_test_support
-  crate_moenarch_video_analysis_use_cases --> crate_moenarch_audio_analysis_transcription
   crate_moenarch_video_analysis_use_cases --> crate_moenarch_image_analysis_comfyui
   crate_moenarch_video_analysis_use_cases --> crate_moenarch_image_analysis_core
   crate_moenarch_video_analysis_use_cases --> crate_moenarch_image_analysis_detection

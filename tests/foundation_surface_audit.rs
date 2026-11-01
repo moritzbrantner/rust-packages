@@ -345,11 +345,6 @@ fn foundation_surface_cases() -> Vec<FoundationSurfaceCase> {
             run: image_analysis_core::surface::run_surface_operation,
         },
         FoundationSurfaceCase {
-            crate_name: "audio-analysis-core",
-            package_surface: audio_analysis_core::surface::package_surface,
-            run: audio_analysis_core::surface::run_surface_operation,
-        },
-        FoundationSurfaceCase {
             crate_name: "text-core",
             package_surface: text_core::surface::package_surface,
             run: text_core::surface::run_surface_operation,

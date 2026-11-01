@@ -244,7 +244,6 @@ if [[ "$frontend_scope" == "all" ]]; then
     "bun run text-wasm:test"
     "bun run text-analysis-wasm:test"
     "bun run text-linguistics-wasm:test"
-    "bun run audio-wasm:test"
     "bun run video-wasm:test"
     "bun run ui:typecheck"
     "bun run web:typecheck"

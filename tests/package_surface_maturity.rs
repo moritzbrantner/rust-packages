@@ -59,8 +59,6 @@ fn deterministic_family_matrix_rows_are_transport_complete() {
 #[test]
 fn migrated_tranche_operation_metadata_is_complete() {
     for surface in [
-        audio_analysis_core::surface::package_surface(),
-        audio_analysis_processing::surface::package_surface(),
         image_analysis_processing::surface::package_surface(),
         text_core::surface::package_surface(),
         math_geometry_2d::surface::package_surface(),

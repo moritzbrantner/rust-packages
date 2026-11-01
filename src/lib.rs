@@ -4,45 +4,6 @@
 #[cfg(feature = "animation")]
 /// Re-exports the animation core API.
 pub use animation_core as animation;
-#[cfg(feature = "audio")]
-/// Re-exports the audio core API.
-pub use audio_analysis_core as audio_core;
-#[cfg(feature = "audio")]
-/// Re-exports the audio fourier API.
-pub use audio_analysis_fourier as audio_fourier;
-#[cfg(feature = "audio")]
-/// Re-exports the audio I/O API.
-pub use audio_analysis_io as audio_io;
-#[cfg(feature = "audio")]
-/// Re-exports the audio pitch API.
-pub use audio_analysis_pitch as audio_pitch;
-#[cfg(feature = "audio")]
-/// Re-exports the audio processing API.
-pub use audio_analysis_processing as audio_processing;
-#[cfg(feature = "audio")]
-/// Re-exports the audio recognition API.
-pub use audio_analysis_recognition as audio_recognition;
-#[cfg(feature = "audio")]
-/// Re-exports the audio rhythm API.
-pub use audio_analysis_rhythm as audio_rhythm;
-#[cfg(feature = "audio")]
-/// Re-exports the audio separation API.
-pub use audio_analysis_separation as audio_separation;
-#[cfg(feature = "audio")]
-/// Re-exports the audio speaker analysis API.
-pub use audio_analysis_speakers as audio_speakers;
-#[cfg(feature = "audio")]
-/// Re-exports the audio synthesis API.
-pub use audio_analysis_synthesis as audio_synthesis;
-#[cfg(feature = "audio")]
-/// Re-exports the audio transcription API.
-pub use audio_analysis_transcription as audio_transcription;
-#[cfg(feature = "audio")]
-/// Re-exports the MIDI-like audio generation API.
-pub use audio_generation_midi as audio_midi;
-#[cfg(feature = "audio")]
-/// Re-exports the generic and speaker-conditioned TTS API.
-pub use audio_generation_tts as audio_tts;
 #[cfg(feature = "comfyui")]
 /// Re-exports the ComfyUI data API.
 pub use comfyui_data;

@@ -61,13 +61,6 @@ FOUNDATION_DECLARATIONS = [
     ),
     PilotDeclaration(
         "foundation",
-        "moritzbrantner-audio-analysis-core",
-        "crates/audio/audio-analysis-core/src/surface.rs",
-        "audio.levels",
-        "audio.core.levels",
-    ),
-    PilotDeclaration(
-        "foundation",
         "moritzbrantner-vision-core",
         "crates/vision/vision-core/src/surface.rs",
         "vision.validateDetection",
@@ -124,20 +117,6 @@ WORKFLOW_DECLARATIONS = [
         "crates/text/text-retrieval/src/surface.rs",
         "retrieval.search",
         "text.retrieval.search",
-    ),
-    PilotDeclaration(
-        "workflow",
-        "moritzbrantner-audio-analysis-transcription",
-        "crates/audio/audio-analysis-transcription/src/surface.rs",
-        "audio.transcription.transcribe",
-        "audio.transcription.transcribe",
-    ),
-    PilotDeclaration(
-        "workflow",
-        "moritzbrantner-audio-analysis-transcription",
-        "crates/audio/audio-analysis-transcription/src/surface.rs",
-        "audio.transcription.importWhisperX",
-        "audio.transcription.importWhisperX",
     ),
     PilotDeclaration(
         "workflow",

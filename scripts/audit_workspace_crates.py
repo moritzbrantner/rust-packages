@@ -22,7 +22,6 @@ SCAN_PATHS = [
 ]
 WRAPPER_SUFFIXES = ("-cli", "-server", "-wasm")
 INTERNAL_TEST_PACKAGES = {
-    "moenarch-audio-analysis-test-support",
     "moenarch-video-analysis-test-support",
 }
 NO_SURFACE_LIBRARIES = {

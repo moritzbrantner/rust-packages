@@ -24,7 +24,7 @@ onto workspace crates. It combines:
 | `COMBO` | No | Portable | workflow typing | Existing | Represents UI choice/config, not a reusable media package. |
 | `IMAGE` | Yes | Portable | `moenarch-image-analysis-core` | Existing + batch wrappers | `ImageBatchView` and `OwnedImageBatch` own batched image semantics. |
 | `MASK` | Yes | Portable | `moenarch-image-analysis-core` + `moenarch-tensor-data` | Existing + bridge helper | `mask_tensor_from_luma` bridges masks into tensor form without a separate mask crate. |
-| `AUDIO` | No | Portable | `moenarch-audio-analysis-core` + `moenarch-tensor-data` | Existing + batch wrappers | `OwnedAudioWaveformBatch` and `AudioWaveformBatchView` own `[B,C,T]` waveform semantics. |
+| `AUDIO` | No | Portable | `moenarch-audio-analysis-core` (audio-analysis) + `moenarch-tensor-data` | Existing + batch wrappers | `OwnedAudioWaveformBatch` and `AudioWaveformBatchView` own `[B,C,T]` waveform semantics. |
 | `VIDEO` | No | Asset-oriented | video/workflow crates | Existing | Phase 1 keeps video asset-oriented; no in-memory video tensor package is introduced. |
 | `LATENT` | Yes | Portable | `moenarch-comfyui-latents` + `moenarch-tensor-data` | New crate | `LatentBatch` owns validated `[B,C,H,W]` latent tensors and optional masks. |
 | `MODEL` | Yes | Mixed | `moenarch-comfyui-data` + `moenarch-comfyui-models` | Semantic inventory + model refs | Typed socket inventory is stable now; opaque runtime payload schema remains abstract. |
@@ -47,7 +47,7 @@ onto workspace crates. It combines:
 - `moenarch-comfyui-latents` owns ComfyUI-flavored latent tensors and latent masks.
 - `moenarch-comfyui-models` owns model folder kinds and stable model-reference contracts.
 - `moenarch-image-analysis-core` owns image buffers and image batches.
-- `moenarch-audio-analysis-core` owns waveform batches.
+- `moenarch-audio-analysis-core` (in `audio-analysis`) owns waveform batches.
 - `moenarch-comfyui-data` owns the minimal tensor-backed `ConditioningBatch` contract.
 - Runtime-only sockets such as `NOISE`, `SAMPLER`, `SIGMAS`, and `GUIDER`
   remain intentionally schema-light until a second concrete producer/consumer

@@ -211,10 +211,6 @@ fn contract_only_core_crates_are_exempt_from_runtime_companions() {
         root,
         "moenarch-video-analysis-core"
     ));
-    assert!(!excluded_library_package(
-        root,
-        "moenarch-audio-analysis-core"
-    ));
     assert!(!excluded_library_package(root, "moenarch-text-core"));
 }
 
@@ -303,14 +299,8 @@ fn library_crates_have_complete_runtime_surfaces() {
 #[test]
 fn representative_adapters_delegate_to_library_owned_surfaces() {
     let root = Path::new(env!("CARGO_MANIFEST_DIR"));
-    for crate_name in [
-        "audio-analysis-processing",
-        "image-analysis-processing",
-        "video-analysis-editing",
-    ] {
-        let domain = if crate_name.starts_with("audio-") {
-            "audio"
-        } else if crate_name.starts_with("image-") {
+    for crate_name in ["image-analysis-processing", "video-analysis-editing"] {
+        let domain = if crate_name.starts_with("image-") {
             "image"
         } else {
             "video"
@@ -760,8 +750,7 @@ fn excluded_library_package(root: &Path, package_name: &str) -> bool {
     contract_only_foundation_crates(root).contains(package_name)
         || matches!(
             package_name,
-            "moenarch-audio-analysis-test-support"
-                | "moenarch-runtime-core"
+            "moenarch-runtime-core"
                 | "moenarch-runtime-onnx"
                 | "moenarch-video-analysis-test-support"
         )

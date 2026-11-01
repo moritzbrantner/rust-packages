@@ -8,7 +8,6 @@ Source: `docs/repository-split/package-ownership.json` at `d032ad2890c1df3c6a5b9
 
 | Target repository | Cargo packages |
 | --- | ---: |
-| `moritzbrantner/audio-analysis` | 53 |
 | `moritzbrantner/moenarch-foundation` | 60 |
 | `moritzbrantner/nlp-stack` | 52 |
 | `moritzbrantner/rust-packages` | 20 |
@@ -21,32 +20,6 @@ Source: `docs/repository-split/package-ownership.json` at `d032ad2890c1df3c6a5b9
 | --- | --- | --- | --- | --- | --- | --- | --- |
 | bun | `@moritzbrantner/animation-core-app` | app | `moenarch-animation-core` | `moenarch-animation-core` | `moritzbrantner/spatial-analysis` | spatial | separate npm/WASM release plan required |
 | bun | `@moritzbrantner/animation-core-wasm` | npm wrapper | `moenarch-animation-core` | `moenarch-animation-core` | `moritzbrantner/spatial-analysis` | spatial | separate npm/WASM release plan required |
-| bun | `@moritzbrantner/audio-analysis-core-app` | app | `moenarch-audio-analysis-core` | `moenarch-audio-analysis-core` | `moritzbrantner/audio-analysis` | audio | separate npm/WASM release plan required |
-| bun | `@moritzbrantner/audio-analysis-core-wasm` | npm wrapper | `moenarch-audio-analysis-core` | `moenarch-audio-analysis-core` | `moritzbrantner/audio-analysis` | audio | separate npm/WASM release plan required |
-| bun | `@moritzbrantner/audio-analysis-fourier-app` | app | `moenarch-audio-analysis-fourier` | `moenarch-audio-analysis-fourier` | `moritzbrantner/audio-analysis` | audio | separate npm/WASM release plan required |
-| bun | `@moritzbrantner/audio-analysis-fourier-wasm` | npm wrapper | `moenarch-audio-analysis-fourier` | `moenarch-audio-analysis-fourier` | `moritzbrantner/audio-analysis` | audio | separate npm/WASM release plan required |
-| bun | `@moritzbrantner/audio-analysis-io-app` | app | `moenarch-audio-analysis-io` | `moenarch-audio-analysis-io` | `moritzbrantner/audio-analysis` | audio | separate npm/WASM release plan required |
-| bun | `@moritzbrantner/audio-analysis-io-wasm` | npm wrapper | `moenarch-audio-analysis-io` | `moenarch-audio-analysis-io` | `moritzbrantner/audio-analysis` | audio | separate npm/WASM release plan required |
-| bun | `@moritzbrantner/audio-analysis-pitch-app` | app | `moenarch-audio-analysis-pitch` | `moenarch-audio-analysis-pitch` | `moritzbrantner/audio-analysis` | audio | separate npm/WASM release plan required |
-| bun | `@moritzbrantner/audio-analysis-pitch-wasm` | npm wrapper | `moenarch-audio-analysis-pitch` | `moenarch-audio-analysis-pitch` | `moritzbrantner/audio-analysis` | audio | separate npm/WASM release plan required |
-| bun | `@moritzbrantner/audio-analysis-processing-app` | app | `moenarch-audio-analysis-processing` | `moenarch-audio-analysis-processing` | `moritzbrantner/audio-analysis` | audio | separate npm/WASM release plan required |
-| bun | `@moritzbrantner/audio-analysis-processing-wasm` | npm wrapper | `moenarch-audio-analysis-processing` | `moenarch-audio-analysis-processing` | `moritzbrantner/audio-analysis` | audio | separate npm/WASM release plan required |
-| bun | `@moritzbrantner/audio-analysis-recognition-app` | app | `moenarch-audio-analysis-recognition` | `moenarch-audio-analysis-recognition` | `moritzbrantner/audio-analysis` | audio | separate npm/WASM release plan required |
-| bun | `@moritzbrantner/audio-analysis-recognition-wasm` | npm wrapper | `moenarch-audio-analysis-recognition` | `moenarch-audio-analysis-recognition` | `moritzbrantner/audio-analysis` | audio | separate npm/WASM release plan required |
-| bun | `@moritzbrantner/audio-analysis-rhythm-app` | app | `moenarch-audio-analysis-rhythm` | `moenarch-audio-analysis-rhythm` | `moritzbrantner/audio-analysis` | audio | separate npm/WASM release plan required |
-| bun | `@moritzbrantner/audio-analysis-rhythm-wasm` | npm wrapper | `moenarch-audio-analysis-rhythm` | `moenarch-audio-analysis-rhythm` | `moritzbrantner/audio-analysis` | audio | separate npm/WASM release plan required |
-| bun | `@moritzbrantner/audio-analysis-separation-app` | app | `moenarch-audio-analysis-separation` | `moenarch-audio-analysis-separation` | `moritzbrantner/audio-analysis` | audio | separate npm/WASM release plan required |
-| bun | `@moritzbrantner/audio-analysis-separation-wasm` | npm wrapper | `moenarch-audio-analysis-separation` | `moenarch-audio-analysis-separation` | `moritzbrantner/audio-analysis` | audio | separate npm/WASM release plan required |
-| bun | `@moritzbrantner/audio-analysis-speakers-app` | app | `moenarch-audio-analysis-speakers` | `moenarch-audio-analysis-speakers` | `moritzbrantner/audio-analysis` | audio | separate npm/WASM release plan required |
-| bun | `@moritzbrantner/audio-analysis-speakers-wasm` | npm wrapper | `moenarch-audio-analysis-speakers` | `moenarch-audio-analysis-speakers` | `moritzbrantner/audio-analysis` | audio | separate npm/WASM release plan required |
-| bun | `@moritzbrantner/audio-analysis-synthesis-app` | app | `moenarch-audio-analysis-synthesis` | `moenarch-audio-analysis-synthesis` | `moritzbrantner/audio-analysis` | audio | separate npm/WASM release plan required |
-| bun | `@moritzbrantner/audio-analysis-synthesis-wasm` | npm wrapper | `moenarch-audio-analysis-synthesis` | `moenarch-audio-analysis-synthesis` | `moritzbrantner/audio-analysis` | audio | separate npm/WASM release plan required |
-| bun | `@moritzbrantner/audio-analysis-transcription-app` | app | `moenarch-audio-analysis-transcription` | `moenarch-audio-analysis-transcription` | `moritzbrantner/audio-analysis` | audio | separate npm/WASM release plan required |
-| bun | `@moritzbrantner/audio-analysis-transcription-wasm` | npm wrapper | `moenarch-audio-analysis-transcription` | `moenarch-audio-analysis-transcription` | `moritzbrantner/audio-analysis` | audio | separate npm/WASM release plan required |
-| bun | `@moritzbrantner/audio-generation-midi-app` | app | `moenarch-audio-generation-midi` | `moenarch-audio-generation-midi` | `moritzbrantner/audio-analysis` | audio | separate npm/WASM release plan required |
-| bun | `@moritzbrantner/audio-generation-midi-wasm` | npm wrapper | `moenarch-audio-generation-midi` | `moenarch-audio-generation-midi` | `moritzbrantner/audio-analysis` | audio | separate npm/WASM release plan required |
-| bun | `@moritzbrantner/audio-generation-tts-app` | app | `moenarch-audio-generation-tts` | `moenarch-audio-generation-tts` | `moritzbrantner/audio-analysis` | audio | separate npm/WASM release plan required |
-| bun | `@moritzbrantner/audio-generation-tts-wasm` | npm wrapper | `moenarch-audio-generation-tts` | `moenarch-audio-generation-tts` | `moritzbrantner/audio-analysis` | audio | separate npm/WASM release plan required |
 | bun | `@moritzbrantner/comfyui-data-app` | app | `moenarch-comfyui-data` | `moenarch-comfyui-data` | `moritzbrantner/rust-packages` | compatibility | separate npm/WASM release plan required |
 | bun | `@moritzbrantner/comfyui-data-wasm` | npm wrapper | `moenarch-comfyui-data` | `moenarch-comfyui-data` | `moritzbrantner/rust-packages` | compatibility | separate npm/WASM release plan required |
 | bun | `@moritzbrantner/comfyui-latents-app` | app | `moenarch-comfyui-latents` | `moenarch-comfyui-latents` | `moritzbrantner/rust-packages` | compatibility | separate npm/WASM release plan required |
@@ -196,59 +169,6 @@ Source: `docs/repository-split/package-ownership.json` at `d032ad2890c1df3c6a5b9
 | cargo | `moenarch-animation-core-cli` | CLI | `moenarch-animation-core` | `moenarch-animation-core` | `moritzbrantner/spatial-analysis` | spatial | crates.io |
 | cargo | `moenarch-animation-core-server` | server | `moenarch-animation-core` | `moenarch-animation-core` | `moritzbrantner/spatial-analysis` | spatial | crates.io |
 | cargo | `moenarch-animation-core-wasm` | WASM | `moenarch-animation-core` | `moenarch-animation-core` | `moritzbrantner/spatial-analysis` | spatial | crates.io |
-| cargo | `moenarch-audio-analysis-core` | library | `moenarch-audio-analysis-core` | — | `moritzbrantner/audio-analysis` | audio | crates.io |
-| cargo | `moenarch-audio-analysis-core-cli` | CLI | `moenarch-audio-analysis-core` | `moenarch-audio-analysis-core` | `moritzbrantner/audio-analysis` | audio | crates.io |
-| cargo | `moenarch-audio-analysis-core-server` | server | `moenarch-audio-analysis-core` | `moenarch-audio-analysis-core` | `moritzbrantner/audio-analysis` | audio | crates.io |
-| cargo | `moenarch-audio-analysis-core-wasm` | WASM | `moenarch-audio-analysis-core` | `moenarch-audio-analysis-core` | `moritzbrantner/audio-analysis` | audio | crates.io |
-| cargo | `moenarch-audio-analysis-fourier` | library | `moenarch-audio-analysis-fourier` | — | `moritzbrantner/audio-analysis` | audio | crates.io |
-| cargo | `moenarch-audio-analysis-fourier-cli` | CLI | `moenarch-audio-analysis-fourier` | `moenarch-audio-analysis-fourier` | `moritzbrantner/audio-analysis` | audio | crates.io |
-| cargo | `moenarch-audio-analysis-fourier-server` | server | `moenarch-audio-analysis-fourier` | `moenarch-audio-analysis-fourier` | `moritzbrantner/audio-analysis` | audio | crates.io |
-| cargo | `moenarch-audio-analysis-fourier-wasm` | WASM | `moenarch-audio-analysis-fourier` | `moenarch-audio-analysis-fourier` | `moritzbrantner/audio-analysis` | audio | crates.io |
-| cargo | `moenarch-audio-analysis-io` | library | `moenarch-audio-analysis-io` | — | `moritzbrantner/audio-analysis` | audio | crates.io |
-| cargo | `moenarch-audio-analysis-io-cli` | CLI | `moenarch-audio-analysis-io` | `moenarch-audio-analysis-io` | `moritzbrantner/audio-analysis` | audio | crates.io |
-| cargo | `moenarch-audio-analysis-io-server` | server | `moenarch-audio-analysis-io` | `moenarch-audio-analysis-io` | `moritzbrantner/audio-analysis` | audio | crates.io |
-| cargo | `moenarch-audio-analysis-io-wasm` | WASM | `moenarch-audio-analysis-io` | `moenarch-audio-analysis-io` | `moritzbrantner/audio-analysis` | audio | crates.io |
-| cargo | `moenarch-audio-analysis-pitch` | library | `moenarch-audio-analysis-pitch` | — | `moritzbrantner/audio-analysis` | audio | crates.io |
-| cargo | `moenarch-audio-analysis-pitch-cli` | CLI | `moenarch-audio-analysis-pitch` | `moenarch-audio-analysis-pitch` | `moritzbrantner/audio-analysis` | audio | crates.io |
-| cargo | `moenarch-audio-analysis-pitch-server` | server | `moenarch-audio-analysis-pitch` | `moenarch-audio-analysis-pitch` | `moritzbrantner/audio-analysis` | audio | crates.io |
-| cargo | `moenarch-audio-analysis-pitch-wasm` | WASM | `moenarch-audio-analysis-pitch` | `moenarch-audio-analysis-pitch` | `moritzbrantner/audio-analysis` | audio | crates.io |
-| cargo | `moenarch-audio-analysis-processing` | library | `moenarch-audio-analysis-processing` | — | `moritzbrantner/audio-analysis` | audio | crates.io |
-| cargo | `moenarch-audio-analysis-processing-cli` | CLI | `moenarch-audio-analysis-processing` | `moenarch-audio-analysis-processing` | `moritzbrantner/audio-analysis` | audio | crates.io |
-| cargo | `moenarch-audio-analysis-processing-server` | server | `moenarch-audio-analysis-processing` | `moenarch-audio-analysis-processing` | `moritzbrantner/audio-analysis` | audio | crates.io |
-| cargo | `moenarch-audio-analysis-processing-wasm` | WASM | `moenarch-audio-analysis-processing` | `moenarch-audio-analysis-processing` | `moritzbrantner/audio-analysis` | audio | crates.io |
-| cargo | `moenarch-audio-analysis-recognition` | library | `moenarch-audio-analysis-recognition` | — | `moritzbrantner/audio-analysis` | audio | crates.io |
-| cargo | `moenarch-audio-analysis-recognition-cli` | CLI | `moenarch-audio-analysis-recognition` | `moenarch-audio-analysis-recognition` | `moritzbrantner/audio-analysis` | audio | crates.io |
-| cargo | `moenarch-audio-analysis-recognition-server` | server | `moenarch-audio-analysis-recognition` | `moenarch-audio-analysis-recognition` | `moritzbrantner/audio-analysis` | audio | crates.io |
-| cargo | `moenarch-audio-analysis-recognition-wasm` | WASM | `moenarch-audio-analysis-recognition` | `moenarch-audio-analysis-recognition` | `moritzbrantner/audio-analysis` | audio | crates.io |
-| cargo | `moenarch-audio-analysis-rhythm` | library | `moenarch-audio-analysis-rhythm` | — | `moritzbrantner/audio-analysis` | audio | crates.io |
-| cargo | `moenarch-audio-analysis-rhythm-cli` | CLI | `moenarch-audio-analysis-rhythm` | `moenarch-audio-analysis-rhythm` | `moritzbrantner/audio-analysis` | audio | crates.io |
-| cargo | `moenarch-audio-analysis-rhythm-server` | server | `moenarch-audio-analysis-rhythm` | `moenarch-audio-analysis-rhythm` | `moritzbrantner/audio-analysis` | audio | crates.io |
-| cargo | `moenarch-audio-analysis-rhythm-wasm` | WASM | `moenarch-audio-analysis-rhythm` | `moenarch-audio-analysis-rhythm` | `moritzbrantner/audio-analysis` | audio | crates.io |
-| cargo | `moenarch-audio-analysis-separation` | library | `moenarch-audio-analysis-separation` | — | `moritzbrantner/audio-analysis` | audio | crates.io |
-| cargo | `moenarch-audio-analysis-separation-cli` | CLI | `moenarch-audio-analysis-separation` | `moenarch-audio-analysis-separation` | `moritzbrantner/audio-analysis` | audio | crates.io |
-| cargo | `moenarch-audio-analysis-separation-server` | server | `moenarch-audio-analysis-separation` | `moenarch-audio-analysis-separation` | `moritzbrantner/audio-analysis` | audio | crates.io |
-| cargo | `moenarch-audio-analysis-separation-wasm` | WASM | `moenarch-audio-analysis-separation` | `moenarch-audio-analysis-separation` | `moritzbrantner/audio-analysis` | audio | crates.io |
-| cargo | `moenarch-audio-analysis-speakers` | library | `moenarch-audio-analysis-speakers` | — | `moritzbrantner/audio-analysis` | audio | crates.io |
-| cargo | `moenarch-audio-analysis-speakers-cli` | CLI | `moenarch-audio-analysis-speakers` | `moenarch-audio-analysis-speakers` | `moritzbrantner/audio-analysis` | audio | crates.io |
-| cargo | `moenarch-audio-analysis-speakers-server` | server | `moenarch-audio-analysis-speakers` | `moenarch-audio-analysis-speakers` | `moritzbrantner/audio-analysis` | audio | crates.io |
-| cargo | `moenarch-audio-analysis-speakers-wasm` | WASM | `moenarch-audio-analysis-speakers` | `moenarch-audio-analysis-speakers` | `moritzbrantner/audio-analysis` | audio | crates.io |
-| cargo | `moenarch-audio-analysis-synthesis` | library | `moenarch-audio-analysis-synthesis` | — | `moritzbrantner/audio-analysis` | audio | crates.io |
-| cargo | `moenarch-audio-analysis-synthesis-cli` | CLI | `moenarch-audio-analysis-synthesis` | `moenarch-audio-analysis-synthesis` | `moritzbrantner/audio-analysis` | audio | crates.io |
-| cargo | `moenarch-audio-analysis-synthesis-server` | server | `moenarch-audio-analysis-synthesis` | `moenarch-audio-analysis-synthesis` | `moritzbrantner/audio-analysis` | audio | crates.io |
-| cargo | `moenarch-audio-analysis-synthesis-wasm` | WASM | `moenarch-audio-analysis-synthesis` | `moenarch-audio-analysis-synthesis` | `moritzbrantner/audio-analysis` | audio | crates.io |
-| cargo | `moenarch-audio-analysis-test-support` | test support | `moenarch-audio-analysis-test-support` | — | `moritzbrantner/audio-analysis` | audio | not published |
-| cargo | `moenarch-audio-analysis-transcription` | library | `moenarch-audio-analysis-transcription` | — | `moritzbrantner/audio-analysis` | audio | crates.io |
-| cargo | `moenarch-audio-analysis-transcription-cli` | CLI | `moenarch-audio-analysis-transcription` | `moenarch-audio-analysis-transcription` | `moritzbrantner/audio-analysis` | audio | crates.io |
-| cargo | `moenarch-audio-analysis-transcription-server` | server | `moenarch-audio-analysis-transcription` | `moenarch-audio-analysis-transcription` | `moritzbrantner/audio-analysis` | audio | crates.io |
-| cargo | `moenarch-audio-analysis-transcription-wasm` | WASM | `moenarch-audio-analysis-transcription` | `moenarch-audio-analysis-transcription` | `moritzbrantner/audio-analysis` | audio | crates.io |
-| cargo | `moenarch-audio-generation-midi` | library | `moenarch-audio-generation-midi` | — | `moritzbrantner/audio-analysis` | audio | crates.io |
-| cargo | `moenarch-audio-generation-midi-cli` | CLI | `moenarch-audio-generation-midi` | `moenarch-audio-generation-midi` | `moritzbrantner/audio-analysis` | audio | crates.io |
-| cargo | `moenarch-audio-generation-midi-server` | server | `moenarch-audio-generation-midi` | `moenarch-audio-generation-midi` | `moritzbrantner/audio-analysis` | audio | crates.io |
-| cargo | `moenarch-audio-generation-midi-wasm` | WASM | `moenarch-audio-generation-midi` | `moenarch-audio-generation-midi` | `moritzbrantner/audio-analysis` | audio | crates.io |
-| cargo | `moenarch-audio-generation-tts` | library | `moenarch-audio-generation-tts` | — | `moritzbrantner/audio-analysis` | audio | crates.io |
-| cargo | `moenarch-audio-generation-tts-cli` | CLI | `moenarch-audio-generation-tts` | `moenarch-audio-generation-tts` | `moritzbrantner/audio-analysis` | audio | crates.io |
-| cargo | `moenarch-audio-generation-tts-server` | server | `moenarch-audio-generation-tts` | `moenarch-audio-generation-tts` | `moritzbrantner/audio-analysis` | audio | crates.io |
-| cargo | `moenarch-audio-generation-tts-wasm` | WASM | `moenarch-audio-generation-tts` | `moenarch-audio-generation-tts` | `moritzbrantner/audio-analysis` | audio | crates.io |
 | cargo | `moenarch-comfyui-data` | library | `moenarch-comfyui-data` | — | `moritzbrantner/rust-packages` | compatibility | crates.io |
 | cargo | `moenarch-comfyui-data-cli` | CLI | `moenarch-comfyui-data` | `moenarch-comfyui-data` | `moritzbrantner/rust-packages` | compatibility | crates.io |
 | cargo | `moenarch-comfyui-data-server` | server | `moenarch-comfyui-data` | `moenarch-comfyui-data` | `moritzbrantner/rust-packages` | compatibility | crates.io |

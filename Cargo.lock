@@ -140,12 +140,6 @@ checksum = "9e1b586273c5702936fe7b7d6896644d8be71e6314cfe09d3167c95f712589e8"
 
 [[package]]
 name = "base64"
-version = "0.22.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "72b3254f16251a8381aa12e40e3c4d2f0199f8c6508fbecb9d91f575e0fbb8c6"
-
-[[package]]
-name = "base64"
 version = "0.23.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ac07cdecf99051d9a5238b80f35af32cdeba5b336e55d957b318b50137e18da5"
@@ -156,16 +150,7 @@ version = "0.8.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "08807e080ed7f9d5433fa9b275196cfc35414f66a0c79d864dc51a0d825231a3"
 dependencies = [
- "bit-vec 0.8.0",
-]
-
-[[package]]
-name = "bit-set"
-version = "0.11.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "56d87354e4229f54a44f7bf2435906a4656dba36026ab6eaca629a2c436a691c"
-dependencies = [
- "bit-vec 0.10.1",
+ "bit-vec",
 ]
 
 [[package]]
@@ -173,16 +158,6 @@ name = "bit-vec"
 version = "0.8.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "5e764a1d40d510daf35e07be9eb06e75770908c27d411ee6c92109c9840eaaf7"
-
-[[package]]
-name = "bit-vec"
-version = "0.10.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5727b15fa97d4f4fee0a3b7c3d550ed0269f54329207b86388de918604e31269"
-dependencies = [
- "borsh",
- "serde",
-]
 
 [[package]]
 name = "bitflags"
@@ -206,30 +181,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d2f6c7dbe95a6ed67ad9f18e57daf93a2f034c524b99fd2b76d18fdfeb6660aa"
 dependencies = [
  "hybrid-array",
-]
-
-[[package]]
-name = "borsh"
-version = "1.8.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "553c5d846a6ba5150c65e3b1b8ec073bcf1abc20f9b7220de384a4443ea4e20a"
-dependencies = [
- "borsh-derive",
- "bytes",
- "cfg_aliases",
-]
-
-[[package]]
-name = "borsh-derive"
-version = "1.8.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "12cdfe656708a01f89b451a7d36466e6fe6c414de0aa18fc54f864f6f9ca9f56"
-dependencies = [
- "once_cell",
- "proc-macro-crate",
- "proc-macro2",
- "quote",
- "syn 3.0.9",
 ]
 
 [[package]]
@@ -294,7 +245,7 @@ dependencies = [
  "num-traits",
  "num_cpus",
  "parking_lot",
- "rand 0.9.5",
+ "rand",
  "rand_distr",
  "rayon",
  "safetensors",
@@ -341,7 +292,7 @@ dependencies = [
  "candle-nn",
  "fancy-regex 0.19.2",
  "num-traits",
- "rand 0.9.5",
+ "rand",
  "rayon",
  "serde",
  "serde_json",
@@ -385,17 +336,6 @@ name = "cfg_aliases"
 version = "0.2.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f079e83a288787bcd14a6aea84cee5c87a67c5a3e660c30f557a3d24761b3527"
-
-[[package]]
-name = "chacha20"
-version = "0.10.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "65c35e4b699c7e15ccbe7ee35c005e4fc0a278d22238a2857e6ce2dadeda1b06"
-dependencies = [
- "cfg-if",
- "cpufeatures 0.3.1",
- "rand_core 0.10.1",
-]
 
 [[package]]
 name = "chrono"
@@ -477,15 +417,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1c133bc6a41be0d194c306b5506d15e6feeea7b1d6604bd3f8310dfb2ca96486"
 
 [[package]]
-name = "cmake"
-version = "0.1.58"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c0f78a02292a74a88ac736019ab962ece0bc380e3f977bf72e376c5d78ff0678"
-dependencies = [
- "cc",
-]
-
-[[package]]
 name = "colorchoice"
 version = "1.0.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -558,12 +489,6 @@ name = "core-foundation-sys"
 version = "0.8.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "773648b94d0e5d620f64f280777445740e61fe701025087ec8b57f45c791888b"
-
-[[package]]
-name = "core_detect"
-version = "1.0.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7f8f80099a98041a3d1622845c271458a2d73e688351bf3cb999266764b81d48"
 
 [[package]]
 name = "cpufeatures"
@@ -1021,7 +946,7 @@ version = "0.17.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "72cf461f865c862bb7dc573f643dd6a2b6842f7c30b07882b56bd148cc2761b8"
 dependencies = [
- "bit-set 0.8.0",
+ "bit-set",
  "regex-automata",
  "regex-syntax",
 ]
@@ -1032,7 +957,7 @@ version = "0.19.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d301f5bf187b3c295fce6468d3875037a0bccc5f6b151c63cac2f85babf21912"
 dependencies = [
- "bit-set 0.8.0",
+ "bit-set",
  "regex-automata",
  "regex-syntax",
 ]
@@ -1077,7 +1002,7 @@ checksum = "c2d1f04709a8ac06e8e8042875a3c466cc4832d3c1a18dbcb9dba3c6e83046bc"
 dependencies = [
  "half",
  "num-traits",
- "rand 0.9.5",
+ "rand",
  "rand_distr",
 ]
 
@@ -1306,7 +1231,6 @@ dependencies = [
  "js-sys",
  "libc",
  "r-efi 6.0.0",
- "rand_core 0.10.1",
  "wasm-bindgen",
 ]
 
@@ -1350,7 +1274,7 @@ dependencies = [
  "cfg-if",
  "crunchy",
  "num-traits",
- "rand 0.9.5",
+ "rand",
  "rand_distr",
  "zerocopy",
 ]
@@ -1409,19 +1333,13 @@ dependencies = [
  "indicatif",
  "libc",
  "log",
- "rand 0.9.5",
+ "rand",
  "serde",
  "serde_json",
  "thiserror 2.0.21",
- "ureq 3.5.0",
+ "ureq",
  "windows-sys 0.61.2",
 ]
-
-[[package]]
-name = "hound"
-version = "3.5.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "62adaabb884c94955b19907d60019f4e145d091c75345379e70d1ee696f7854f"
 
 [[package]]
 name = "http"
@@ -1605,7 +1523,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "525e9ff3e1a4be2fbea1fdf0e98686a6d98b4d8f937e1bf7402245af1909e8c3"
 dependencies = [
  "byteorder-lite",
- "quick-error 2.0.1",
+ "quick-error",
 ]
 
 [[package]]
@@ -1871,640 +1789,10 @@ dependencies = [
 ]
 
 [[package]]
-name = "moenarch-audio-analysis-core"
-version = "0.1.0"
-dependencies = [
- "criterion",
- "moenarch-audio-contracts",
- "moenarch-math-signal-core",
- "moenarch-runtime-core",
- "moenarch-tensor-data",
- "proptest",
- "serde",
- "serde_json",
-]
-
-[[package]]
-name = "moenarch-audio-analysis-core-cli"
-version = "0.1.0"
-dependencies = [
- "clap",
- "moenarch-audio-analysis-core",
- "moenarch-runtime-core",
- "serde_json",
-]
-
-[[package]]
-name = "moenarch-audio-analysis-core-server"
-version = "0.1.0"
-dependencies = [
- "clap",
- "moenarch-audio-analysis-core",
- "moenarch-runtime-core",
- "serde_json",
-]
-
-[[package]]
-name = "moenarch-audio-analysis-core-wasm"
-version = "0.1.0"
-dependencies = [
- "js-sys",
- "moenarch-audio-analysis-core",
- "moenarch-runtime-core",
- "serde",
- "serde-wasm-bindgen",
- "serde_json",
- "wasm-bindgen",
-]
-
-[[package]]
-name = "moenarch-audio-analysis-fourier"
-version = "0.1.0"
-dependencies = [
- "criterion",
- "moenarch-audio-analysis-core",
- "moenarch-audio-contracts",
- "moenarch-runtime-core",
- "rustfft",
- "serde",
- "serde_json",
-]
-
-[[package]]
-name = "moenarch-audio-analysis-fourier-cli"
-version = "0.1.0"
-dependencies = [
- "clap",
- "moenarch-audio-analysis-fourier",
- "moenarch-runtime-core",
- "serde_json",
-]
-
-[[package]]
-name = "moenarch-audio-analysis-fourier-server"
-version = "0.1.0"
-dependencies = [
- "clap",
- "moenarch-audio-analysis-fourier",
- "moenarch-runtime-core",
- "serde_json",
-]
-
-[[package]]
-name = "moenarch-audio-analysis-fourier-wasm"
-version = "0.1.0"
-dependencies = [
- "js-sys",
- "moenarch-audio-analysis-fourier",
- "moenarch-runtime-core",
- "serde",
- "serde-wasm-bindgen",
- "serde_json",
- "wasm-bindgen",
-]
-
-[[package]]
-name = "moenarch-audio-analysis-io"
-version = "0.1.1"
-dependencies = [
- "hound",
- "moenarch-audio-analysis-core",
- "moenarch-audio-contracts",
- "moenarch-runtime-core",
- "moenarch-video-analysis-ffmpeg",
- "moenarch-video-analysis-ingest",
- "serde_json",
- "tempfile",
-]
-
-[[package]]
-name = "moenarch-audio-analysis-io-cli"
-version = "0.1.0"
-dependencies = [
- "clap",
- "moenarch-audio-analysis-io",
- "moenarch-runtime-core",
- "serde_json",
-]
-
-[[package]]
-name = "moenarch-audio-analysis-io-server"
-version = "0.1.0"
-dependencies = [
- "clap",
- "moenarch-audio-analysis-io",
- "moenarch-runtime-core",
- "serde_json",
-]
-
-[[package]]
-name = "moenarch-audio-analysis-io-wasm"
-version = "0.1.0"
-dependencies = [
- "js-sys",
- "moenarch-audio-analysis-io",
- "moenarch-runtime-core",
- "serde",
- "serde-wasm-bindgen",
- "serde_json",
- "wasm-bindgen",
-]
-
-[[package]]
-name = "moenarch-audio-analysis-pitch"
-version = "0.1.0"
-dependencies = [
- "criterion",
- "moenarch-audio-analysis-core",
- "moenarch-audio-contracts",
- "moenarch-runtime-core",
- "serde",
- "serde_json",
-]
-
-[[package]]
-name = "moenarch-audio-analysis-pitch-cli"
-version = "0.1.0"
-dependencies = [
- "clap",
- "moenarch-audio-analysis-pitch",
- "moenarch-runtime-core",
- "serde_json",
-]
-
-[[package]]
-name = "moenarch-audio-analysis-pitch-server"
-version = "0.1.0"
-dependencies = [
- "clap",
- "moenarch-audio-analysis-pitch",
- "moenarch-runtime-core",
- "serde_json",
-]
-
-[[package]]
-name = "moenarch-audio-analysis-pitch-wasm"
-version = "0.1.0"
-dependencies = [
- "js-sys",
- "moenarch-audio-analysis-pitch",
- "moenarch-runtime-core",
- "serde",
- "serde-wasm-bindgen",
- "serde_json",
- "wasm-bindgen",
-]
-
-[[package]]
-name = "moenarch-audio-analysis-processing"
-version = "0.1.0"
-dependencies = [
- "criterion",
- "moenarch-audio-analysis-core",
- "moenarch-audio-contracts",
- "moenarch-math-signal-core",
- "moenarch-runtime-core",
- "moenarch-video-analysis-ingest",
- "proptest",
- "serde",
- "serde_json",
-]
-
-[[package]]
-name = "moenarch-audio-analysis-processing-cli"
-version = "0.1.0"
-dependencies = [
- "clap",
- "moenarch-audio-analysis-processing",
- "moenarch-runtime-core",
- "serde_json",
-]
-
-[[package]]
-name = "moenarch-audio-analysis-processing-server"
-version = "0.1.0"
-dependencies = [
- "clap",
- "moenarch-audio-analysis-processing",
- "moenarch-runtime-core",
- "serde_json",
-]
-
-[[package]]
-name = "moenarch-audio-analysis-processing-wasm"
-version = "0.1.0"
-dependencies = [
- "js-sys",
- "moenarch-audio-analysis-processing",
- "moenarch-runtime-core",
- "serde",
- "serde-wasm-bindgen",
- "serde_json",
- "wasm-bindgen",
-]
-
-[[package]]
-name = "moenarch-audio-analysis-recognition"
-version = "0.1.0"
-dependencies = [
- "criterion",
- "moenarch-audio-analysis-core",
- "moenarch-audio-analysis-fourier",
- "moenarch-audio-contracts",
- "moenarch-model-runtime",
- "moenarch-runtime-core",
- "moenarch-text-transcripts",
- "serde",
- "serde_json",
-]
-
-[[package]]
-name = "moenarch-audio-analysis-recognition-cli"
-version = "0.1.0"
-dependencies = [
- "clap",
- "moenarch-audio-analysis-recognition",
- "moenarch-runtime-core",
- "serde_json",
-]
-
-[[package]]
-name = "moenarch-audio-analysis-recognition-server"
-version = "0.1.0"
-dependencies = [
- "clap",
- "moenarch-audio-analysis-recognition",
- "moenarch-runtime-core",
- "serde_json",
-]
-
-[[package]]
-name = "moenarch-audio-analysis-recognition-wasm"
-version = "0.1.0"
-dependencies = [
- "js-sys",
- "moenarch-audio-analysis-recognition",
- "moenarch-runtime-core",
- "serde",
- "serde-wasm-bindgen",
- "serde_json",
- "wasm-bindgen",
-]
-
-[[package]]
-name = "moenarch-audio-analysis-rhythm"
-version = "0.1.0"
-dependencies = [
- "criterion",
- "moenarch-audio-analysis-core",
- "moenarch-audio-contracts",
- "moenarch-runtime-core",
- "serde_json",
-]
-
-[[package]]
-name = "moenarch-audio-analysis-rhythm-cli"
-version = "0.1.0"
-dependencies = [
- "clap",
- "moenarch-audio-analysis-rhythm",
- "moenarch-runtime-core",
- "serde_json",
-]
-
-[[package]]
-name = "moenarch-audio-analysis-rhythm-server"
-version = "0.1.0"
-dependencies = [
- "clap",
- "moenarch-audio-analysis-rhythm",
- "moenarch-runtime-core",
- "serde_json",
-]
-
-[[package]]
-name = "moenarch-audio-analysis-rhythm-wasm"
-version = "0.1.0"
-dependencies = [
- "js-sys",
- "moenarch-audio-analysis-rhythm",
- "moenarch-runtime-core",
- "serde",
- "serde-wasm-bindgen",
- "serde_json",
- "wasm-bindgen",
-]
-
-[[package]]
-name = "moenarch-audio-analysis-separation"
-version = "0.1.0"
-dependencies = [
- "moenarch-audio-analysis-recognition",
- "moenarch-jobs-core",
- "moenarch-media-core",
- "moenarch-runtime-core",
- "serde",
- "serde_json",
- "tempfile",
-]
-
-[[package]]
-name = "moenarch-audio-analysis-separation-cli"
-version = "0.1.0"
-dependencies = [
- "clap",
- "moenarch-audio-analysis-separation",
- "moenarch-runtime-core",
- "serde_json",
-]
-
-[[package]]
-name = "moenarch-audio-analysis-separation-server"
-version = "0.1.0"
-dependencies = [
- "clap",
- "moenarch-audio-analysis-separation",
- "moenarch-runtime-core",
- "serde_json",
-]
-
-[[package]]
-name = "moenarch-audio-analysis-separation-wasm"
-version = "0.1.0"
-dependencies = [
- "js-sys",
- "moenarch-audio-analysis-separation",
- "moenarch-runtime-core",
- "serde",
- "serde-wasm-bindgen",
- "serde_json",
- "wasm-bindgen",
-]
-
-[[package]]
-name = "moenarch-audio-analysis-speakers"
-version = "0.1.4"
-dependencies = [
- "hound",
- "moenarch-audio-analysis-core",
- "moenarch-audio-analysis-recognition",
- "moenarch-audio-contracts",
- "moenarch-model-runtime",
- "moenarch-runtime-core",
- "moenarch-runtime-onnx",
- "ndarray",
- "serde",
- "serde_json",
- "sha2 0.11.1",
-]
-
-[[package]]
-name = "moenarch-audio-analysis-speakers-cli"
-version = "0.1.0"
-dependencies = [
- "clap",
- "moenarch-audio-analysis-speakers",
- "moenarch-runtime-core",
- "serde_json",
-]
-
-[[package]]
-name = "moenarch-audio-analysis-speakers-server"
-version = "0.1.0"
-dependencies = [
- "clap",
- "moenarch-audio-analysis-speakers",
- "moenarch-runtime-core",
- "serde_json",
-]
-
-[[package]]
-name = "moenarch-audio-analysis-speakers-wasm"
-version = "0.1.0"
-dependencies = [
- "js-sys",
- "moenarch-audio-analysis-speakers",
- "moenarch-runtime-core",
- "serde",
- "serde-wasm-bindgen",
- "serde_json",
- "wasm-bindgen",
-]
-
-[[package]]
-name = "moenarch-audio-analysis-synthesis"
-version = "0.1.0"
-dependencies = [
- "moenarch-audio-analysis-recognition",
- "moenarch-audio-contracts",
- "moenarch-data-inversion-core",
- "moenarch-runtime-core",
- "serde",
- "serde_json",
-]
-
-[[package]]
-name = "moenarch-audio-analysis-synthesis-cli"
-version = "0.1.0"
-dependencies = [
- "clap",
- "moenarch-audio-analysis-synthesis",
- "moenarch-runtime-core",
- "serde_json",
-]
-
-[[package]]
-name = "moenarch-audio-analysis-synthesis-server"
-version = "0.1.0"
-dependencies = [
- "clap",
- "moenarch-audio-analysis-synthesis",
- "moenarch-runtime-core",
- "serde_json",
-]
-
-[[package]]
-name = "moenarch-audio-analysis-synthesis-wasm"
-version = "0.1.0"
-dependencies = [
- "js-sys",
- "moenarch-audio-analysis-synthesis",
- "moenarch-runtime-core",
- "serde",
- "serde-wasm-bindgen",
- "serde_json",
- "wasm-bindgen",
-]
-
-[[package]]
-name = "moenarch-audio-analysis-test-support"
-version = "0.1.0"
-dependencies = [
- "moenarch-audio-contracts",
- "moenarch-runtime-core",
- "serde_json",
- "tempfile",
-]
-
-[[package]]
-name = "moenarch-audio-analysis-transcription"
-version = "0.1.15"
-dependencies = [
- "candle-core",
- "candle-nn",
- "candle-transformers",
- "cmake",
- "flate2",
- "hound",
- "moenarch-audio-analysis-io",
- "moenarch-audio-analysis-speakers",
- "moenarch-media-core",
- "moenarch-model-runtime",
- "moenarch-runtime-core",
- "moenarch-runtime-onnx",
- "moenarch-text-model-runtime",
- "moenarch-text-transcripts",
- "moenarch-video-analysis-ffmpeg",
- "rayon",
- "rustfft",
- "serde",
- "serde_json",
- "sha2 0.11.1",
- "tempfile",
- "thiserror 2.0.21",
- "tokenizers",
- "ureq 2.12.1",
-]
-
-[[package]]
-name = "moenarch-audio-analysis-transcription-cli"
-version = "0.1.0"
-dependencies = [
- "clap",
- "moenarch-audio-analysis-transcription",
- "moenarch-runtime-core",
- "serde_json",
-]
-
-[[package]]
-name = "moenarch-audio-analysis-transcription-server"
-version = "0.1.0"
-dependencies = [
- "clap",
- "moenarch-audio-analysis-transcription",
- "moenarch-runtime-core",
- "serde_json",
-]
-
-[[package]]
-name = "moenarch-audio-analysis-transcription-wasm"
-version = "0.1.0"
-dependencies = [
- "js-sys",
- "moenarch-audio-analysis-transcription",
- "moenarch-runtime-core",
- "serde",
- "serde-wasm-bindgen",
- "serde_json",
- "wasm-bindgen",
-]
-
-[[package]]
 name = "moenarch-audio-contracts"
 version = "0.1.0"
 dependencies = [
  "moenarch-media-core",
-]
-
-[[package]]
-name = "moenarch-audio-generation-midi"
-version = "0.1.0"
-dependencies = [
- "moenarch-audio-analysis-synthesis",
- "moenarch-audio-contracts",
- "moenarch-data-inversion-core",
- "moenarch-runtime-core",
- "serde_json",
-]
-
-[[package]]
-name = "moenarch-audio-generation-midi-cli"
-version = "0.1.0"
-dependencies = [
- "clap",
- "moenarch-audio-generation-midi",
- "moenarch-runtime-core",
- "serde_json",
-]
-
-[[package]]
-name = "moenarch-audio-generation-midi-server"
-version = "0.1.0"
-dependencies = [
- "clap",
- "moenarch-audio-generation-midi",
- "moenarch-runtime-core",
- "serde_json",
-]
-
-[[package]]
-name = "moenarch-audio-generation-midi-wasm"
-version = "0.1.0"
-dependencies = [
- "js-sys",
- "moenarch-audio-generation-midi",
- "moenarch-runtime-core",
- "serde",
- "serde-wasm-bindgen",
- "serde_json",
- "wasm-bindgen",
-]
-
-[[package]]
-name = "moenarch-audio-generation-tts"
-version = "0.1.0"
-dependencies = [
- "candle-core",
- "moenarch-audio-analysis-transcription",
- "moenarch-audio-contracts",
- "moenarch-model-runtime",
- "moenarch-runtime-core",
- "serde",
- "serde_json",
- "tempfile",
-]
-
-[[package]]
-name = "moenarch-audio-generation-tts-cli"
-version = "0.1.0"
-dependencies = [
- "clap",
- "moenarch-audio-generation-tts",
- "moenarch-runtime-core",
- "serde_json",
-]
-
-[[package]]
-name = "moenarch-audio-generation-tts-server"
-version = "0.1.0"
-dependencies = [
- "clap",
- "moenarch-audio-generation-tts",
- "moenarch-runtime-core",
- "serde_json",
-]
-
-[[package]]
-name = "moenarch-audio-generation-tts-wasm"
-version = "0.1.0"
-dependencies = [
- "js-sys",
- "moenarch-audio-generation-tts",
- "moenarch-runtime-core",
- "serde",
- "serde-wasm-bindgen",
- "serde_json",
- "wasm-bindgen",
 ]
 
 [[package]]
@@ -4650,23 +3938,7 @@ version = "0.1.0"
 dependencies = [
  "clap",
  "moenarch-animation-core",
- "moenarch-audio-analysis-core",
- "moenarch-audio-analysis-fourier",
- "moenarch-audio-analysis-io",
- "moenarch-audio-analysis-pitch",
- "moenarch-audio-analysis-processing",
- "moenarch-audio-analysis-recognition",
- "moenarch-audio-analysis-rhythm",
- "moenarch-audio-analysis-separation",
- "moenarch-audio-analysis-speakers",
- "moenarch-audio-analysis-synthesis",
- "moenarch-audio-analysis-transcription",
  "moenarch-audio-contracts",
- "moenarch-audio-generation-midi",
- "moenarch-audio-generation-tts",
- "moenarch-audio-generation-tts-cli",
- "moenarch-audio-generation-tts-server",
- "moenarch-audio-generation-tts-wasm",
  "moenarch-comfyui-data",
  "moenarch-comfyui-latents",
  "moenarch-comfyui-models",
@@ -5978,15 +5250,6 @@ version = "0.1.0"
 dependencies = [
  "chrono",
  "clap",
- "moenarch-audio-analysis-core",
- "moenarch-audio-analysis-io",
- "moenarch-audio-analysis-pitch",
- "moenarch-audio-analysis-processing",
- "moenarch-audio-analysis-recognition",
- "moenarch-audio-analysis-rhythm",
- "moenarch-audio-analysis-separation",
- "moenarch-audio-analysis-test-support",
- "moenarch-audio-analysis-transcription",
  "moenarch-comfyui-latents",
  "moenarch-comfyui-models",
  "moenarch-image-analysis-comfyui",
@@ -6464,15 +5727,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "primal-check"
-version = "0.3.4"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "dc0d895b311e3af9902528fbb8f928688abbd95872819320517cc24ca6b2bd08"
-dependencies = [
- "num-integer",
-]
-
-[[package]]
 name = "private-gemm-x86"
 version = "0.1.22"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -6485,41 +5739,12 @@ dependencies = [
 ]
 
 [[package]]
-name = "proc-macro-crate"
-version = "3.5.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e67ba7e9b2b56446f1d419b1d807906278ffa1a658a8a5d8a39dcb1f5a78614f"
-dependencies = [
- "toml_edit",
-]
-
-[[package]]
 name = "proc-macro2"
 version = "1.0.107"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "985e7ec9bb745e6ce6535b544d84d6cd6f7ad8bd711c398938ae983b91a766d9"
 dependencies = [
  "unicode-ident",
-]
-
-[[package]]
-name = "proptest"
-version = "1.12.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b8530004ccb15eae51c7e40009fbe317f341f804db54dc033eec1c50be28cfa0"
-dependencies = [
- "bit-set 0.11.1",
- "bit-vec 0.10.1",
- "bitflags",
- "chacha20",
- "core_detect",
- "num-traits",
- "rand 0.10.3",
- "rand_xorshift",
- "regex-syntax",
- "rusty-fork",
- "tempfile",
- "unarray",
 ]
 
 [[package]]
@@ -6565,12 +5790,6 @@ dependencies = [
 
 [[package]]
 name = "quick-error"
-version = "1.2.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a1d01941d82fa2ab50be1e79e6714289dd7cde78eba4c074bc5a4374f650dfe0"
-
-[[package]]
-name = "quick-error"
 version = "2.0.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a993555f31e5a609f617c12db6250dedcac1b0a85076912c436e6fc9b2c8e6a3"
@@ -6603,17 +5822,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b9ef1d0d795eb7d84685bca4f72f3649f064e6641543d3a8c415898726a57b41"
 dependencies = [
  "rand_chacha",
- "rand_core 0.9.5",
-]
-
-[[package]]
-name = "rand"
-version = "0.10.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "65c9fb96cbc91e3478eaae79a69fcd3f1ae4ad052e471fe6732fff548984b4af"
-dependencies = [
- "getrandom 0.4.3",
- "rand_core 0.10.1",
+ "rand_core",
 ]
 
 [[package]]
@@ -6623,7 +5832,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d3022b5f1df60f26e1ffddd6c66e8aa15de382ae63b3a0c1bfc0e4d3e3f325cb"
 dependencies = [
  "ppv-lite86",
- "rand_core 0.9.5",
+ "rand_core",
 ]
 
 [[package]]
@@ -6636,28 +5845,13 @@ dependencies = [
 ]
 
 [[package]]
-name = "rand_core"
-version = "0.10.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "63b8176103e19a2643978565ca18b50549f6101881c443590420e4dc998a3c69"
-
-[[package]]
 name = "rand_distr"
 version = "0.5.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "6a8615d50dcf34fa31f7ab52692afec947c4dd0ab803cc87cb3b0b4570ff7463"
 dependencies = [
  "num-traits",
- "rand 0.9.5",
-]
-
-[[package]]
-name = "rand_xorshift"
-version = "0.5.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "60aa6af80be32871323012e02e6e65f8a7cc7890931ae421d217ad8fe0df2ccf"
-dependencies = [
- "rand_core 0.10.1",
+ "rand",
 ]
 
 [[package]]
@@ -6799,20 +5993,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "rustfft"
-version = "6.4.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "21db5f9893e91f41798c88680037dba611ca6674703c1a18601b01a72c8adb89"
-dependencies = [
- "num-complex",
- "num-integer",
- "num-traits",
- "primal-check",
- "strength_reduce",
- "transpose",
-]
-
-[[package]]
 name = "rustix"
 version = "1.1.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -6865,18 +6045,6 @@ name = "rustversion"
 version = "1.0.23"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "cf54715a573b99ac80df0bc206da022bcd442c974952c7b9720069370852e21f"
-
-[[package]]
-name = "rusty-fork"
-version = "0.3.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "cc6bf79ff24e648f6da1f8d1f011e9cac26491b619e6b9280f2b47f1774e6ee2"
-dependencies = [
- "fnv",
- "quick-error 1.2.3",
- "tempfile",
- "wait-timeout",
-]
 
 [[package]]
 name = "ryu"
@@ -7089,12 +6257,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a2eb9349b6444b326872e140eb1cf5e7c522154d69e7a0ffb0fb81c06b37543f"
 
 [[package]]
-name = "strength_reduce"
-version = "0.2.4"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "fe895eb47f22e2ddd4dabc02bce419d2e643c8e3b585c78158b349195bc24d82"
-
-[[package]]
 name = "strsim"
 version = "0.11.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -7292,7 +6454,7 @@ dependencies = [
  "macro_rules_attribute",
  "monostate",
  "paste",
- "rand 0.9.5",
+ "rand",
  "rayon",
  "rayon-cond",
  "regex",
@@ -7304,36 +6466,6 @@ dependencies = [
  "unicode-normalization-alignments",
  "unicode-segmentation",
  "unicode_categories",
-]
-
-[[package]]
-name = "toml_datetime"
-version = "1.1.2+spec-1.1.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2b86d767906c6c42421dcba507eb9d203e779497710a47782a224bb871653053"
-dependencies = [
- "serde_core",
-]
-
-[[package]]
-name = "toml_edit"
-version = "0.25.17+spec-1.1.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e3641d5bbb5349a79e1020a242d251efbc546ad8048d133958323ce9c40a9c9c"
-dependencies = [
- "indexmap",
- "toml_datetime",
- "toml_parser",
- "winnow",
-]
-
-[[package]]
-name = "toml_parser"
-version = "1.1.5+spec-1.1.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "baa693a8032d7e1cada7d0041e96126df243179ff061456783ac7f12bda4744c"
-dependencies = [
- "winnow",
 ]
 
 [[package]]
@@ -7368,16 +6500,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "transpose"
-version = "0.2.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1ad61aed86bc3faea4300c7aee358b4c6d0c8d6ccc36524c96e4c92ccf26e77e"
-dependencies = [
- "num-integer",
- "strength_reduce",
-]
-
-[[package]]
 name = "typed-path"
 version = "0.13.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -7388,12 +6510,6 @@ name = "typenum"
 version = "1.20.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b6f5e870be6c3b371b77fe0ee0bafb859fa4964b4404c27de1d380043c4dda20"
-
-[[package]]
-name = "unarray"
-version = "0.1.4"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "eaea85b334db583fe3274d12b4cd1880032beab409c0d774be044d4480ab9a94"
 
 [[package]]
 name = "unicode-ident"
@@ -7451,22 +6567,6 @@ checksum = "8ecb6da28b8a351d773b68d5825ac39017e680750f980f3a1a85cd8dd28a47c1"
 
 [[package]]
 name = "ureq"
-version = "2.12.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "02d1a66277ed75f640d608235660df48c8e3c19f3b4edb6a263315626cc3c01d"
-dependencies = [
- "base64 0.22.1",
- "flate2",
- "log",
- "once_cell",
- "rustls",
- "rustls-pki-types",
- "url",
- "webpki-roots 0.26.11",
-]
-
-[[package]]
-name = "ureq"
 version = "3.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "cde93ff05758a36a851a398a772b0b79a82fbe3c186a46f2696baaeaf84c966b"
@@ -7482,7 +6582,7 @@ dependencies = [
  "serde_json",
  "ureq-proto",
  "utf8-zero",
- "webpki-roots 1.0.11",
+ "webpki-roots",
 ]
 
 [[package]]
@@ -7538,15 +6638,6 @@ name = "version_check"
 version = "0.9.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0b928f33d975fc6ad9f86c8f283853ad26bdd5b10b7f1542aa2fa15e2289105a"
-
-[[package]]
-name = "wait-timeout"
-version = "0.2.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "09ac3b126d3914f9849036f826e054cbabdc8519970b8998ddaf3b5bd3c65f11"
-dependencies = [
- "libc",
-]
 
 [[package]]
 name = "walkdir"
@@ -7636,15 +6727,6 @@ checksum = "5a6580f308b1fad9207618087a65c04e7a10bc77e02c8e84e9b00dd4b12fa0bb"
 dependencies = [
  "js-sys",
  "wasm-bindgen",
-]
-
-[[package]]
-name = "webpki-roots"
-version = "0.26.11"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "521bc38abb08001b01866da9f51eb7c5d647a19260e00054a8c7fd5f9e57f7a9"
-dependencies = [
- "webpki-roots 1.0.11",
 ]
 
 [[package]]
@@ -7849,15 +6931,6 @@ name = "windows_x86_64_msvc"
 version = "0.52.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "589f6da84c646204747d1270a2a5661ea66ed1cced2631d546fdfb155959f9ec"
-
-[[package]]
-name = "winnow"
-version = "1.0.4"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "23b97319f7b8343df12cc98938e5c3eb436064524c8d2b4e30a1d3a36eecdf81"
-dependencies = [
- "memchr",
-]
 
 [[package]]
 name = "winsafe"

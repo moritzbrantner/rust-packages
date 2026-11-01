@@ -38,7 +38,6 @@ Setup mode reuses the existing idempotent setup scripts:
 ```bash
 bash scripts/setup_model_external_tools.sh all bundles
 bash scripts/setup_e2e_external_tools.sh all
-bash scripts/setup_whisper_cpp_external_model.sh
 scripts/setup_colmap_test_video.sh
 NERFSTUDIO_REQUIRE_CUDA=1 bash scripts/setup_radiance_external_tools.sh training
 ```
@@ -135,7 +134,6 @@ ns-export
 | Runtime/model spine | `moritzbrantner-model-runtime`, `moritzbrantner-runtime-onnx`, `moritzbrantner-video-analysis` |
 | Image ONNX/models | `moritzbrantner-image-analysis-classification`, `moritzbrantner-image-analysis-captioning`, `moritzbrantner-image-analysis-detection`, `moritzbrantner-image-analysis-embeddings`, `moritzbrantner-image-analysis-ocr`, `moritzbrantner-image-analysis-comfyui` |
 | Text native/models | `moritzbrantner-text-model-runtime`, `moritzbrantner-text-embeddings`, `moritzbrantner-text-linguistics`, `moritzbrantner-text-classification`, `moritzbrantner-text-question-answering`, `moritzbrantner-text-analysis`, `moritzbrantner-text-transcripts` |
-| Audio native/models | `moritzbrantner-audio-analysis-io`, `moritzbrantner-audio-analysis-speakers`, `moritzbrantner-audio-analysis-transcription`, `moritzbrantner-audio-analysis-separation` |
 | Video native/models | `moritzbrantner-video-analysis-ffmpeg`, `moritzbrantner-video-analysis-split`, `moritzbrantner-video-analysis-posture`, `moritzbrantner-video-analysis-recognition`, `moritzbrantner-video-analysis-cli` |
 | Radiance / reconstruction | `moritzbrantner-video-analysis-radiance-fields`, `moritzbrantner-video-analysis-radiance-io`, `moritzbrantner-video-analysis-radiance-pipeline`, `moritzbrantner-video-analysis-sfm`, `moritzbrantner-video-analysis-mvs`, `moritzbrantner-video-analysis-reconstruction` |
 | Workflow integration | `moritzbrantner-video-analysis-use-cases` |

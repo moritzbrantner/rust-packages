@@ -42,11 +42,9 @@ source of truth. The current stable parity target remains PySceneDetect
 
 ## Native WhisperX Replacement
 
-Use
-[NATIVE_WHISPERX_REIMPLEMENTATION_STATUS.md](NATIVE_WHISPERX_REIMPLEMENTATION_STATUS.md)
-for current status, local validation history, and remaining gaps. Default tests
-must remain hermetic: no Python, WhisperX, Hugging Face token, network, CUDA, or
-local model files.
+Native transcription and WhisperX parity work lives in
+[`audio-analysis`](https://github.com/moritzbrantner/audio-analysis) and
+[`native-whisperx`](https://github.com/moritzbrantner/native-whisperx).
 
 ## External Smoke Policy
 

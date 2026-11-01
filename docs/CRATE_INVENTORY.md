@@ -19,18 +19,19 @@ python3 scripts/audit_workspace_crates.py --check
 
 ## Counts
 
-- Active workspace packages: 347
+- Active workspace packages: 296
 
 ### Domains
 
 - `animation`: 3
-- `audio`: 40
-- `bindings`: 85
+- `audio`: 1
+- `bindings`: 72
 - `comfyui`: 9
 - `data`: 15
 - `image`: 33
 - `jobs`: 3
 - `math`: 15
+- `media`: 1
 - `prototype`: 1
 - `root`: 1
 - `runtime`: 5
@@ -43,76 +44,24 @@ python3 scripts/audit_workspace_crates.py --check
 
 ### Kinds
 
-- `cli`: 86
-- `library`: 90
+- `cli`: 73
+- `library`: 78
 - `prototype`: 1
-- `server`: 85
-- `wasm`: 85
+- `server`: 72
+- `wasm`: 72
 
 ### Publish classes
 
-- `internal-test`: 2
-- `public`: 345
+- `internal-test`: 1
+- `public`: 295
 
 | Package | Domain | Kind | Publish | Surface required | Facade expected | Path |
 |---|---|---|---|---|---|---|
 | `moenarch-animation-core-cli` | animation | cli | public | no | no | `crates/animation/animation-core-cli` |
 | `moenarch-animation-core` | animation | library | public | yes | yes | `crates/animation/animation-core` |
 | `moenarch-animation-core-server` | animation | server | public | no | no | `crates/animation/animation-core-server` |
-| `moenarch-audio-analysis-core-cli` | audio | cli | public | no | no | `crates/audio/audio-analysis-core-cli` |
-| `moenarch-audio-analysis-fourier-cli` | audio | cli | public | no | no | `crates/audio/audio-analysis-fourier-cli` |
-| `moenarch-audio-analysis-io-cli` | audio | cli | public | no | no | `crates/audio/audio-analysis-io-cli` |
-| `moenarch-audio-analysis-pitch-cli` | audio | cli | public | no | no | `crates/audio/audio-analysis-pitch-cli` |
-| `moenarch-audio-analysis-processing-cli` | audio | cli | public | no | no | `crates/audio/audio-analysis-processing-cli` |
-| `moenarch-audio-analysis-recognition-cli` | audio | cli | public | no | no | `crates/audio/audio-analysis-recognition-cli` |
-| `moenarch-audio-analysis-rhythm-cli` | audio | cli | public | no | no | `crates/audio/audio-analysis-rhythm-cli` |
-| `moenarch-audio-analysis-separation-cli` | audio | cli | public | no | no | `crates/audio/audio-analysis-separation-cli` |
-| `moenarch-audio-analysis-speakers-cli` | audio | cli | public | no | no | `crates/audio/audio-analysis-speakers-cli` |
-| `moenarch-audio-analysis-synthesis-cli` | audio | cli | public | no | no | `crates/audio/audio-analysis-synthesis-cli` |
-| `moenarch-audio-analysis-transcription-cli` | audio | cli | public | no | no | `crates/audio/audio-analysis-transcription-cli` |
-| `moenarch-audio-generation-midi-cli` | audio | cli | public | no | no | `crates/audio/audio-generation-midi-cli` |
-| `moenarch-audio-generation-tts-cli` | audio | cli | public | no | no | `crates/audio/audio-generation-tts-cli` |
-| `moenarch-audio-analysis-core` | audio | library | public | yes | yes | `crates/audio/audio-analysis-core` |
-| `moenarch-audio-analysis-fourier` | audio | library | public | yes | yes | `crates/audio/audio-analysis-fourier` |
-| `moenarch-audio-analysis-io` | audio | library | public | yes | yes | `crates/audio/audio-analysis-io` |
-| `moenarch-audio-analysis-pitch` | audio | library | public | yes | yes | `crates/audio/audio-analysis-pitch` |
-| `moenarch-audio-analysis-processing` | audio | library | public | yes | yes | `crates/audio/audio-analysis-processing` |
-| `moenarch-audio-analysis-recognition` | audio | library | public | yes | yes | `crates/audio/audio-analysis-recognition` |
-| `moenarch-audio-analysis-rhythm` | audio | library | public | yes | yes | `crates/audio/audio-analysis-rhythm` |
-| `moenarch-audio-analysis-separation` | audio | library | public | yes | yes | `crates/audio/audio-analysis-separation` |
-| `moenarch-audio-analysis-speakers` | audio | library | public | yes | yes | `crates/audio/audio-analysis-speakers` |
-| `moenarch-audio-analysis-synthesis` | audio | library | public | yes | yes | `crates/audio/audio-analysis-synthesis` |
-| `moenarch-audio-analysis-test-support` | audio | library | internal-test | no | no | `crates/audio/audio-analysis-test-support` |
-| `moenarch-audio-analysis-transcription` | audio | library | public | yes | yes | `crates/audio/audio-analysis-transcription` |
-| `moenarch-audio-generation-midi` | audio | library | public | yes | yes | `crates/audio/audio-generation-midi` |
-| `moenarch-audio-generation-tts` | audio | library | public | yes | yes | `crates/audio/audio-generation-tts` |
-| `moenarch-audio-analysis-core-server` | audio | server | public | no | no | `crates/audio/audio-analysis-core-server` |
-| `moenarch-audio-analysis-fourier-server` | audio | server | public | no | no | `crates/audio/audio-analysis-fourier-server` |
-| `moenarch-audio-analysis-io-server` | audio | server | public | no | no | `crates/audio/audio-analysis-io-server` |
-| `moenarch-audio-analysis-pitch-server` | audio | server | public | no | no | `crates/audio/audio-analysis-pitch-server` |
-| `moenarch-audio-analysis-processing-server` | audio | server | public | no | no | `crates/audio/audio-analysis-processing-server` |
-| `moenarch-audio-analysis-recognition-server` | audio | server | public | no | no | `crates/audio/audio-analysis-recognition-server` |
-| `moenarch-audio-analysis-rhythm-server` | audio | server | public | no | no | `crates/audio/audio-analysis-rhythm-server` |
-| `moenarch-audio-analysis-separation-server` | audio | server | public | no | no | `crates/audio/audio-analysis-separation-server` |
-| `moenarch-audio-analysis-speakers-server` | audio | server | public | no | no | `crates/audio/audio-analysis-speakers-server` |
-| `moenarch-audio-analysis-synthesis-server` | audio | server | public | no | no | `crates/audio/audio-analysis-synthesis-server` |
-| `moenarch-audio-analysis-transcription-server` | audio | server | public | no | no | `crates/audio/audio-analysis-transcription-server` |
-| `moenarch-audio-generation-midi-server` | audio | server | public | no | no | `crates/audio/audio-generation-midi-server` |
-| `moenarch-audio-generation-tts-server` | audio | server | public | no | no | `crates/audio/audio-generation-tts-server` |
+| `moenarch-audio-contracts` | audio | library | public | yes | yes | `crates/audio/audio-contracts` |
 | `moenarch-animation-core-wasm` | bindings | wasm | public | no | no | `crates/bindings/animation-core-wasm` |
-| `moenarch-audio-analysis-core-wasm` | bindings | wasm | public | no | no | `crates/bindings/audio-analysis-core-wasm` |
-| `moenarch-audio-analysis-fourier-wasm` | bindings | wasm | public | no | no | `crates/bindings/audio-analysis-fourier-wasm` |
-| `moenarch-audio-analysis-io-wasm` | bindings | wasm | public | no | no | `crates/bindings/audio-analysis-io-wasm` |
-| `moenarch-audio-analysis-pitch-wasm` | bindings | wasm | public | no | no | `crates/bindings/audio-analysis-pitch-wasm` |
-| `moenarch-audio-analysis-processing-wasm` | bindings | wasm | public | no | no | `crates/bindings/audio-analysis-processing-wasm` |
-| `moenarch-audio-analysis-recognition-wasm` | bindings | wasm | public | no | no | `crates/bindings/audio-analysis-recognition-wasm` |
-| `moenarch-audio-analysis-rhythm-wasm` | bindings | wasm | public | no | no | `crates/bindings/audio-analysis-rhythm-wasm` |
-| `moenarch-audio-analysis-separation-wasm` | bindings | wasm | public | no | no | `crates/bindings/audio-analysis-separation-wasm` |
-| `moenarch-audio-analysis-speakers-wasm` | bindings | wasm | public | no | no | `crates/bindings/audio-analysis-speakers-wasm` |
-| `moenarch-audio-analysis-synthesis-wasm` | bindings | wasm | public | no | no | `crates/bindings/audio-analysis-synthesis-wasm` |
-| `moenarch-audio-analysis-transcription-wasm` | bindings | wasm | public | no | no | `crates/bindings/audio-analysis-transcription-wasm` |
-| `moenarch-audio-generation-midi-wasm` | bindings | wasm | public | no | no | `crates/bindings/audio-generation-midi-wasm` |
-| `moenarch-audio-generation-tts-wasm` | bindings | wasm | public | no | no | `crates/bindings/audio-generation-tts-wasm` |
 | `moenarch-comfyui-data-wasm` | bindings | wasm | public | no | no | `crates/bindings/comfyui-data-wasm` |
 | `moenarch-comfyui-latents-wasm` | bindings | wasm | public | no | no | `crates/bindings/comfyui-latents-wasm` |
 | `moenarch-comfyui-models-wasm` | bindings | wasm | public | no | no | `crates/bindings/comfyui-models-wasm` |
@@ -259,6 +208,7 @@ python3 scripts/audit_workspace_crates.py --check
 | `moenarch-math-signal-core-server` | math | server | public | no | no | `crates/math/math-signal-core-server` |
 | `moenarch-math-sparse-data-server` | math | server | public | no | no | `crates/math/math-sparse-data-server` |
 | `moenarch-math-statistics-server` | math | server | public | no | no | `crates/math/math-statistics-server` |
+| `moenarch-media-core` | media | library | public | yes | yes | `crates/media/media-core` |
 | `moenarch-video-analysis-use-cases` | prototype | prototype | public | no | no | `prototypes/rust/video-analysis-use-cases` |
 | `moenarch-video-analysis` | root | library | public | yes | no | `.` |
 | `moenarch-model-runtime-cli` | runtime | cli | public | no | no | `crates/runtime/model-runtime-cli` |

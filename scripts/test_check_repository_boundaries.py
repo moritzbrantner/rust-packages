@@ -136,9 +136,9 @@ class RepositoryBoundaryCheckTests(unittest.TestCase):
             text=True,
         )
         self.assertEqual(completed.returncode, 0, completed.stderr)
-        self.assertIn("10 reviewed violations", completed.stdout)
-        self.assertIn("6 normal", completed.stdout)
-        self.assertIn("4 dev", completed.stdout)
+        self.assertIn("5 reviewed violations", completed.stdout)
+        self.assertIn("3 normal", completed.stdout)
+        self.assertIn("2 dev", completed.stdout)
         self.assertNotIn("BASELINED CYCLE", completed.stdout)
 
     def test_live_authority_provenance_is_validated_by_boundary_consumer(self) -> None:

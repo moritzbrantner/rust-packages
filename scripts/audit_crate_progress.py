@@ -19,8 +19,6 @@ LEDGER_PATH = Path("docs/CRATE_PROGRESS_LEDGER.md")
 ALLOW_PATH = Path("scripts/crate_progress_regressions.allow")
 CONTRACT_ONLY_FOUNDATION_POLICY_PATH = Path("docs/contract-only-foundation-crates.json")
 EXCLUDED_LIBRARY_CRATES = {
-    "moritzbrantner-audio-analysis-test-support",
-    "moenarch-audio-analysis-test-support",
     "moritzbrantner-runtime-core",
     "moenarch-runtime-core",
     "moritzbrantner-runtime-onnx",

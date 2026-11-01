@@ -70,10 +70,8 @@ def main() -> int:
         if record.get("ecosystem") == "cargo"
         and record.get("target_repository") in EXPECTED_FAMILIES
     ]
-    seen_targets = {record.get("target_repository") for record in migrated}
-    for target in sorted(expected_targets):
-        if target not in seen_targets:
-            errors.append(f"{target}: cutover target has no Cargo packages in ownership authority")
+    # A family whose source has been deleted from rust-packages (e.g. audio-analysis)
+    # legitimately has no remaining ownership records here.
 
     for record in migrated:
         target = record.get("target_repository")

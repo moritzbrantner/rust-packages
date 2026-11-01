@@ -5,9 +5,6 @@ use std::path::{Path, PathBuf};
 
 use clap::{ArgGroup, CommandFactory, FromArgMatches, Parser, Subcommand};
 use video_analysis_core::Result;
-use video_analysis_use_cases::audio_voice_analysis::{
-    run_audio_voice_analysis, write_audio_voice_analysis_report, AudioVoiceAnalysisRequest,
-};
 use video_analysis_use_cases::image_person_edit::{
     run_image_person_edit, write_image_person_edit_report, ImagePersonEditRequest,
     PersonDetectorConfig,
@@ -16,8 +13,7 @@ use video_analysis_use_cases::video_red_cars::{
     run_video_red_cars, write_video_red_cars_report, VideoRedCarsRequest,
 };
 use video_analysis_use_cases::youtube::{
-    run_youtube_video, write_youtube_video_report, AudioSeparationConfig, TranscriptionEngine,
-    WhisperCppConfig, YoutubeVideoRequest,
+    run_youtube_video, write_youtube_video_report, TranscriptionEngine, YoutubeVideoRequest,
 };
 
 #[derive(Debug, Parser)]
@@ -42,7 +38,6 @@ struct Cli {
 enum CommandKind {
     YoutubeVideo(YoutubeVideoArgs),
     VideoRedCars(VideoRedCarsArgs),
-    AudioVoiceAnalysis(AudioVoiceAnalysisArgs),
     ImagePersonEdit(ImagePersonEditArgs),
 }
 
@@ -92,11 +87,7 @@ struct YoutubeVideoArgs {
 impl From<YoutubeVideoArgs> for YoutubeVideoRequest {
     fn from(args: YoutubeVideoArgs) -> Self {
         Self {
-            transcriber_engine: if args.transcriber_command.is_some() {
-                TranscriptionEngine::Whisper
-            } else {
-                TranscriptionEngine::WhisperCpp
-            },
+            transcriber_engine: TranscriptionEngine::Whisper,
             url: args.url,
             input: args.input,
             work_dir: args.work_dir,
@@ -108,8 +99,6 @@ impl From<YoutubeVideoArgs> for YoutubeVideoRequest {
             skip_transcription: args.skip_transcription,
             transcriber_command: args.transcriber_command,
             transcriber_args: args.transcriber_args,
-            whisper_cpp: WhisperCppConfig::default(),
-            audio_separation: AudioSeparationConfig::default(),
             object_command: args.object_command,
             object_args: args.object_args,
             ocr_command: args.ocr_command,
@@ -155,51 +144,6 @@ impl From<VideoRedCarsArgs> for VideoRedCarsRequest {
             vehicle_detector_command: args.vehicle_detector_command.unwrap_or_default(),
             vehicle_detector_args: args.vehicle_detector_args,
         }
-    }
-}
-
-#[derive(Debug, Parser)]
-struct AudioVoiceAnalysisArgs {
-    #[arg(long)]
-    input: PathBuf,
-    #[arg(long, default_value = "use-case-output/audio-voice-analysis")]
-    work_dir: PathBuf,
-    #[arg(long)]
-    output: Option<PathBuf>,
-    #[arg(long)]
-    transcriber_command: Option<PathBuf>,
-    #[arg(long = "transcriber-arg")]
-    transcriber_args: Vec<String>,
-    #[arg(long)]
-    demucs_command: Option<PathBuf>,
-    #[arg(long)]
-    require_voice_stem: bool,
-}
-
-impl From<AudioVoiceAnalysisArgs> for AudioVoiceAnalysisRequest {
-    fn from(args: AudioVoiceAnalysisArgs) -> Self {
-        let mut request = AudioVoiceAnalysisRequest {
-            input: args.input,
-            work_dir: args.work_dir,
-            output: args.output,
-            ..AudioVoiceAnalysisRequest::default()
-        };
-        if let Some(command) = args.transcriber_command {
-            request.transcription.engine = TranscriptionEngine::Whisper;
-            request.transcription.command = Some(video_analysis_use_cases::ExternalCommandConfig {
-                command,
-                args: args.transcriber_args,
-            });
-        }
-        if let Some(command) = args.demucs_command {
-            request.audio_separation.command =
-                Some(video_analysis_use_cases::ExternalCommandConfig {
-                    command,
-                    args: Vec::new(),
-                });
-        }
-        request.require_voice_stem = args.require_voice_stem;
-        request
     }
 }
 
@@ -276,16 +220,6 @@ fn main() -> Result<()> {
                 .unwrap_or_else(|| request.work_dir.join("analysis.json"));
             let report = run_video_red_cars(request)?;
             write_video_red_cars_report(&report_path, &report)?;
-            println!("{}", report_path.display());
-        }
-        CommandKind::AudioVoiceAnalysis(args) => {
-            let request = AudioVoiceAnalysisRequest::from(args);
-            let report_path = request
-                .output
-                .clone()
-                .unwrap_or_else(|| request.work_dir.join("analysis.json"));
-            let report = run_audio_voice_analysis(request)?;
-            write_audio_voice_analysis_report(&report_path, &report)?;
             println!("{}", report_path.display());
         }
         CommandKind::ImagePersonEdit(args) => {

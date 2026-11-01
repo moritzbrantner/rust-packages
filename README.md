@@ -57,7 +57,6 @@ changed-aware checks.
 Package README index:
 
 - Root compatibility facade: [`moritzbrantner-video-analysis`](src/lib.rs), [README](README.md)
-- Audio: [`moritzbrantner-audio-analysis-core`](crates/audio/audio-analysis-core/README.md), [`moritzbrantner-audio-generation-midi`](crates/audio/audio-generation-midi/README.md), [`moritzbrantner-audio-analysis-fourier`](crates/audio/audio-analysis-fourier/README.md), [`moritzbrantner-audio-analysis-io`](crates/audio/audio-analysis-io/README.md), [`moritzbrantner-audio-analysis-pitch`](crates/audio/audio-analysis-pitch/README.md), [`moritzbrantner-audio-analysis-processing`](crates/audio/audio-analysis-processing/README.md), [`moritzbrantner-audio-analysis-recognition`](crates/audio/audio-analysis-recognition/README.md), [`moritzbrantner-audio-analysis-rhythm`](crates/audio/audio-analysis-rhythm/README.md), [`moritzbrantner-audio-analysis-separation`](crates/audio/audio-analysis-separation/README.md), [`moritzbrantner-audio-analysis-speakers`](crates/audio/audio-analysis-speakers/README.md), [`moritzbrantner-audio-analysis-synthesis`](crates/audio/audio-analysis-synthesis/README.md)
 - ComfyUI: [`moritzbrantner-comfyui-data`](crates/comfyui/comfyui-data/README.md), [`moritzbrantner-comfyui-latents`](crates/comfyui/comfyui-latents/README.md), [`moritzbrantner-comfyui-models`](crates/comfyui/comfyui-models/README.md)
 - Data: [`moritzbrantner-data-inversion-core`](crates/data/data-inversion-core/README.md), [`moritzbrantner-graph-analysis-core`](crates/data/graph-analysis-core/README.md), [`moritzbrantner-numbers-core`](crates/data/numbers-core/README.md), [`moritzbrantner-tensor-data`](crates/data/tensor-data/README.md), [`moritzbrantner-dense-data`](crates/data/dense-data/README.md)
 - Animation: [`moritzbrantner-animation-core`](crates/animation/animation-core/README.md)
@@ -101,32 +100,12 @@ Finance packages moved to the sibling `finance-analysis` repository as an
 Adjacent Domain Package Family. This repository keeps only deprecated
 `video_analysis::finance` and `video_analysis::finance_data` doc stubs as
 migration signposts.
-- `moritzbrantner-audio-analysis-core`: normalized audio sample conversion, mono mixing,
-  windowing, frame iteration, streaming frame windows, waveform batches, and
-  level helpers for audio analysis crates.
-- `moritzbrantner-audio-generation-midi`: MIDI-like note sequencing, Standard MIDI export,
-  and deterministic audio rendering through the audio synthesis crate.
-- `moritzbrantner-audio-analysis-fourier`: FFT, STFT/spectrogram, spectral features, and a
-  dominant-frequency audio analyzer.
-- `moritzbrantner-audio-analysis-io`: audio-named input conveniences over the FFmpeg-backed
-  audio source and shared ingest traits.
-- `moritzbrantner-audio-analysis-pitch`: autocorrelation pitch estimation and an audio
-  analyzer that emits pitch events.
-- `moritzbrantner-audio-analysis-processing`: realtime-safe audio frame transforms, including
-  gain, clipping, mono conversion, DC blocking, biquad filters, noise gates, and
-  processed audio sources.
-- `moritzbrantner-audio-analysis-recognition`: deterministic spectral audio embeddings,
-  sample-backed reference libraries, similarity search, and recognition events.
-- `moritzbrantner-audio-analysis-rhythm`: onset detection, tempo estimation, and a rhythm
-  analyzer that emits onset and BPM events.
-- `moritzbrantner-audio-analysis-separation`: typed HTDemucs/Demucs integration for vocal and
-  instrument stem separation through the external `demucs` CLI, including
-  model-aware output discovery.
-- `moritzbrantner-audio-analysis-speakers`: speaker-domain embeddings, enrollment,
-  identification, VAD, diarization abstractions, and model-versioned profile
-  snapshots.
-- `moritzbrantner-audio-analysis-synthesis`: deterministic tone, onset, and pitch-event audio
-  synthesis into core audio frames with inversion trace metadata.
+
+Audio lives in [`audio-analysis`](https://github.com/moritzbrantner/audio-analysis):
+the `audio-analysis-*` and `audio-generation-*` crates, their CLI/server/WASM
+adapters and npm wrappers were removed from this workspace. Only the
+`moenarch-audio-contracts` frame/analyzer contracts remain here.
+
 - `moritzbrantner-image-analysis-comfyui`: ComfyUI workflow builders for text-to-image,
   image-to-image, inpaint, and upscale image-generation flows.
 - `moritzbrantner-image-analysis-core`: borrowed/owned image views, image batches, RGB/BGR/gray
@@ -411,7 +390,7 @@ and stays outside the default contributor gate.
   model-backed adapters.
 - `video-analysis-ffmpeg`: `ffmpeg-backend`, `ffmpeg-tests`, and
   `external-tests`.
-- `audio-analysis-separation`, `text-transcripts`, and
+- `text-transcripts` and
   `video-analysis-split` keep `external-tests` for real integration coverage
   only.
 
@@ -430,7 +409,7 @@ scripts in `scripts/`:
 
 `video-analysis-core` is the foundational crate for shared contracts and pipeline
 orchestration. The domain-specific crate families are organized around small
-core packages: `audio-analysis-core`, `image-analysis-core`,
+core packages: `image-analysis-core`,
 `text-core`, `vector-analysis-core`, and `three-d-processing-core`.
 Processing, feature, index, synthesis, scalar numeric, and generic dense-data
 crates build on those cores.

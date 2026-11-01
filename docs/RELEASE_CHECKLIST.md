@@ -78,7 +78,7 @@ cargo package --locked -p <crate-name>
 Recommended publish order:
 
 1. Wave 1 foundations: `video-analysis-core`, `jobs-core`, `model-runtime`,
-   `audio-analysis-core`, `image-analysis-core`, `text-core`,
+   `image-analysis-core`, `text-core`,
    `vector-analysis-core`, `three-d-processing-core`, `data-inversion-core`,
    `numbers-core`, `tensor-data`, `math-linear`, `math-statistics`,
    `dense-data`, `video-analysis-ingest`
@@ -153,7 +153,7 @@ For a text-only release wave, publish and dry-run packages in this order so
 crates.io can resolve each internal dependency from the registry:
 
 1. Prerequisites: `video-analysis-core`, `numbers-core`, `math-signal-core`,
-   `tensor-data`, `audio-analysis-core`, `data-inversion-core`, `jobs-core`,
+   `tensor-data`, `data-inversion-core`, `jobs-core`,
    `vector-analysis-core`, `math-sparse-data`, `model-runtime`,
    `vector-analysis-index`, `video-analysis-ingest`
 2. Text foundations: `text-core`, `text-lexical`, `text-model-runtime`
@@ -164,36 +164,12 @@ crates.io can resolve each internal dependency from the registry:
 4. Text adapters: publish each `crates/text/*-cli` and
    `crates/text/*-server` crate after its paired library crate is published
 
-For an audio-only release wave, publish and dry-run packages in this order so
-crates.io can resolve each internal dependency from the registry:
-
-1. Prerequisites: confirm these crates are already available at the required
-   versions, or publish them first: `moritzbrantner-video-analysis-core`,
-   `moritzbrantner-runtime-core`, `moritzbrantner-tensor-data`,
-   `moritzbrantner-math-signal-core`, `moritzbrantner-video-analysis-ingest`,
-   `moritzbrantner-video-analysis-ffmpeg`, `moritzbrantner-model-runtime`,
-   `moritzbrantner-text-transcripts`, `moritzbrantner-jobs-core`, and
-   `moritzbrantner-data-inversion-core`.
-2. Audio foundation: `moritzbrantner-audio-analysis-core`.
-3. Pure audio feature crates that depend directly on the foundation:
-   `moritzbrantner-audio-analysis-fourier`,
-   `moritzbrantner-audio-analysis-pitch`,
-   `moritzbrantner-audio-analysis-rhythm`,
-   `moritzbrantner-audio-analysis-processing`, and
-   `moritzbrantner-audio-analysis-io`.
-4. Recognition layer: `moritzbrantner-audio-analysis-recognition`.
-5. Recognition-backed feature crates: `moritzbrantner-audio-analysis-separation`,
-   `moritzbrantner-audio-analysis-speakers`, and
-   `moritzbrantner-audio-analysis-synthesis`.
-6. Generation layer: `moritzbrantner-audio-generation-midi`.
-7. Audio adapters: dry-run and publish each paired `-cli`, `-server`, and
-   Rust `-wasm` crate after its paired library crate is published.
+Audio crates are released from [`audio-analysis`](https://github.com/moritzbrantner/audio-analysis).
 
 Do not publish:
 
 - `runtime-artifacts`
 - `runtime-jobs`
-- `audio-analysis-test-support`
 - `video-analysis-test-support`
 - `video-analysis-use-cases`
 

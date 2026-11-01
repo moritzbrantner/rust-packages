@@ -90,7 +90,6 @@ fn expected_operations() -> BTreeMap<&'static str, Vec<&'static str>> {
             vec!["transcripts.toTextSegments"],
         ),
         ("moenarch-image-analysis-core", vec!["image.core.summary"]),
-        ("moenarch-audio-analysis-core", vec!["audio.levels"]),
         (
             "moenarch-vision-core",
             vec!["vision.validateDetection", "vision.validateEmbedding"],
@@ -101,13 +100,6 @@ fn expected_operations() -> BTreeMap<&'static str, Vec<&'static str>> {
         ("moenarch-math-geometry-2d", vec!["geometry.transform"]),
         ("moenarch-text-analysis", vec!["analysis.document"]),
         ("moenarch-text-retrieval", vec!["retrieval.search"]),
-        (
-            "moenarch-audio-analysis-transcription",
-            vec![
-                "audio.transcription.transcribe",
-                "audio.transcription.importWhisperX",
-            ],
-        ),
         (
             "moenarch-image-analysis-detection",
             vec!["image.detection.colorBlob"],
@@ -138,7 +130,6 @@ fn declared_surfaces() -> Vec<PackageSurface> {
         text_core::surface::package_surface(),
         text_transcripts::surface::package_surface(),
         image_analysis_core::surface::package_surface(),
-        audio_analysis_core::surface::package_surface(),
         vision_core::surface::package_surface(),
         vector_analysis_core::surface::package_surface(),
         tensor_data::surface::package_surface(),
@@ -146,7 +137,6 @@ fn declared_surfaces() -> Vec<PackageSurface> {
         math_geometry_2d::surface::package_surface(),
         text_analysis::surface::package_surface(),
         text_retrieval::surface::package_surface(),
-        audio_analysis_transcription::surface::package_surface(),
         image_analysis_detection::surface::package_surface(),
         video_analysis_core::surface::package_surface(),
         video_analysis_detectors::surface::package_surface(),
