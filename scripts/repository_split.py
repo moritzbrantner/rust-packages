@@ -42,8 +42,6 @@ ALLOWED_DEPENDENCIES = {
 SPATIAL_VIDEO_FAMILIES = {
     "video-analysis-gaussian-splatting",
     "video-analysis-mvs",
-    "video-analysis-posture",
-    "video-analysis-posture-io",
     "video-analysis-radiance-fields",
     "video-analysis-radiance-io",
     "video-analysis-radiance-pipeline",
@@ -60,7 +58,7 @@ SEMVER_RE = re.compile(
 FULL_SHA_RE = re.compile(r"^[0-9a-f]{40}$")
 AUDITED_SOURCE_COMMIT = "d032ad2890c1df3c6a5b9eff024562f00d017fce"
 PHASE_A_PACKAGES_SHA256 = (
-    "989bb6e09b37ea431a7d6b01e906c212bc6853fd406fa1a0185d87ebb9e6622b"
+    "63f04b224efc4ee2d63f17cb33cd1fbfc4fea936b99c74952976718716db5246"
 )
 CREATING_ISSUE_RE = re.compile(
     r"^https://github\.com/moritzbrantner/rust-packages/issues/[1-9]\d*$"

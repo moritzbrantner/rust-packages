@@ -69,12 +69,6 @@ flowchart LR
     crate_moenarch_video_analysis_mvs["moenarch-video-analysis-mvs"]:::crate
     crate_moenarch_video_analysis_mvs_cli["moenarch-video-analysis-mvs-cli"]:::crate
     crate_moenarch_video_analysis_mvs_server["moenarch-video-analysis-mvs-server"]:::crate
-    crate_moenarch_video_analysis_posture["moenarch-video-analysis-posture"]:::crate
-    crate_moenarch_video_analysis_posture_cli["moenarch-video-analysis-posture-cli"]:::crate
-    crate_moenarch_video_analysis_posture_io["moenarch-video-analysis-posture-io"]:::crate
-    crate_moenarch_video_analysis_posture_io_cli["moenarch-video-analysis-posture-io-cli"]:::crate
-    crate_moenarch_video_analysis_posture_io_server["moenarch-video-analysis-posture-io-server"]:::crate
-    crate_moenarch_video_analysis_posture_server["moenarch-video-analysis-posture-server"]:::crate
     crate_moenarch_video_analysis_radiance_fields["moenarch-video-analysis-radiance-fields"]:::crate
     crate_moenarch_video_analysis_radiance_fields_cli["moenarch-video-analysis-radiance-fields-cli"]:::crate
     crate_moenarch_video_analysis_radiance_fields_server["moenarch-video-analysis-radiance-fields-server"]:::crate
@@ -118,8 +112,6 @@ flowchart LR
     crate_moenarch_three_d_scene_svg_wasm["moenarch-three-d-scene-svg-wasm"]:::crate
     crate_moenarch_video_analysis_gaussian_splatting_wasm["moenarch-video-analysis-gaussian-splatting-wasm"]:::crate
     crate_moenarch_video_analysis_mvs_wasm["moenarch-video-analysis-mvs-wasm"]:::crate
-    crate_moenarch_video_analysis_posture_io_wasm["moenarch-video-analysis-posture-io-wasm"]:::crate
-    crate_moenarch_video_analysis_posture_wasm["moenarch-video-analysis-posture-wasm"]:::crate
     crate_moenarch_video_analysis_radiance_fields_wasm["moenarch-video-analysis-radiance-fields-wasm"]:::crate
     crate_moenarch_video_analysis_radiance_io_wasm["moenarch-video-analysis-radiance-io-wasm"]:::crate
     crate_moenarch_video_analysis_radiance_pipeline_wasm["moenarch-video-analysis-radiance-pipeline-wasm"]:::crate
@@ -151,8 +143,6 @@ flowchart LR
   crate_moenarch_video_analysis -. optional .-> crate_moenarch_three_d_scene_svg
   crate_moenarch_video_analysis -. optional .-> crate_moenarch_video_analysis_gaussian_splatting
   crate_moenarch_video_analysis -. optional .-> crate_moenarch_video_analysis_mvs
-  crate_moenarch_video_analysis -. optional .-> crate_moenarch_video_analysis_posture
-  crate_moenarch_video_analysis -. optional .-> crate_moenarch_video_analysis_posture_io
   crate_moenarch_video_analysis -. optional .-> crate_moenarch_video_analysis_radiance_fields
   crate_moenarch_video_analysis -. optional .-> crate_moenarch_video_analysis_radiance_io
   crate_moenarch_video_analysis -. optional .-> crate_moenarch_video_analysis_radiance_pipeline
@@ -180,10 +170,7 @@ flowchart LR
   crate_moenarch_three_d_scene_svg --> crate_moenarch_three_d_processing_mesh
   crate_moenarch_three_d_scene_svg_cli --> crate_moenarch_three_d_scene_svg
   crate_moenarch_three_d_scene_svg_server --> crate_moenarch_three_d_scene_svg
-  crate_moenarch_video_analysis_cli --> crate_moenarch_three_d_processing_core
   crate_moenarch_video_analysis_cli --> crate_moenarch_three_d_processing_io
-  crate_moenarch_video_analysis_cli --> crate_moenarch_video_analysis_posture
-  crate_moenarch_video_analysis_cli --> crate_moenarch_video_analysis_posture_io
   crate_moenarch_video_analysis_gaussian_splatting --> crate_moenarch_three_d_processing_core
   crate_moenarch_video_analysis_gaussian_splatting --> crate_moenarch_video_analysis_radiance_fields
   crate_moenarch_video_analysis_gaussian_splatting_cli --> crate_moenarch_video_analysis_gaussian_splatting
@@ -195,13 +182,6 @@ flowchart LR
   crate_moenarch_video_analysis_mvs --> crate_moenarch_video_analysis_reconstruction
   crate_moenarch_video_analysis_mvs_cli --> crate_moenarch_video_analysis_mvs
   crate_moenarch_video_analysis_mvs_server --> crate_moenarch_video_analysis_mvs
-  crate_moenarch_video_analysis_posture --> crate_moenarch_three_d_processing_core
-  crate_moenarch_video_analysis_posture_cli --> crate_moenarch_video_analysis_posture
-  crate_moenarch_video_analysis_posture_io --> crate_moenarch_three_d_processing_core
-  crate_moenarch_video_analysis_posture_io --> crate_moenarch_video_analysis_posture
-  crate_moenarch_video_analysis_posture_io_cli --> crate_moenarch_video_analysis_posture_io
-  crate_moenarch_video_analysis_posture_io_server --> crate_moenarch_video_analysis_posture_io
-  crate_moenarch_video_analysis_posture_server --> crate_moenarch_video_analysis_posture
   crate_moenarch_video_analysis_radiance_fields --> crate_moenarch_three_d_processing_core
   crate_moenarch_video_analysis_radiance_fields_cli --> crate_moenarch_video_analysis_radiance_fields
   crate_moenarch_video_analysis_radiance_fields_server --> crate_moenarch_video_analysis_radiance_fields
@@ -241,8 +221,6 @@ flowchart LR
   crate_moenarch_three_d_scene_svg_wasm --> crate_moenarch_three_d_scene_svg
   crate_moenarch_video_analysis_gaussian_splatting_wasm --> crate_moenarch_video_analysis_gaussian_splatting
   crate_moenarch_video_analysis_mvs_wasm --> crate_moenarch_video_analysis_mvs
-  crate_moenarch_video_analysis_posture_io_wasm --> crate_moenarch_video_analysis_posture_io
-  crate_moenarch_video_analysis_posture_wasm --> crate_moenarch_video_analysis_posture
   crate_moenarch_video_analysis_radiance_fields_wasm --> crate_moenarch_video_analysis_radiance_fields
   crate_moenarch_video_analysis_radiance_io_wasm --> crate_moenarch_video_analysis_radiance_io
   crate_moenarch_video_analysis_radiance_pipeline_wasm --> crate_moenarch_video_analysis_radiance_pipeline

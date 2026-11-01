@@ -34,12 +34,6 @@ pub use video_analysis_gaussian_splatting as gaussian_splatting;
 /// Re-exports the MVS API.
 pub use video_analysis_mvs as mvs;
 #[cfg(feature = "spatial")]
-/// Re-exports the posture API.
-pub use video_analysis_posture as posture;
-#[cfg(feature = "spatial")]
-/// Re-exports the posture I/O API.
-pub use video_analysis_posture_io as posture_io;
-#[cfg(feature = "spatial")]
 /// Re-exports the radiance fields API.
 pub use video_analysis_radiance_fields as radiance_fields;
 #[cfg(feature = "spatial")]

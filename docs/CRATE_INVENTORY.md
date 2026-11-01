@@ -19,32 +19,32 @@ python3 scripts/audit_workspace_crates.py --check
 
 ## Counts
 
-- Active workspace packages: 76
+- Active workspace packages: 68
 
 ### Domains
 
 - `animation`: 3
-- `bindings`: 18
+- `bindings`: 16
 - `comfyui`: 9
 - `image`: 3
 - `prototype`: 1
 - `root`: 1
 - `test-support`: 1
 - `three-d`: 12
-- `video`: 28
+- `video`: 22
 
 ### Kinds
 
-- `cli`: 19
-- `library`: 20
+- `cli`: 17
+- `library`: 18
 - `prototype`: 1
-- `server`: 18
-- `wasm`: 18
+- `server`: 16
+- `wasm`: 16
 
 ### Publish classes
 
 - `internal-test`: 1
-- `public`: 75
+- `public`: 67
 
 | Package | Domain | Kind | Publish | Surface required | Facade expected | Path |
 |---|---|---|---|---|---|---|
@@ -62,8 +62,6 @@ python3 scripts/audit_workspace_crates.py --check
 | `moenarch-three-d-scene-svg-wasm` | bindings | wasm | public | no | no | `crates/bindings/three-d-scene-svg-wasm` |
 | `moenarch-video-analysis-gaussian-splatting-wasm` | bindings | wasm | public | no | no | `crates/bindings/video-analysis-gaussian-splatting-wasm` |
 | `moenarch-video-analysis-mvs-wasm` | bindings | wasm | public | no | no | `crates/bindings/video-analysis-mvs-wasm` |
-| `moenarch-video-analysis-posture-io-wasm` | bindings | wasm | public | no | no | `crates/bindings/video-analysis-posture-io-wasm` |
-| `moenarch-video-analysis-posture-wasm` | bindings | wasm | public | no | no | `crates/bindings/video-analysis-posture-wasm` |
 | `moenarch-video-analysis-radiance-fields-wasm` | bindings | wasm | public | no | no | `crates/bindings/video-analysis-radiance-fields-wasm` |
 | `moenarch-video-analysis-radiance-io-wasm` | bindings | wasm | public | no | no | `crates/bindings/video-analysis-radiance-io-wasm` |
 | `moenarch-video-analysis-radiance-pipeline-wasm` | bindings | wasm | public | no | no | `crates/bindings/video-analysis-radiance-pipeline-wasm` |
@@ -99,8 +97,6 @@ python3 scripts/audit_workspace_crates.py --check
 | `moenarch-video-analysis-cli` | video | cli | public | no | no | `crates/video/video-analysis-cli` |
 | `moenarch-video-analysis-gaussian-splatting-cli` | video | cli | public | no | no | `crates/video/video-analysis-gaussian-splatting-cli` |
 | `moenarch-video-analysis-mvs-cli` | video | cli | public | no | no | `crates/video/video-analysis-mvs-cli` |
-| `moenarch-video-analysis-posture-cli` | video | cli | public | no | no | `crates/video/video-analysis-posture-cli` |
-| `moenarch-video-analysis-posture-io-cli` | video | cli | public | no | no | `crates/video/video-analysis-posture-io-cli` |
 | `moenarch-video-analysis-radiance-fields-cli` | video | cli | public | no | no | `crates/video/video-analysis-radiance-fields-cli` |
 | `moenarch-video-analysis-radiance-io-cli` | video | cli | public | no | no | `crates/video/video-analysis-radiance-io-cli` |
 | `moenarch-video-analysis-radiance-pipeline-cli` | video | cli | public | no | no | `crates/video/video-analysis-radiance-pipeline-cli` |
@@ -108,8 +104,6 @@ python3 scripts/audit_workspace_crates.py --check
 | `moenarch-video-analysis-sfm-cli` | video | cli | public | no | no | `crates/video/video-analysis-sfm-cli` |
 | `moenarch-video-analysis-gaussian-splatting` | video | library | public | yes | yes | `crates/video/video-analysis-gaussian-splatting` |
 | `moenarch-video-analysis-mvs` | video | library | public | yes | yes | `crates/video/video-analysis-mvs` |
-| `moenarch-video-analysis-posture` | video | library | public | yes | yes | `crates/video/video-analysis-posture` |
-| `moenarch-video-analysis-posture-io` | video | library | public | yes | yes | `crates/video/video-analysis-posture-io` |
 | `moenarch-video-analysis-radiance-fields` | video | library | public | yes | yes | `crates/video/video-analysis-radiance-fields` |
 | `moenarch-video-analysis-radiance-io` | video | library | public | yes | yes | `crates/video/video-analysis-radiance-io` |
 | `moenarch-video-analysis-radiance-pipeline` | video | library | public | yes | yes | `crates/video/video-analysis-radiance-pipeline` |
@@ -117,8 +111,6 @@ python3 scripts/audit_workspace_crates.py --check
 | `moenarch-video-analysis-sfm` | video | library | public | yes | yes | `crates/video/video-analysis-sfm` |
 | `moenarch-video-analysis-gaussian-splatting-server` | video | server | public | no | no | `crates/video/video-analysis-gaussian-splatting-server` |
 | `moenarch-video-analysis-mvs-server` | video | server | public | no | no | `crates/video/video-analysis-mvs-server` |
-| `moenarch-video-analysis-posture-io-server` | video | server | public | no | no | `crates/video/video-analysis-posture-io-server` |
-| `moenarch-video-analysis-posture-server` | video | server | public | no | no | `crates/video/video-analysis-posture-server` |
 | `moenarch-video-analysis-radiance-fields-server` | video | server | public | no | no | `crates/video/video-analysis-radiance-fields-server` |
 | `moenarch-video-analysis-radiance-io-server` | video | server | public | no | no | `crates/video/video-analysis-radiance-io-server` |
 | `moenarch-video-analysis-radiance-pipeline-server` | video | server | public | no | no | `crates/video/video-analysis-radiance-pipeline-server` |

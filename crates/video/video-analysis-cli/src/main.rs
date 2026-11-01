@@ -12,7 +12,6 @@ use model_runtime::{
     ModelBundleStore, ModelPreset, ModelTask,
 };
 use serde::Serialize;
-use three_d_processing_core::Point3;
 use three_d_processing_io::{read_mesh, write_mesh};
 use video_analysis_cli::package_catalog::{package_by_name, package_catalog, PackageInfo};
 use video_analysis_core::{
@@ -25,7 +24,9 @@ use video_analysis_detectors::{
 };
 use video_analysis_ffmpeg::FfmpegVideoSource;
 use video_analysis_output::{write_scene_list_csv, write_stats_csv};
-use video_analysis_posture::{Keypoint, Keypoint3d, Pose3dEstimate, PoseEstimate, Skeleton};
+use video_analysis_posture::{
+    Keypoint, Keypoint3d, Point3, Pose3dEstimate, PoseEstimate, Skeleton,
+};
 use video_analysis_posture_io::{
     read_coco_keypoints_json, write_coco_keypoints_json, write_stick_figure_gltf,
     write_stick_figure_ply,
@@ -827,8 +828,9 @@ fn convert_mesh(args: MeshConvertArgs) -> Result<()> {
     write_mesh(&args.output, &mesh)
 }
 
-/// Converts a raw 2D pose prediction into a posture estimate. visual-analysis no
-/// longer depends on the posture crate, so this conversion is consumer-owned.
+/// Converts a raw 2D pose prediction into a posture estimate. visual-analysis
+/// keeps recognition's raw prediction types independent of the posture crate,
+/// so the conversion between them is consumer-owned.
 fn raw_pose_to_estimate(prediction: &RawPose2dPrediction) -> Result<PoseEstimate> {
     let keypoints = prediction
         .keypoints

@@ -81,7 +81,6 @@ REQUIRED_CRATES: tuple[RequiredCrate, ...] = (
         "moritzbrantner-image-analysis-comfyui",
         "image-analysis-comfyui",
     ),
-    RequiredCrate("Video native/models", "moritzbrantner-video-analysis-posture", "video-analysis-posture"),
     RequiredCrate("Video native/models", "moritzbrantner-video-analysis-cli", "video-analysis-cli"),
     RequiredCrate(
         "Radiance / reconstruction",
@@ -207,16 +206,6 @@ CHECKS: tuple[Check, ...] = (
         "cargo test -p moenarch-image-analysis-comfyui --test external_comfyui_smoke comfyui_submits_generation_workflow_when_configured -- --ignored --nocapture",
         required_env=("COMFYUI_URL",),
         expected_tests=("comfyui_submits_generation_workflow_when_configured",),
-    ),
-    Check(
-        "video-posture-onnx",
-        ("moritzbrantner-video-analysis-posture",),
-        "posture ONNX model load/run",
-        "bash scripts/setup_model_external_tools.sh onnx bundles",
-        "cargo test -p moenarch-video-analysis-posture --features onnx --test external_onnx_smoke yolov8n_pose_onnx_estimator_loads_and_runs_fixture_frame -- --ignored --nocapture",
-        required_env=("ORT_DYLIB_PATH", "POSTURE_ONNX_MODEL_BUNDLE"),
-        required_paths=("ORT_DYLIB_PATH", "POSTURE_ONNX_MODEL_BUNDLE"),
-        expected_tests=("yolov8n_pose_onnx_estimator_loads_and_runs_fixture_frame",),
     ),
     Check(
         "radiance-fields-runtime",

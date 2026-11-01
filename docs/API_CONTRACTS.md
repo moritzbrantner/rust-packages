@@ -289,8 +289,6 @@ Runtime and external integration crates use a shared feature policy:
 | `moritzbrantner-three-d-processing-io` | 3D interchange formats | `moritzbrantner-three-d-processing-core`, `moritzbrantner-three-d-processing-mesh`, `moritzbrantner-video-analysis-core`, `serde_json`, `base64` | `OBJ`, `PLY`, and minimal embedded `.gltf` mesh/point-cloud I/O | Applications, CLI workflows, posture export |
 | `moritzbrantner-three-d-processing-mesh` | Triangle mesh processing | `moritzbrantner-three-d-processing-core`, `moritzbrantner-video-analysis-core` | Mesh validation, topology, diagnostics, repair helpers, triangle normals, vertex normals, bounds, surface area, volume, transforms, smoothing, deterministic sampling | Applications and future 3D workflows |
 | `moritzbrantner-video-analysis-mvs` | Multi-view stereo contracts | `moritzbrantner-video-analysis-core`, `moritzbrantner-video-analysis-reconstruction`, `moritzbrantner-three-d-processing-core` | Depth maps, view-pair records, dense reconstruction options, point-cloud conversion helpers, and OpenCV MVS planning placeholder | Reconstruction, radiance, and 3D processing workflows |
-| `moritzbrantner-video-analysis-posture` | Pose and posture estimation contracts | `moritzbrantner-video-analysis-core`, `moritzbrantner-three-d-processing-core` | 2D/3D keypoints, skeletons, pose estimates, stick figures, posture backend traits, analyzer adapter, joint angle helpers, smoothing/interpolation | Applications, use cases, model-backed posture workflows |
-| `moritzbrantner-video-analysis-posture-io` | Posture interchange and preview export | `moritzbrantner-video-analysis-core`, `moritzbrantner-video-analysis-posture`, `moritzbrantner-three-d-processing-core`, `serde_json`, `base64` | COCO-style keypoint JSON, 3D stick-figure `.ply`, 3D stick-figure `.gltf` | CLI workflows, applications, dataset export |
 | `moritzbrantner-video-analysis-radiance-fields` | Shared 3D geometry, camera, ray, and volume contracts | `moritzbrantner-video-analysis-core` | Vector/color/ray types, camera intrinsics/pose, radiance field trait, rendering/grid specs | Gaussian splatting, reconstruction, applications |
 | `moritzbrantner-video-analysis-gaussian-splatting` | 3D Gaussian primitive projection and CPU compositing | `moritzbrantner-video-analysis-core`, `moritzbrantner-video-analysis-radiance-fields` | Gaussian primitives, projection config/results, splat rendering helpers | Applications and future 3D workflows |
 | `moritzbrantner-video-analysis-radiance-io` | Radiance-field and 3DGS interchange formats | `moritzbrantner-video-analysis-core`, `moritzbrantner-video-analysis-radiance-fields`, `moritzbrantner-video-analysis-gaussian-splatting`, `moritzbrantner-video-analysis-reconstruction` | COLMAP text, Nerfstudio transforms, Gaussian splat PLY, preview PLY | Conversion tools and applications |
@@ -369,42 +367,6 @@ ComfyUI workflow files are JSON graph documents. ComfyUI model files usually
 live under typed folders below `ComfyUI/models/`, and extra search paths are
 configured with `extra_model_paths.yaml` for manual/portable installs or
 `extra_models_config.yaml` for ComfyUI Desktop.
-
-## Posture Contracts
-
-`video-analysis-posture` standardizes pose/keypoint data and analyzer output for
-posture-estimation backends.
-
-Key contracts:
-
-- `Keypoint` stores a named x/y coordinate plus optional score and visibility.
-- `Keypoint3d` stores a named 3D point plus optional score and visibility.
-- `KeypointSpace` identifies pixel-space or normalized coordinates.
-- `Skeleton` and `SkeletonEdge` describe expected topology, including a COCO-17
-  human skeleton preset.
-- `PoseEstimate` groups one pose id, label, score, optional region, keypoints,
-  and string attributes.
-- `Pose3dEstimate` groups one 3D pose id, label, score, keypoints, and string
-  attributes.
-- `StickFigure3d` binds a skeleton to 3D joints and produces line segments for
-  preview/export.
-- `PoseSequence<T>` stores deterministic pose windows for lifting and
-  smoothing.
-- `PostureOptions` configures keypoint space, score filters, and inferred pose
-  regions.
-- `PostureBackend` adapts a pose-estimation model into `PoseEstimate` values.
-- `PostureLiftBackend` adapts 2D pose windows into `Pose3dEstimate` values.
-- `PostureAnalyzer` implements core `VideoAnalyzer` and emits custom
-  `posture` observations.
-- `joint_angle_degrees` and `joint_angle_3d_degrees` compute simple
-  three-keypoint joint angles for posture feature extraction.
-- `bone_lengths`, `normalize_pose3d`, `interpolate_missing_joints`, and
-  `smooth_pose_sequence` provide classic CPU posture processing helpers.
-
-Posture observations use core `Observation` fields for timestamp, frame, score,
-track id, and region. Keypoint payloads are carried in string attributes until a
-shared structured report format is introduced. `video-analysis-dataset` now
-also stores owned 2D and 3D pose records for retained workflows.
 
 ## 3D Scene Contracts
 

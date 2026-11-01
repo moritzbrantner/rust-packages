@@ -519,26 +519,6 @@ fn benchmark_catalog_for(_module: ModuleInfo) -> Vec<Value> {
 
 fn model_catalog_for(module: ModuleInfo, task: Option<&str>) -> Vec<Value> {
     let entries = match module.package {
-        "video-analysis-posture" => vec![
-            model_catalog_entry(
-                "stick-figure-posture",
-                "Stick figure posture",
-                "pose",
-                "heuristic",
-                true,
-                None,
-                Some("Keypoint-compatible deterministic fallback."),
-            ),
-            model_catalog_entry(
-                "openpose-local",
-                "OpenPose local",
-                "pose",
-                "external",
-                false,
-                Some("stick-figure-posture"),
-                Some("Requires external posture tooling."),
-            ),
-        ],
         package if package.starts_with("video-analysis-") => vec![model_catalog_entry(
             "deterministic-video",
             "Deterministic video runtime",
@@ -785,8 +765,6 @@ fn package_surface_for(module: ModuleInfo) -> Option<PackageSurface> {
             Some(video_analysis_gaussian_splatting::surface::package_surface())
         }
         "video-analysis-mvs" => Some(video_analysis_mvs::surface::package_surface()),
-        "video-analysis-posture" => Some(video_analysis_posture::surface::package_surface()),
-        "video-analysis-posture-io" => Some(video_analysis_posture_io::surface::package_surface()),
         "video-analysis-radiance-fields" => {
             Some(video_analysis_radiance_fields::surface::package_surface())
         }
@@ -834,12 +812,6 @@ fn run_surface_operation_for(
             Some(video_analysis_gaussian_splatting::surface::run_surface_operation(request))
         }
         "video-analysis-mvs" => Some(video_analysis_mvs::surface::run_surface_operation(request)),
-        "video-analysis-posture" => Some(video_analysis_posture::surface::run_surface_operation(
-            request,
-        )),
-        "video-analysis-posture-io" => Some(
-            video_analysis_posture_io::surface::run_surface_operation(request),
-        ),
         "video-analysis-radiance-fields" => {
             Some(video_analysis_radiance_fields::surface::run_surface_operation(request))
         }
@@ -939,20 +911,6 @@ const MODULES: &[ModuleInfo] = &[
     ModuleInfo {
         package: "video-analysis-mvs",
         import_path: "video_analysis::mvs",
-        domain: "video",
-        linked: true,
-        required_feature: None,
-    },
-    ModuleInfo {
-        package: "video-analysis-posture",
-        import_path: "video_analysis::posture",
-        domain: "video",
-        linked: true,
-        required_feature: None,
-    },
-    ModuleInfo {
-        package: "video-analysis-posture-io",
-        import_path: "video_analysis::posture_io",
         domain: "video",
         linked: true,
         required_feature: None,
@@ -1068,15 +1026,14 @@ mod tests {
     fn serves_package_model_catalog_from_package_route() {
         let request = Request {
             method: "GET".to_string(),
-            path: "/api/rust/packages/video-analysis-posture/api/models".to_string(),
+            path: "/api/rust/packages/comfyui-data/api/models".to_string(),
             query: HashMap::new(),
             headers: HashMap::new(),
             body: String::new(),
         };
         let response = response_for(&request);
         assert_eq!(response.status_code, 200);
-        assert!(response.body.contains("stick-figure-posture"));
-        assert!(response.body.contains("openpose-local"));
+        assert!(response.body.contains("comfyui-workflow-fixture"));
     }
 
     #[test]

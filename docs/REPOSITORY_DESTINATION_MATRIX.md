@@ -9,7 +9,7 @@ Source: `docs/repository-split/package-ownership.json` at `d032ad2890c1df3c6a5b9
 | Target repository | Cargo packages |
 | --- | ---: |
 | `moritzbrantner/rust-packages` | 20 |
-| `moritzbrantner/spatial-analysis` | 56 |
+| `moritzbrantner/spatial-analysis` | 48 |
 
 ## Package destinations
 
@@ -37,10 +37,6 @@ Source: `docs/repository-split/package-ownership.json` at `d032ad2890c1df3c6a5b9
 | bun | `@moritzbrantner/video-analysis-gaussian-splatting-wasm` | npm wrapper | `moenarch-video-analysis-gaussian-splatting` | `moenarch-video-analysis-gaussian-splatting` | `moritzbrantner/spatial-analysis` | spatial | separate npm/WASM release plan required |
 | bun | `@moritzbrantner/video-analysis-mvs-app` | app | `moenarch-video-analysis-mvs` | `moenarch-video-analysis-mvs` | `moritzbrantner/spatial-analysis` | spatial | separate npm/WASM release plan required |
 | bun | `@moritzbrantner/video-analysis-mvs-wasm` | npm wrapper | `moenarch-video-analysis-mvs` | `moenarch-video-analysis-mvs` | `moritzbrantner/spatial-analysis` | spatial | separate npm/WASM release plan required |
-| bun | `@moritzbrantner/video-analysis-posture-app` | app | `moenarch-video-analysis-posture` | `moenarch-video-analysis-posture` | `moritzbrantner/spatial-analysis` | spatial | separate npm/WASM release plan required |
-| bun | `@moritzbrantner/video-analysis-posture-io-app` | app | `moenarch-video-analysis-posture-io` | `moenarch-video-analysis-posture-io` | `moritzbrantner/spatial-analysis` | spatial | separate npm/WASM release plan required |
-| bun | `@moritzbrantner/video-analysis-posture-io-wasm` | npm wrapper | `moenarch-video-analysis-posture-io` | `moenarch-video-analysis-posture-io` | `moritzbrantner/spatial-analysis` | spatial | separate npm/WASM release plan required |
-| bun | `@moritzbrantner/video-analysis-posture-wasm` | npm wrapper | `moenarch-video-analysis-posture` | `moenarch-video-analysis-posture` | `moritzbrantner/spatial-analysis` | spatial | separate npm/WASM release plan required |
 | bun | `@moritzbrantner/video-analysis-radiance-fields-app` | app | `moenarch-video-analysis-radiance-fields` | `moenarch-video-analysis-radiance-fields` | `moritzbrantner/spatial-analysis` | spatial | separate npm/WASM release plan required |
 | bun | `@moritzbrantner/video-analysis-radiance-fields-wasm` | npm wrapper | `moenarch-video-analysis-radiance-fields` | `moenarch-video-analysis-radiance-fields` | `moritzbrantner/spatial-analysis` | spatial | separate npm/WASM release plan required |
 | bun | `@moritzbrantner/video-analysis-radiance-io-app` | app | `moenarch-video-analysis-radiance-io` | `moenarch-video-analysis-radiance-io` | `moritzbrantner/spatial-analysis` | spatial | separate npm/WASM release plan required |
@@ -99,14 +95,6 @@ Source: `docs/repository-split/package-ownership.json` at `d032ad2890c1df3c6a5b9
 | cargo | `moenarch-video-analysis-mvs-cli` | CLI | `moenarch-video-analysis-mvs` | `moenarch-video-analysis-mvs` | `moritzbrantner/spatial-analysis` | spatial | crates.io |
 | cargo | `moenarch-video-analysis-mvs-server` | server | `moenarch-video-analysis-mvs` | `moenarch-video-analysis-mvs` | `moritzbrantner/spatial-analysis` | spatial | crates.io |
 | cargo | `moenarch-video-analysis-mvs-wasm` | WASM | `moenarch-video-analysis-mvs` | `moenarch-video-analysis-mvs` | `moritzbrantner/spatial-analysis` | spatial | crates.io |
-| cargo | `moenarch-video-analysis-posture` | library | `moenarch-video-analysis-posture` | — | `moritzbrantner/spatial-analysis` | spatial | crates.io |
-| cargo | `moenarch-video-analysis-posture-cli` | CLI | `moenarch-video-analysis-posture` | `moenarch-video-analysis-posture` | `moritzbrantner/spatial-analysis` | spatial | crates.io |
-| cargo | `moenarch-video-analysis-posture-io` | library | `moenarch-video-analysis-posture-io` | — | `moritzbrantner/spatial-analysis` | spatial | crates.io |
-| cargo | `moenarch-video-analysis-posture-io-cli` | CLI | `moenarch-video-analysis-posture-io` | `moenarch-video-analysis-posture-io` | `moritzbrantner/spatial-analysis` | spatial | crates.io |
-| cargo | `moenarch-video-analysis-posture-io-server` | server | `moenarch-video-analysis-posture-io` | `moenarch-video-analysis-posture-io` | `moritzbrantner/spatial-analysis` | spatial | crates.io |
-| cargo | `moenarch-video-analysis-posture-io-wasm` | WASM | `moenarch-video-analysis-posture-io` | `moenarch-video-analysis-posture-io` | `moritzbrantner/spatial-analysis` | spatial | crates.io |
-| cargo | `moenarch-video-analysis-posture-server` | server | `moenarch-video-analysis-posture` | `moenarch-video-analysis-posture` | `moritzbrantner/spatial-analysis` | spatial | crates.io |
-| cargo | `moenarch-video-analysis-posture-wasm` | WASM | `moenarch-video-analysis-posture` | `moenarch-video-analysis-posture` | `moritzbrantner/spatial-analysis` | spatial | crates.io |
 | cargo | `moenarch-video-analysis-radiance-fields` | library | `moenarch-video-analysis-radiance-fields` | — | `moritzbrantner/spatial-analysis` | spatial | crates.io |
 | cargo | `moenarch-video-analysis-radiance-fields-cli` | CLI | `moenarch-video-analysis-radiance-fields` | `moenarch-video-analysis-radiance-fields` | `moritzbrantner/spatial-analysis` | spatial | crates.io |
 | cargo | `moenarch-video-analysis-radiance-fields-server` | server | `moenarch-video-analysis-radiance-fields` | `moenarch-video-analysis-radiance-fields` | `moritzbrantner/spatial-analysis` | spatial | crates.io |

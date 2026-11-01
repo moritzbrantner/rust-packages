@@ -273,54 +273,6 @@
       "name": "@moritzbrantner/video-analysis-mvs-wasm",
       "version": "0.1.0",
     },
-    "packages/video-analysis-posture-app": {
-      "name": "@moritzbrantner/video-analysis-posture-app",
-      "version": "0.1.0",
-      "dependencies": {
-        "@moritzbrantner/video-analysis-posture-wasm": "workspace:*",
-        "@moritzbrantner/video-analysis-ui": "workspace:*",
-        "@vitejs/plugin-react": "^5.1.2",
-        "react": "^19.2.5",
-        "react-dom": "^19.2.5",
-        "vite": "^7.3.0",
-      },
-      "devDependencies": {
-        "@types/react": "19.3.0",
-        "@types/react-dom": "19.3.0",
-        "autoprefixer": "10.6.2",
-        "postcss": "8.5.32",
-        "tailwindcss": "3.4.19",
-        "typescript": "6.0.3",
-      },
-    },
-    "packages/video-analysis-posture-io-app": {
-      "name": "@moritzbrantner/video-analysis-posture-io-app",
-      "version": "0.1.0",
-      "dependencies": {
-        "@moritzbrantner/video-analysis-posture-io-wasm": "workspace:*",
-        "@moritzbrantner/video-analysis-ui": "workspace:*",
-        "@vitejs/plugin-react": "^5.1.2",
-        "react": "^19.2.5",
-        "react-dom": "^19.2.5",
-        "vite": "^7.3.0",
-      },
-      "devDependencies": {
-        "@types/react": "19.3.0",
-        "@types/react-dom": "19.3.0",
-        "autoprefixer": "10.6.2",
-        "postcss": "8.5.32",
-        "tailwindcss": "3.4.19",
-        "typescript": "6.0.3",
-      },
-    },
-    "packages/video-analysis-posture-io-wasm": {
-      "name": "@moritzbrantner/video-analysis-posture-io-wasm",
-      "version": "0.1.0",
-    },
-    "packages/video-analysis-posture-wasm": {
-      "name": "@moritzbrantner/video-analysis-posture-wasm",
-      "version": "0.1.0",
-    },
     "packages/video-analysis-radiance-fields-app": {
       "name": "@moritzbrantner/video-analysis-radiance-fields-app",
       "version": "0.1.0",
@@ -775,14 +727,6 @@
     "@moritzbrantner/video-analysis-mvs-app": ["@moritzbrantner/video-analysis-mvs-app@workspace:packages/video-analysis-mvs-app"],
 
     "@moritzbrantner/video-analysis-mvs-wasm": ["@moritzbrantner/video-analysis-mvs-wasm@workspace:packages/video-analysis-mvs-wasm"],
-
-    "@moritzbrantner/video-analysis-posture-app": ["@moritzbrantner/video-analysis-posture-app@workspace:packages/video-analysis-posture-app"],
-
-    "@moritzbrantner/video-analysis-posture-io-app": ["@moritzbrantner/video-analysis-posture-io-app@workspace:packages/video-analysis-posture-io-app"],
-
-    "@moritzbrantner/video-analysis-posture-io-wasm": ["@moritzbrantner/video-analysis-posture-io-wasm@workspace:packages/video-analysis-posture-io-wasm"],
-
-    "@moritzbrantner/video-analysis-posture-wasm": ["@moritzbrantner/video-analysis-posture-wasm@workspace:packages/video-analysis-posture-wasm"],
 
     "@moritzbrantner/video-analysis-radiance-fields-app": ["@moritzbrantner/video-analysis-radiance-fields-app@workspace:packages/video-analysis-radiance-fields-app"],
 
