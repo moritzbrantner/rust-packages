@@ -103,8 +103,8 @@ async function runAndExpectResult(page: Page) {
   await expect(page.getByRole("group", { name: "Runtime mode" })).toBeVisible();
   await expect(page.getByRole("button", { name: "Run", exact: true })).toBeEnabled();
   await page.getByRole("button", { name: "Run", exact: true }).click();
-  await expect(page.getByRole("button", { name: /JSON/ })).toBeVisible();
-  await page.getByRole("button", { name: /JSON/ }).click();
+  await expect(page.getByRole("button", { name: /^JSON/ })).toBeVisible();
+  await page.getByRole("button", { name: /^JSON/ }).click();
   await expect(page.locator("pre").first()).toContainText('"operation"');
 }
 
