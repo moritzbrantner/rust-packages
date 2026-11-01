@@ -21,32 +21,9 @@ class RepositorySplitInventoryTests(unittest.TestCase):
     def test_live_reviewed_authority_matches_manifests(self) -> None:
         authority, _, _, errors = generate()
         self.assertEqual(errors, [])
-        self.assertEqual(len(authority["packages"]), 441)
-        self.assertEqual(
-            [
-                record["id"]
-                for record in authority["post_baseline_packages"]
-            ],
-            [
-                "cargo:moenarch-media-core",
-                "cargo:moenarch-audio-contracts",
-            ],
-        )
-        self.assertEqual(
-            authority["post_baseline_packages"][0]["provenance"],
-            {
-                "introduced_after_commit": "565c18fdd3126ece08e0ed982b6e616d674a5c52",
-                "issue": "https://github.com/moritzbrantner/rust-packages/issues/108",
-            },
-        )
-        self.assertEqual(
-            authority["post_baseline_packages"][1]["provenance"],
-            {
-                "introduced_after_commit": "96edb198f6ab322cdd65b7bcc2de6cbf9bcaabe3",
-                "issue": "https://github.com/moritzbrantner/rust-packages/issues/152",
-            },
-        )
-        self.assertEqual(len(authority["resolved_boundary_violations"]), 26)
+        self.assertEqual(len(authority["packages"]), 114)
+        self.assertEqual(authority["post_baseline_packages"], [])
+        self.assertEqual(authority["resolved_boundary_violations"], [])
         self.assertEqual(authority["schema_version"], 2)
 
     def test_boundary_resolutions_are_exact_unique_and_absent_from_baseline(
@@ -55,10 +32,21 @@ class RepositorySplitInventoryTests(unittest.TestCase):
         authority, _, _, errors = generate()
         self.assertEqual(errors, [])
         metadata = cargo_metadata()
+        violation = {
+            "source_package": "moenarch-comfyui-data",
+            "dependency_package": "moenarch-video-analysis-test-support",
+            "dependency_kind": "dev",
+            "optional": False,
+            "migration_issue": "https://github.com/moritzbrantner/rust-packages/issues/107",
+            "target_phase": "phase-a",
+        }
+        resolution = violation | {
+            "resolved_by_issue": "https://github.com/moritzbrantner/rust-packages/issues/109"
+        }
 
         unknown = copy.deepcopy(authority)
-        unknown["resolved_boundary_violations"][0]["source_package"] = (
-            "unknown-package"
+        unknown["resolved_boundary_violations"].append(
+            resolution | {"source_package": "unknown-package"}
         )
         self.assertTrue(
             any(
@@ -68,8 +56,8 @@ class RepositorySplitInventoryTests(unittest.TestCase):
         )
 
         duplicate = copy.deepcopy(authority)
-        duplicate["resolved_boundary_violations"].append(
-            copy.deepcopy(duplicate["resolved_boundary_violations"][0])
+        duplicate["resolved_boundary_violations"].extend(
+            [copy.deepcopy(resolution), copy.deepcopy(resolution)]
         )
         self.assertTrue(
             any(
@@ -79,24 +67,13 @@ class RepositorySplitInventoryTests(unittest.TestCase):
         )
 
         still_baselined = copy.deepcopy(authority)
-        unresolved = load_json(BASELINE_PATH)["violations"][0]
-        still_baselined["resolved_boundary_violations"].append(
-            {
-                "source_package": unresolved["source_package"],
-                "dependency_package": unresolved["dependency_package"],
-                "dependency_kind": unresolved["dependency_kind"],
-                "optional": bool(unresolved.get("optional", False)),
-                "migration_issue": unresolved["migration_issue"],
-                "target_phase": unresolved["target_phase"],
-                "resolved_by_issue": (
-                    "https://github.com/moritzbrantner/rust-packages/issues/109"
-                ),
-            }
-        )
+        still_baselined["resolved_boundary_violations"].append(resolution)
+        baseline = load_json(BASELINE_PATH)
+        baseline["violations"] = [violation | {"reason": "fixture"}]
         self.assertTrue(
             any(
                 "must be absent from the current baseline" in error
-                for error in self.validate(still_baselined, metadata)
+                for error in self.validate(still_baselined, metadata, baseline)
             )
         )
 
@@ -226,11 +203,6 @@ class RepositorySplitInventoryTests(unittest.TestCase):
         authority, _, _, errors = generate()
         self.assertEqual(errors, [])
         changed = copy.deepcopy(authority)
-        audio_contracts = next(
-            record
-            for record in changed["post_baseline_packages"]
-            if record["id"] == "cargo:moenarch-audio-contracts"
-        )
         changed["post_baseline_packages"] = [
             {
                 "id": "cargo:moenarch-media-core",
@@ -247,7 +219,6 @@ class RepositorySplitInventoryTests(unittest.TestCase):
                     "issue": "https://github.com/moritzbrantner/rust-packages/issues/108",
                 },
             },
-            audio_contracts,
         ]
         metadata = cargo_metadata()
         metadata["packages"].append(
@@ -260,12 +231,14 @@ class RepositorySplitInventoryTests(unittest.TestCase):
         )
         return changed, metadata
 
-    def validate(self, authority: dict, metadata: dict) -> list[str]:
+    def validate(
+        self, authority: dict, metadata: dict, baseline: dict | None = None
+    ) -> list[str]:
         return validate_authority(
             authority,
             metadata,
             bun_manifest_facts(),
-            load_json(BASELINE_PATH),
+            baseline if baseline is not None else load_json(BASELINE_PATH),
         )
 
     def head(self) -> str:

@@ -7,25 +7,6 @@ use std::collections::HashMap;
 use std::io::{self, BufRead, BufReader, Read, Write};
 use std::net::{TcpListener, TcpStream};
 
-#[allow(unused_imports)]
-use video_analysis::{
-    animation, comfyui_data, comfyui_latents, comfyui_models, data, dataset_records, dense,
-    editing, features, ffmpeg, gaussian_splatting, geometry2d, graph_core, image_captioning,
-    image_classification, image_comfyui, image_core, image_detection, image_embeddings, image_io,
-    image_ocr, image_processing, image_segmentation, image_synthesis, ingest, inversion, jobs,
-    linear, model_runtime, mvs, numbers, output, posture, posture_io, radiance_fields, radiance_io,
-    radiance_pipeline, recognition, reconstruction, sfm, signal, sparse, split, stats, storage,
-    synthesis, tensor_data, text_analysis, text_classification, text_core, text_embeddings,
-    text_generation, text_generation_linguistics, text_index, text_lexical, text_linguistics,
-    text_model_runtime, text_question_answering, text_retrieval, text_transcripts, three_d_core,
-    three_d_io, three_d_mesh, three_d_scene, tracking, transform, vector_core, vector_index,
-    video_segmentation, Timebase, Timestamp,
-};
-
-#[cfg(feature = "onnx-backend")]
-#[allow(unused_imports)]
-use video_analysis::{image_onnx, onnx};
-
 #[derive(Debug, Parser)]
 #[command(
     name = "video-analysis-overview-server",
@@ -190,12 +171,6 @@ fn package_response(method: &str, package: &str, path: &str, body: &str) -> Http
         ("GET", path) if path.starts_with("/api/models/") => {
             let task = path.trim_start_matches("/api/models/");
             json_response(200, "OK", json!(model_catalog_for(module, Some(task))))
-        }
-        ("POST", "/api/entities") if module.package == "text-linguistics" => {
-            text_linguistics_run_response(body)
-        }
-        ("POST", path) if module.package == "text-linguistics" && is_text_nlp_task_path(path) => {
-            text_nlp_task_response(path, body)
         }
         ("POST", "/api/run") => package_run_response(module, body),
         ("POST", path) if path.starts_with("/api/") => {
@@ -365,36 +340,15 @@ fn package_metadata_value(module: &ModuleInfo) -> Value {
         .as_ref()
         .map(|surface| surface.version.as_str())
         .unwrap_or(env!("CARGO_PKG_VERSION"));
-    let endpoints = if module.package == "text-linguistics" {
-        vec![
-            "GET /health",
-            "GET /api/package",
-            "GET /api/schema",
-            "GET /api/operations",
-            "GET /api/benchmarks",
-            "GET /api/models",
-            "GET /api/models/:task",
-            "POST /api/entities",
-            "POST /api/classify",
-            "POST /api/sentiment",
-            "POST /api/embed",
-            "POST /api/zero-shot",
-            "POST /api/summarize",
-            "POST /api/rerank",
-            "POST /api/question-answer",
-            "POST /api/run",
-        ]
-    } else {
-        vec![
-            "GET /health",
-            "GET /api/package",
-            "GET /api/schema",
-            "GET /api/operations",
-            "GET /api/benchmarks",
-            "POST /api/run",
-            "POST /api/<operation-id>",
-        ]
-    };
+    let endpoints = vec![
+        "GET /health",
+        "GET /api/package",
+        "GET /api/schema",
+        "GET /api/operations",
+        "GET /api/benchmarks",
+        "POST /api/run",
+        "POST /api/<operation-id>",
+    ];
     json!({
         "package": format!("{adapter_base}-server"),
         "surface": "api",
@@ -430,40 +384,6 @@ fn overview_schema_value() -> Value {
 }
 
 fn package_schema_response(module: ModuleInfo) -> HttpResponse {
-    if module.package == "text-linguistics" {
-        return json_response(
-            200,
-            "OK",
-            json!({
-                "openapi": "3.1.0",
-                "info": {
-                    "title": "text-linguistics API",
-                    "version": env!("CARGO_PKG_VERSION")
-                },
-                "paths": {
-                    "/health": { "get": { "summary": "Health check" } },
-                    "/api/package": { "get": { "summary": "Package metadata" } },
-                    "/api/schema": { "get": { "summary": "API schema" } },
-                    "/api/models": { "get": { "summary": "List NLP model presets" } },
-                    "/api/models/{task}": { "get": { "summary": "List NLP model presets for a task" } },
-                    "/api/entities": { "post": { "summary": "Named entity and linguistic analysis" } },
-                    "/api/classify": { "post": { "summary": "Text classification" } },
-                    "/api/sentiment": { "post": { "summary": "Sentiment analysis" } },
-                    "/api/embed": { "post": { "summary": "Text embeddings" } },
-                    "/api/zero-shot": { "post": { "summary": "Zero-shot classification" } },
-                    "/api/summarize": { "post": { "summary": "Extractive summarization" } },
-                    "/api/rerank": { "post": { "summary": "Document reranking" } },
-                    "/api/question-answer": { "post": { "summary": "Question answering" } },
-                    "/api/run": { "post": { "summary": "Legacy generic operation entrypoint" } }
-                },
-                "components": {
-                    "schemas": {
-                        "textNlp": text_schema_summary()
-                    }
-                }
-            }),
-        );
-    }
     json_response(200, "OK", {
         let operation_paths = package_surface_for(module)
             .map(|surface| {
@@ -501,19 +421,6 @@ fn package_schema_response(module: ModuleInfo) -> HttpResponse {
         "paths": operation_paths
         })
     })
-}
-
-fn is_text_nlp_task_path(path: &str) -> bool {
-    matches!(
-        path,
-        "/api/classify"
-            | "/api/sentiment"
-            | "/api/embed"
-            | "/api/zero-shot"
-            | "/api/summarize"
-            | "/api/rerank"
-            | "/api/question-answer"
-    )
 }
 
 fn overview_run_value(body: &str) -> Value {
@@ -606,531 +513,12 @@ fn package_run_request_response(module: ModuleInfo, request: SurfaceRequest) -> 
     }
 }
 
-fn text_linguistics_run_response(body: &str) -> HttpResponse {
-    let payload = match serde_json::from_str::<Value>(body) {
-        Ok(value) => value,
-        Err(error) => {
-            return json_response(
-                400,
-                "Bad Request",
-                json!({
-                    "package": "text-linguistics-server",
-                    "library": "text-linguistics",
-                    "accepted": false,
-                    "error": format!("invalid JSON: {error}")
-                }),
-            );
-        }
-    };
-    let text = payload
-        .get("text")
-        .and_then(Value::as_str)
-        .unwrap_or_default();
-    if text.trim().is_empty() {
-        return json_response(
-            400,
-            "Bad Request",
-            json!({
-                "package": "text-linguistics-server",
-                "library": "text-linguistics",
-                "accepted": false,
-                "error": "request body must include a non-empty `text` string"
-            }),
-        );
-    }
-
-    match analyze_text_linguistics_for_payload(text, &payload) {
-        Ok(analysis) => json_response(
-            200,
-            "OK",
-            text_linguistics_payload(text, &analysis.analysis, analysis.model_metadata),
-        ),
-        Err(error) => json_response(
-            500,
-            "Internal Server Error",
-            json!({
-                "package": "text-linguistics-server",
-                "library": "text-linguistics",
-                "accepted": false,
-                "error": error.to_string()
-            }),
-        ),
-    }
-}
-
-fn text_nlp_task_response(path: &str, body: &str) -> HttpResponse {
-    match path {
-        "/api/classify" => {
-            match serde_json::from_str::<text_classification::TextClassificationRequest>(body) {
-                Ok(request) => nlp_result_response(text_classification::classify_text(request)),
-                Err(error) => text_nlp_error_response(
-                    400,
-                    "Bad Request",
-                    "invalid_request",
-                    &error.to_string(),
-                ),
-            }
-        }
-        "/api/sentiment" => {
-            match serde_json::from_str::<text_classification::SentimentRequest>(body) {
-                Ok(request) => nlp_result_response(text_classification::analyze_sentiment(request)),
-                Err(error) => text_nlp_error_response(
-                    400,
-                    "Bad Request",
-                    "invalid_request",
-                    &error.to_string(),
-                ),
-            }
-        }
-        "/api/embed" => text_surface_operation(
-            text_embeddings::surface::run_surface_operation,
-            "embeddings.embed",
-            body,
-        ),
-        "/api/zero-shot" => match serde_json::from_str::<
-            text_classification::ZeroShotClassificationRequest,
-        >(body)
-        {
-            Ok(request) => nlp_result_response(text_classification::zero_shot_classify(request)),
-            Err(error) => {
-                text_nlp_error_response(400, "Bad Request", "invalid_request", &error.to_string())
-            }
-        },
-        "/api/summarize" => text_surface_operation(
-            text_lexical::surface::run_surface_operation,
-            "lexical.analyze",
-            body,
-        ),
-        "/api/rerank" => match serde_json::from_str::<text_retrieval::RerankRequest>(body) {
-            Ok(request) => nlp_result_response(text_retrieval::rerank_documents(request)),
-            Err(error) => {
-                text_nlp_error_response(400, "Bad Request", "invalid_request", &error.to_string())
-            }
-        },
-        "/api/question-answer" => match serde_json::from_str::<
-            text_question_answering::QuestionAnsweringRequest,
-        >(body)
-        {
-            Ok(request) => nlp_result_response(text_question_answering::answer_question(request)),
-            Err(error) => {
-                text_nlp_error_response(400, "Bad Request", "invalid_request", &error.to_string())
-            }
-        },
-        _ => text_nlp_error_response(404, "Not Found", "not_found", "unknown NLP task endpoint"),
-    }
-}
-
-fn text_surface_operation(
-    runner: fn(SurfaceRequest) -> Result<SurfaceResponse, String>,
-    operation: &str,
-    body: &str,
-) -> HttpResponse {
-    let input = match serde_json::from_str::<Value>(body) {
-        Ok(input) => input,
-        Err(error) => {
-            return text_nlp_error_response(
-                400,
-                "Bad Request",
-                "invalid_request",
-                &error.to_string(),
-            )
-        }
-    };
-    match runner(SurfaceRequest {
-        operation: OperationId::new(operation),
-        input,
-    }) {
-        Ok(response) => json_response(200, "OK", json!(response.value)),
-        Err(error) => {
-            text_nlp_error_response(422, "Unprocessable Entity", "operation_error", &error)
-        }
-    }
-}
-
-fn nlp_result_response<T: serde::Serialize>(
-    result: video_analysis_core::Result<T>,
-) -> HttpResponse {
-    match result {
-        Ok(value) => json_response(200, "OK", json!(value)),
-        Err(error) => {
-            let message = error.to_string();
-            if message.contains("unsupported_runtime") {
-                text_nlp_error_response(
-                    422,
-                    "Unprocessable Entity",
-                    "unsupported_runtime",
-                    &message,
-                )
-            } else if message.contains("non-empty") || message.contains("must include") {
-                text_nlp_error_response(400, "Bad Request", "empty_input", &message)
-            } else {
-                text_nlp_error_response(
-                    500,
-                    "Internal Server Error",
-                    "model_output_mismatch",
-                    &message,
-                )
-            }
-        }
-    }
-}
-
-fn text_nlp_error_response(
-    status_code: u16,
-    reason: &'static str,
-    code: &str,
-    message: &str,
-) -> HttpResponse {
-    json_response(
-        status_code,
-        reason,
-        json!({
-            "package": "text-linguistics-server",
-            "library": "text-linguistics",
-            "accepted": false,
-            "error": {
-                "code": code,
-                "message": message
-            }
-        }),
-    )
-}
-
-fn text_model_catalog(task: Option<&str>) -> Vec<Value> {
-    let mut entries = Vec::new();
-    if task.is_none() || matches!(task, Some("classify" | "sentiment" | "zero-shot")) {
-        let classification_task = task.and_then(text_classification::parse_task);
-        entries.extend(
-            text_classification::model_catalog(classification_task)
-                .into_iter()
-                .filter_map(|model| serde_json::to_value(model).ok()),
-        );
-    }
-    if task.is_none() || task == Some("question-answer") {
-        entries.extend(
-            text_question_answering::model_catalog()
-                .into_iter()
-                .filter_map(|model| serde_json::to_value(model).ok()),
-        );
-    }
-    entries
-}
-
-fn text_schema_summary() -> Value {
-    json!({
-        "tasks": [
-            "classify",
-            "sentiment",
-            "embed",
-            "zero-shot",
-            "summarize",
-            "rerank",
-            "question-answer"
-        ],
-        "classification": text_classification::schema_summary(),
-        "questionAnswering": text_question_answering::schema_summary(),
-        "models": text_model_catalog(None)
-    })
-}
-
-fn benchmark_catalog_for(module: ModuleInfo) -> Vec<Value> {
-    match module.package {
-        "text-core" => text_benchmark_entries(&[
-            ("tokenize", "Tokenize", "text.tokenize"),
-            ("boundaries", "Boundaries", "text.boundaries"),
-            ("statistics", "Statistics", "text.statistics"),
-        ]),
-        "text-lexical" => text_benchmark_entries(&[
-            ("keywords", "Keywords", "lexical.keywords"),
-            ("corpus-search", "Corpus Search", "lexical.corpusSearch"),
-        ]),
-        "text-embeddings" => text_benchmark_entries(&[
-            ("hashed-embed", "Hashed Embed", "embeddings.embed"),
-            (
-                "semantic-search",
-                "Semantic Search",
-                "embeddings.semanticSearch",
-            ),
-        ]),
-        "text-retrieval" => text_benchmark_entries(&[
-            ("chunk", "Chunk", "retrieval.chunk"),
-            ("hybrid-search", "Hybrid Search", "retrieval.search"),
-        ]),
-        "text-analysis" => text_benchmark_entries(&[
-            ("document-report", "Document Report", "analysis.document"),
-            ("corpus-report", "Corpus Report", "analysis.corpus"),
-        ]),
-        "text-linguistics" => text_benchmark_entries(&[
-            ("fast-analysis", "Fast Analysis", "linguistics.analyze"),
-            (
-                "balanced-analysis",
-                "Balanced Analysis",
-                "linguistics.analyze",
-            ),
-            ("rich-analysis", "Rich Analysis", "linguistics.analyze"),
-        ]),
-        "text-model-runtime" => text_benchmark_entries(&[
-            (
-                "tokenizer-summary",
-                "Tokenizer Summary",
-                "runtime.tokenizeSummary",
-            ),
-            ("softmax", "Softmax", "runtime.softmax"),
-        ]),
-        "text-classification" => text_benchmark_entries(&[
-            (
-                "lexical-classify",
-                "Lexical Classify",
-                "classification.classify",
-            ),
-            ("sentiment", "Sentiment", "classification.sentiment"),
-            ("zero-shot", "Zero-shot", "classification.zeroShot"),
-        ]),
-        "text-question-answering" => {
-            text_benchmark_entries(&[("imported-span", "Imported Span", "qa.answer")])
-        }
-        "text-generation" => text_benchmark_entries(&[
-            (
-                "markov-predict",
-                "Markov Predict",
-                "generation.markovPredict",
-            ),
-            (
-                "markov-generate",
-                "Markov Generate",
-                "generation.markovGenerate",
-            ),
-        ]),
-        "text-generation-linguistics" => text_benchmark_entries(&[
-            (
-                "synthesize-from-analysis",
-                "Synthesize",
-                "generationLinguistics.synthesizeFromAnalysis",
-            ),
-            (
-                "analysis-terms",
-                "Terms",
-                "generationLinguistics.analysisTerms",
-            ),
-        ]),
-        "text-transcripts" => text_benchmark_entries(&[
-            ("parse-srt", "Parse SRT", "transcripts.parse"),
-            ("normalize", "Normalize", "transcripts.normalize"),
-            ("format-srt", "Format SRT", "transcripts.formatSrt"),
-        ]),
-        _ => Vec::new(),
-    }
-}
-
-fn text_benchmark_entries(entries: &[(&str, &str, &str)]) -> Vec<Value> {
-    entries
-        .iter()
-        .map(|(id, label, operation)| {
-            json!({
-                "id": id,
-                "label": label,
-                "operation": operation,
-                "iterations": 50,
-                "runtimeModes": ["client-wasm", "overview-server", "standalone-server"]
-            })
-        })
-        .collect()
+fn benchmark_catalog_for(_module: ModuleInfo) -> Vec<Value> {
+    Vec::new()
 }
 
 fn model_catalog_for(module: ModuleInfo, task: Option<&str>) -> Vec<Value> {
     let entries = match module.package {
-        "text-linguistics" => text_model_catalog(task),
-        "text-analysis" => vec![
-            model_catalog_entry(
-                "deterministic-text-analysis",
-                "Deterministic text analysis",
-                "analyze",
-                "deterministic",
-                true,
-                None,
-                Some("Default lexical, linguistic, and hashed embedding profile."),
-            ),
-            model_catalog_entry(
-                "model-backed-text-analysis",
-                "Model-backed text analysis",
-                "analyze",
-                "candle",
-                true,
-                Some("deterministic-text-analysis"),
-                Some("Uses local model bundles when available through the overview server."),
-            ),
-        ],
-        "text-classification" => text_model_catalog(task),
-        "text-embeddings" => vec![
-            model_catalog_entry(
-                "hashed-text-embedding",
-                "Hashed text embedding",
-                "embed",
-                "deterministic",
-                true,
-                None,
-                Some("Pure Rust deterministic embedding fallback."),
-            ),
-            model_catalog_entry(
-                "sentence-transformer-local",
-                "Sentence transformer local",
-                "embed",
-                "candle",
-                false,
-                Some("hashed-text-embedding"),
-                Some("Registered as a local model preset; execution is opt-in."),
-            ),
-        ],
-        "text-question-answering" => text_model_catalog(task),
-        "text-transcripts" => vec![
-            model_catalog_entry(
-                "whisper-tiny-en",
-                "Whisper tiny English",
-                "transcribe",
-                "whisper_cpp",
-                false,
-                None,
-                Some("Requires local whisper.cpp model files."),
-            ),
-            model_catalog_entry(
-                "fixture-transcript",
-                "Fixture transcript",
-                "transcribe",
-                "deterministic",
-                true,
-                None,
-                Some("Uses checked-in transcript fixture style data."),
-            ),
-        ],
-        "image-analysis-classification" => vec![
-            model_catalog_entry(
-                "color-histogram-classifier",
-                "Color histogram classifier",
-                "classify",
-                "heuristic",
-                true,
-                None,
-                Some("Deterministic image classification fallback."),
-            ),
-            model_catalog_entry(
-                "mobilenet-onnx",
-                "MobileNet ONNX",
-                "classify",
-                "onnx",
-                false,
-                Some("color-histogram-classifier"),
-                Some("Requires ONNX backend wiring."),
-            ),
-        ],
-        "image-analysis-detection" => vec![
-            model_catalog_entry(
-                "mask-proposal-demo",
-                "Mask proposal demo",
-                "detect",
-                "heuristic",
-                true,
-                None,
-                Some("Pure Rust detection-style fixture output."),
-            ),
-            model_catalog_entry(
-                "yolo-onnx",
-                "YOLO ONNX",
-                "detect",
-                "onnx",
-                false,
-                Some("mask-proposal-demo"),
-                Some("Requires ONNX backend wiring."),
-            ),
-        ],
-        "image-analysis-segmentation" => vec![
-            model_catalog_entry(
-                "threshold-segmentation",
-                "Threshold segmentation",
-                "segment",
-                "heuristic",
-                true,
-                None,
-                Some("Local deterministic segmentation fallback."),
-            ),
-            model_catalog_entry(
-                "sam-onnx",
-                "Segment Anything ONNX",
-                "segment",
-                "onnx",
-                false,
-                Some("threshold-segmentation"),
-                Some("Requires ONNX backend wiring."),
-            ),
-        ],
-        "image-analysis-ocr" => vec![
-            model_catalog_entry(
-                "fixture-ocr",
-                "Fixture OCR",
-                "ocr",
-                "heuristic",
-                true,
-                None,
-                Some("Uses OCR-compatible text output fixtures."),
-            ),
-            model_catalog_entry(
-                "tesseract-local",
-                "Tesseract local",
-                "ocr",
-                "external",
-                false,
-                Some("fixture-ocr"),
-                Some("Requires external OCR tooling."),
-            ),
-        ],
-        "image-analysis-captioning" => vec![
-            model_catalog_entry(
-                "metadata-captioner",
-                "Metadata captioner",
-                "caption",
-                "heuristic",
-                true,
-                None,
-                Some("Builds captions from supplied image metadata."),
-            ),
-            model_catalog_entry(
-                "blip-onnx",
-                "BLIP ONNX",
-                "caption",
-                "onnx",
-                false,
-                Some("metadata-captioner"),
-                Some("Requires ONNX backend wiring."),
-            ),
-        ],
-        package if package.starts_with("image-") => vec![model_catalog_entry(
-            "deterministic-image",
-            "Deterministic image runtime",
-            "analyze",
-            "deterministic",
-            true,
-            None,
-            Some("Uses local image metadata and pixel summaries."),
-        )],
-        "video-analysis-recognition" => vec![
-            model_catalog_entry(
-                "scene-label-heuristic",
-                "Scene label heuristic",
-                "recognize",
-                "heuristic",
-                true,
-                None,
-                Some("Deterministic recognition fallback."),
-            ),
-            model_catalog_entry(
-                "action-recognition-onnx",
-                "Action recognition ONNX",
-                "recognize",
-                "onnx",
-                false,
-                Some("scene-label-heuristic"),
-                Some("Requires ONNX backend wiring."),
-            ),
-        ],
         "video-analysis-posture" => vec![
             model_catalog_entry(
                 "stick-figure-posture",
@@ -1215,218 +603,13 @@ fn model_catalog_entry(
     })
 }
 
-#[derive(Debug, Clone, Copy)]
-struct TextLinguisticsModelMetadata {
-    entity_recognition: &'static str,
-    entity_model: Option<&'static str>,
-}
-
-#[derive(Debug)]
-struct TextLinguisticsRunAnalysis {
-    analysis: text_linguistics::LinguisticAnalysis,
-    model_metadata: TextLinguisticsModelMetadata,
-}
-
-fn analyze_text_linguistics_for_payload(
-    text: &str,
-    payload: &Value,
-) -> Result<TextLinguisticsRunAnalysis, String> {
-    match payload
-        .get("entityRecognition")
-        .or_else(|| payload.get("modelMode"))
-        .or_else(|| payload.get("mode"))
-        .and_then(Value::as_str)
-    {
-        Some("heuristic") | Some("rules") => {
-            let analysis = text_linguistics::analyze_text(
-                text,
-                &text_linguistics::LinguisticAnalysisOptions::heuristic(),
-            )
-            .map_err(|error| error.to_string())?;
-            Ok(TextLinguisticsRunAnalysis {
-                analysis,
-                model_metadata: TextLinguisticsModelMetadata {
-                    entity_recognition: "heuristic",
-                    entity_model: None,
-                },
-            })
-        }
-        _ => {
-            let config = text_linguistics_config_from_payload(payload);
-            let model_metadata = text_linguistics_model_metadata_for_config(&config);
-            let analysis = text_linguistics::TextNlpPipeline::new(config)
-                .analyze_text(text)
-                .map_err(|error| error.to_string())?;
-            Ok(TextLinguisticsRunAnalysis {
-                analysis,
-                model_metadata,
-            })
-        }
-    }
-}
-
-fn text_linguistics_config_from_payload(payload: &Value) -> text_linguistics::TextNlpConfig {
-    match payload.get("profile").and_then(Value::as_str) {
-        Some("fast") => text_linguistics::TextNlpConfig::fast(),
-        Some("balanced") => text_linguistics::TextNlpConfig::balanced(),
-        _ => text_linguistics::TextNlpConfig::rich(),
-    }
-}
-
-fn text_linguistics_model_metadata_for_config(
-    config: &text_linguistics::TextNlpConfig,
-) -> TextLinguisticsModelMetadata {
-    if matches!(config.profile, text_linguistics::AnalysisProfile::Fast) {
-        TextLinguisticsModelMetadata {
-            entity_recognition: "heuristic",
-            entity_model: None,
-        }
-    } else {
-        TextLinguisticsModelMetadata {
-            entity_recognition: "local-model",
-            entity_model: Some("bert-base-ner"),
-        }
-    }
-}
-
-fn text_linguistics_payload(
-    text: &str,
-    analysis: &text_linguistics::LinguisticAnalysis,
-    model_metadata: TextLinguisticsModelMetadata,
-) -> Value {
-    json!({
-        "package": "text-linguistics-server",
-        "library": "text-linguistics",
-        "accepted": true,
-        "operation": "analyze",
-        "text": text,
-        "profile": format!("{:?}", analysis.profile),
-        "provenance": format!("{:?}", analysis.provenance),
-        "confidence": analysis.confidence.get(),
-        "model": {
-            "entityRecognition": model_metadata.entity_recognition,
-            "entityModel": model_metadata.entity_model,
-            "tokenizerMode": format!("{:?}", analysis.tokenizer.mode),
-            "tokenizerSource": analysis.tokenizer.source.as_ref().map(|source| format!("{source:?}")),
-            "alignmentCount": analysis.alignments.as_ref().map(|alignment| alignment.aligned_tokens.len()).unwrap_or(0)
-        },
-        "summary": {
-            "language": analysis.language.primary.as_ref().map(|prediction| prediction.language.as_str()),
-            "tokenCount": analysis.tokens.len(),
-            "sentenceCount": analysis.sentences.len(),
-            "lemmaCount": analysis.lemmas.len(),
-            "entityCount": analysis.entities.len(),
-            "eventCount": analysis.events.len(),
-            "relationCount": analysis.relations.len(),
-            "topicCount": analysis.topics.descriptors.len(),
-            "chunkCount": analysis.chunks.len()
-        },
-        "language": {
-            "primary": analysis.language.primary.as_ref().map(|prediction| json!({
-                "language": prediction.language,
-                "confidence": prediction.confidence,
-                "script": prediction.script,
-                "reason": prediction.reason
-            })),
-            "dominantScript": analysis.language.dominant_script,
-            "isMixed": analysis.language.is_mixed,
-            "tokenCount": analysis.language.token_count
-        },
-        "tokens": analysis.tokens.iter().enumerate().map(|(index, token)| json!({
-            "index": index,
-            "text": token.text,
-            "normalized": token.normalized,
-            "kind": format!("{:?}", token.kind),
-            "start": token.span.char_start,
-            "end": token.span.char_end
-        })).collect::<Vec<_>>(),
-        "sentences": analysis.sentences.iter().enumerate().map(|(index, sentence)| json!({
-            "index": index,
-            "text": sentence.text,
-            "start": sentence.span.char_start,
-            "end": sentence.span.char_end,
-            "tokenCount": sentence.token_count
-        })).collect::<Vec<_>>(),
-        "lemmas": analysis.lemmas.iter().map(|lemma| json!({
-            "tokenIndex": lemma.token_index,
-            "token": analysis.tokens.get(lemma.token_index).map(|token| token.text.as_str()),
-            "lemma": lemma.value,
-            "language": lemma.language,
-            "confidence": lemma.confidence
-        })).collect::<Vec<_>>(),
-        "pos": analysis.pos.iter().map(|pos| json!({
-            "tokenIndex": pos.token_index,
-            "token": analysis.tokens.get(pos.token_index).map(|token| token.text.as_str()),
-            "tag": format!("{:?}", pos.tag),
-            "confidence": pos.confidence,
-            "reason": pos.reason
-        })).collect::<Vec<_>>(),
-        "entities": analysis.entities.iter().map(|entity| json!({
-            "id": entity.id,
-            "text": entity.mention.text,
-            "normalized": entity.normalized,
-            "kind": format!("{:?}", entity.entity_type),
-            "sentenceIndex": entity.sentence_index,
-            "tokenStart": entity.token_start,
-            "tokenEnd": entity.token_end,
-            "confidence": entity.confidence
-        })).collect::<Vec<_>>(),
-        "events": analysis.events.iter().map(|event| json!({
-            "sentenceIndex": event.sentence_index,
-            "predicate": event.predicate,
-            "lemma": event.lemma,
-            "relationType": format!("{:?}", event.relation_type),
-            "confidence": event.confidence,
-            "arguments": event.arguments.iter().map(|argument| json!({
-                "role": argument.role,
-                "text": argument.text,
-                "confidence": argument.confidence
-            })).collect::<Vec<_>>()
-        })).collect::<Vec<_>>(),
-        "relations": analysis.relations.iter().map(|relation| json!({
-            "subject": relation.subject,
-            "relation": relation.relation,
-            "object": relation.object,
-            "relationType": format!("{:?}", relation.relation_type),
-            "confidence": relation.confidence
-        })).collect::<Vec<_>>(),
-        "topics": analysis.topics.descriptors.iter().map(|topic| json!({
-            "label": topic.label,
-            "terms": topic.terms,
-            "score": topic.score
-        })).collect::<Vec<_>>(),
-        "style": {
-            "register": format!("{:?}", analysis.style.register),
-            "averageSentenceTokens": analysis.style.complexity.average_sentence_tokens,
-            "typeTokenRatio": analysis.style.complexity.type_token_ratio,
-            "formalityScore": analysis.style.formality_score,
-            "questionCount": analysis.style.question_count,
-            "exclamationCount": analysis.style.exclamation_count
-        }
-    })
-}
-
 fn smoke_value() -> Value {
-    let timestamp = Timestamp::new(3, Timebase::new(1, 2));
-    let vector = vector_core::DenseVector::new([3.0, 4.0]).expect("valid vector");
-    let graph = graph_core::Graph::directed();
-    let image = image_synthesis::solid_image(
-        image_synthesis::RgbColor::new(1, 2, 3),
-        image_synthesis::ImageSynthesisConfig {
-            width: 2,
-            height: 2,
-            pixel_format: image_core::ImagePixelFormat::Rgb24,
-        },
-    )
-    .expect("valid image");
+    let point = three_d_processing_core::Point3::new(1.0, 2.0, 2.0);
 
     json!({
         "ok": true,
         "checks": {
-            "timestampSeconds": timestamp.seconds(),
-            "vectorNorm": vector_core::l2_norm(vector.as_slice()).expect("valid norm"),
-            "graphNodes": graph.node_count(),
-            "imageWidth": image.value.width,
+            "pointNorm": (point.x * point.x + point.y * point.y + point.z * point.z).sqrt(),
             "moduleCount": MODULES.len()
         }
     })
@@ -1593,67 +776,15 @@ fn package_surface_for(module: ModuleInfo) -> Option<PackageSurface> {
         "comfyui-data" => Some(comfyui_data::surface::package_surface()),
         "comfyui-latents" => Some(comfyui_latents::surface::package_surface()),
         "comfyui-models" => Some(comfyui_models::surface::package_surface()),
-        "data-inversion-core" => Some(data_inversion_core::surface::package_surface()),
-        "dense-data" => Some(dense_data::surface::package_surface()),
-        "graph-analysis-core" => Some(graph_analysis_core::surface::package_surface()),
-        "image-analysis-captioning" => Some(image_analysis_captioning::surface::package_surface()),
-        "image-analysis-classification" => {
-            Some(image_analysis_classification::surface::package_surface())
-        }
         "image-analysis-comfyui" => Some(image_analysis_comfyui::surface::package_surface()),
-        "image-analysis-core" => Some(image_analysis_core::surface::package_surface()),
-        "image-analysis-detection" => Some(image_analysis_detection::surface::package_surface()),
-        "image-analysis-embeddings" => Some(image_analysis_embeddings::surface::package_surface()),
-        "image-analysis-io" => Some(image_analysis_io::surface::package_surface()),
-        "image-analysis-ocr" => Some(image_analysis_ocr::surface::package_surface()),
-        "image-analysis-processing" => Some(image_analysis_processing::surface::package_surface()),
-        "image-analysis-segmentation" => {
-            Some(image_analysis_segmentation::surface::package_surface())
-        }
-        "image-analysis-synthesis" => Some(image_analysis_synthesis::surface::package_surface()),
-        "jobs-core" => Some(jobs_core::surface::package_surface()),
-        "math-geometry-2d" => Some(math_geometry_2d::surface::package_surface()),
-        "math-linear" => Some(math_linear::surface::package_surface()),
-        "math-signal-core" => Some(math_signal_core::surface::package_surface()),
-        "math-sparse-data" => Some(math_sparse_data::surface::package_surface()),
-        "math-statistics" => Some(math_statistics::surface::package_surface()),
-        "model-runtime" => Some(model_runtime::surface::package_surface()),
-        "numbers-core" => Some(numbers_core::surface::package_surface()),
-        "tensor-data" => Some(tensor_data::surface::package_surface()),
-        "text-analysis" => Some(text_analysis::surface::package_surface()),
-        "text-classification" => Some(text_classification::surface::package_surface()),
-        "text-core" => Some(text_core::surface::package_surface()),
-        "text-embeddings" => Some(text_embeddings::surface::package_surface()),
-        "text-generation" => Some(text_generation::surface::package_surface()),
-        "text-generation-linguistics" => {
-            Some(text_generation_linguistics::surface::package_surface())
-        }
-        "text-index" => Some(text_index::surface::package_surface()),
-        "text-lexical" => Some(text_lexical::surface::package_surface()),
-        "text-linguistics" => Some(text_linguistics::surface::package_surface()),
-        "text-model-runtime" => Some(text_model_runtime::surface::package_surface()),
-        "text-question-answering" => Some(text_question_answering::surface::package_surface()),
-        "text-retrieval" => Some(text_retrieval::surface::package_surface()),
-        "text-transcripts" => Some(text_transcripts::surface::package_surface()),
         "three-d-processing-core" => Some(three_d_processing_core::surface::package_surface()),
         "three-d-processing-io" => Some(three_d_processing_io::surface::package_surface()),
         "three-d-processing-mesh" => Some(three_d_processing_mesh::surface::package_surface()),
         "three-d-scene-svg" => Some(three_d_scene_svg::surface::package_surface()),
-        "vector-analysis-core" => Some(vector_analysis_core::surface::package_surface()),
-        "vector-analysis-index" => Some(vector_analysis_index::surface::package_surface()),
-        "video-analysis-core" => Some(video_analysis_core::surface::package_surface()),
-        "video-analysis-data" => Some(video_analysis_data::surface::package_surface()),
-        "video-analysis-dataset" => Some(video_analysis_dataset::surface::package_surface()),
-        "video-analysis-detectors" => Some(video_analysis_detectors::surface::package_surface()),
-        "video-analysis-editing" => Some(video_analysis_editing::surface::package_surface()),
-        "video-analysis-features" => Some(video_analysis_features::surface::package_surface()),
-        "video-analysis-ffmpeg" => Some(video_analysis_ffmpeg::surface::package_surface()),
         "video-analysis-gaussian-splatting" => {
             Some(video_analysis_gaussian_splatting::surface::package_surface())
         }
-        "video-analysis-ingest" => Some(video_analysis_ingest::surface::package_surface()),
         "video-analysis-mvs" => Some(video_analysis_mvs::surface::package_surface()),
-        "video-analysis-output" => Some(video_analysis_output::surface::package_surface()),
         "video-analysis-posture" => Some(video_analysis_posture::surface::package_surface()),
         "video-analysis-posture-io" => Some(video_analysis_posture_io::surface::package_surface()),
         "video-analysis-radiance-fields" => {
@@ -1665,21 +796,10 @@ fn package_surface_for(module: ModuleInfo) -> Option<PackageSurface> {
         "video-analysis-radiance-pipeline" => {
             Some(video_analysis_radiance_pipeline::surface::package_surface())
         }
-        "video-analysis-recognition" => {
-            Some(video_analysis_recognition::surface::package_surface())
-        }
         "video-analysis-reconstruction" => {
             Some(video_analysis_reconstruction::surface::package_surface())
         }
-        "video-analysis-segmentation" => {
-            Some(video_analysis_segmentation::surface::package_surface())
-        }
         "video-analysis-sfm" => Some(video_analysis_sfm::surface::package_surface()),
-        "video-analysis-split" => Some(video_analysis_split::surface::package_surface()),
-        "video-analysis-storage" => Some(video_analysis_storage::surface::package_surface()),
-        "video-analysis-synthesis" => Some(video_analysis_synthesis::surface::package_surface()),
-        "video-analysis-tracking" => Some(video_analysis_tracking::surface::package_surface()),
-        "video-analysis-transform" => Some(video_analysis_transform::surface::package_surface()),
         _ => None,
     }
 }
@@ -1697,62 +817,9 @@ fn run_surface_operation_for(
         "comfyui-data" => Some(comfyui_data::surface::run_surface_operation(request)),
         "comfyui-latents" => Some(comfyui_latents::surface::run_surface_operation(request)),
         "comfyui-models" => Some(comfyui_models::surface::run_surface_operation(request)),
-        "data-inversion-core" => Some(data_inversion_core::surface::run_surface_operation(request)),
-        "dense-data" => Some(dense_data::surface::run_surface_operation(request)),
-        "graph-analysis-core" => Some(graph_analysis_core::surface::run_surface_operation(request)),
-        "image-analysis-captioning" => Some(
-            image_analysis_captioning::surface::run_surface_operation(request),
-        ),
-        "image-analysis-classification" => {
-            Some(image_analysis_classification::surface::run_surface_operation(request))
-        }
         "image-analysis-comfyui" => Some(image_analysis_comfyui::surface::run_surface_operation(
             request,
         )),
-        "image-analysis-core" => Some(image_analysis_core::surface::run_surface_operation(request)),
-        "image-analysis-detection" => Some(
-            image_analysis_detection::surface::run_surface_operation(request),
-        ),
-        "image-analysis-embeddings" => Some(
-            image_analysis_embeddings::surface::run_surface_operation(request),
-        ),
-        "image-analysis-io" => Some(image_analysis_io::surface::run_surface_operation(request)),
-        "image-analysis-ocr" => Some(image_analysis_ocr::surface::run_surface_operation(request)),
-        "image-analysis-processing" => Some(
-            image_analysis_processing::surface::run_surface_operation(request),
-        ),
-        "image-analysis-segmentation" => Some(
-            image_analysis_segmentation::surface::run_surface_operation(request),
-        ),
-        "image-analysis-synthesis" => Some(
-            image_analysis_synthesis::surface::run_surface_operation(request),
-        ),
-        "jobs-core" => Some(jobs_core::surface::run_surface_operation(request)),
-        "math-geometry-2d" => Some(math_geometry_2d::surface::run_surface_operation(request)),
-        "math-linear" => Some(math_linear::surface::run_surface_operation(request)),
-        "math-signal-core" => Some(math_signal_core::surface::run_surface_operation(request)),
-        "math-sparse-data" => Some(math_sparse_data::surface::run_surface_operation(request)),
-        "math-statistics" => Some(math_statistics::surface::run_surface_operation(request)),
-        "model-runtime" => Some(model_runtime::surface::run_surface_operation(request)),
-        "numbers-core" => Some(numbers_core::surface::run_surface_operation(request)),
-        "tensor-data" => Some(tensor_data::surface::run_surface_operation(request)),
-        "text-analysis" => Some(text_analysis::surface::run_surface_operation(request)),
-        "text-classification" => Some(text_classification::surface::run_surface_operation(request)),
-        "text-core" => Some(text_core::surface::run_surface_operation(request)),
-        "text-embeddings" => Some(text_embeddings::surface::run_surface_operation(request)),
-        "text-generation" => Some(text_generation::surface::run_surface_operation(request)),
-        "text-generation-linguistics" => Some(
-            text_generation_linguistics::surface::run_surface_operation(request),
-        ),
-        "text-index" => Some(text_index::surface::run_surface_operation(request)),
-        "text-lexical" => Some(text_lexical::surface::run_surface_operation(request)),
-        "text-linguistics" => Some(text_linguistics::surface::run_surface_operation(request)),
-        "text-model-runtime" => Some(text_model_runtime::surface::run_surface_operation(request)),
-        "text-question-answering" => Some(text_question_answering::surface::run_surface_operation(
-            request,
-        )),
-        "text-retrieval" => Some(text_retrieval::surface::run_surface_operation(request)),
-        "text-transcripts" => Some(text_transcripts::surface::run_surface_operation(request)),
         "three-d-processing-core" => Some(three_d_processing_core::surface::run_surface_operation(
             request,
         )),
@@ -1763,47 +830,10 @@ fn run_surface_operation_for(
             request,
         )),
         "three-d-scene-svg" => Some(three_d_scene_svg::surface::run_surface_operation(request)),
-        "vector-analysis-core" => Some(vector_analysis_core::surface::run_surface_operation(
-            request,
-        )),
-        "vector-analysis-index" => Some(vector_analysis_index::surface::run_surface_operation(
-            request,
-        )),
-        "video-analysis-sfm"
-            if request.operation.as_str()
-                == video_analysis_sfm::surface::RECONSTRUCT_VIDEO_OPERATION =>
-        {
-            Some(video_analysis_sfm::reconstruct_video_surface_operation(
-                request.input,
-            ))
-        }
-        "video-analysis-core" => Some(video_analysis_core::surface::run_surface_operation(request)),
-        "video-analysis-data" => Some(video_analysis_data::surface::run_surface_operation(request)),
-        "video-analysis-dataset" => Some(video_analysis_dataset::surface::run_surface_operation(
-            request,
-        )),
-        "video-analysis-detectors" => Some(
-            video_analysis_detectors::surface::run_surface_operation(request),
-        ),
-        "video-analysis-editing" => Some(video_analysis_editing::surface::run_surface_operation(
-            request,
-        )),
-        "video-analysis-features" => Some(video_analysis_features::surface::run_surface_operation(
-            request,
-        )),
-        "video-analysis-ffmpeg" => Some(video_analysis_ffmpeg::surface::run_surface_operation(
-            request,
-        )),
         "video-analysis-gaussian-splatting" => {
             Some(video_analysis_gaussian_splatting::surface::run_surface_operation(request))
         }
-        "video-analysis-ingest" => Some(video_analysis_ingest::surface::run_surface_operation(
-            request,
-        )),
         "video-analysis-mvs" => Some(video_analysis_mvs::surface::run_surface_operation(request)),
-        "video-analysis-output" => Some(video_analysis_output::surface::run_surface_operation(
-            request,
-        )),
         "video-analysis-posture" => Some(video_analysis_posture::surface::run_surface_operation(
             request,
         )),
@@ -1819,31 +849,18 @@ fn run_surface_operation_for(
         "video-analysis-radiance-pipeline" => {
             Some(video_analysis_radiance_pipeline::surface::run_surface_operation(request))
         }
-        "video-analysis-recognition" => Some(
-            video_analysis_recognition::surface::run_surface_operation(request),
-        ),
         "video-analysis-reconstruction" => {
             Some(video_analysis_reconstruction::surface::run_surface_operation(request))
         }
-        "video-analysis-segmentation" => Some(
-            video_analysis_segmentation::surface::run_surface_operation(request),
-        ),
+        "video-analysis-sfm"
+            if request.operation.as_str()
+                == video_analysis_sfm::surface::RECONSTRUCT_VIDEO_OPERATION =>
+        {
+            Some(video_analysis_sfm::reconstruct_video_surface_operation(
+                request.input,
+            ))
+        }
         "video-analysis-sfm" => Some(video_analysis_sfm::surface::run_surface_operation(request)),
-        "video-analysis-split" => Some(video_analysis_split::surface::run_surface_operation(
-            request,
-        )),
-        "video-analysis-storage" => Some(video_analysis_storage::surface::run_surface_operation(
-            request,
-        )),
-        "video-analysis-synthesis" => Some(
-            video_analysis_synthesis::surface::run_surface_operation(request),
-        ),
-        "video-analysis-tracking" => Some(video_analysis_tracking::surface::run_surface_operation(
-            request,
-        )),
-        "video-analysis-transform" => Some(
-            video_analysis_transform::surface::run_surface_operation(request),
-        ),
         _ => None,
     }
 }
@@ -1878,254 +895,9 @@ const MODULES: &[ModuleInfo] = &[
         required_feature: None,
     },
     ModuleInfo {
-        package: "data-inversion-core",
-        import_path: "video_analysis::inversion",
-        domain: "data",
-        linked: true,
-        required_feature: None,
-    },
-    ModuleInfo {
-        package: "dense-data",
-        import_path: "video_analysis::dense",
-        domain: "data",
-        linked: true,
-        required_feature: None,
-    },
-    ModuleInfo {
-        package: "graph-analysis-core",
-        import_path: "video_analysis::graph_core",
-        domain: "data",
-        linked: true,
-        required_feature: None,
-    },
-    ModuleInfo {
-        package: "image-analysis-captioning",
-        import_path: "video_analysis::image_captioning",
-        domain: "image",
-        linked: true,
-        required_feature: None,
-    },
-    ModuleInfo {
-        package: "image-analysis-classification",
-        import_path: "video_analysis::image_classification",
-        domain: "image",
-        linked: true,
-        required_feature: None,
-    },
-    ModuleInfo {
         package: "image-analysis-comfyui",
         import_path: "video_analysis::image_comfyui",
         domain: "image",
-        linked: true,
-        required_feature: None,
-    },
-    ModuleInfo {
-        package: "image-analysis-core",
-        import_path: "video_analysis::image_core",
-        domain: "image",
-        linked: true,
-        required_feature: None,
-    },
-    ModuleInfo {
-        package: "image-analysis-detection",
-        import_path: "video_analysis::image_detection",
-        domain: "image",
-        linked: true,
-        required_feature: None,
-    },
-    ModuleInfo {
-        package: "image-analysis-embeddings",
-        import_path: "video_analysis::image_embeddings",
-        domain: "image",
-        linked: true,
-        required_feature: None,
-    },
-    ModuleInfo {
-        package: "image-analysis-io",
-        import_path: "video_analysis::image_io",
-        domain: "image",
-        linked: true,
-        required_feature: None,
-    },
-    ModuleInfo {
-        package: "image-analysis-ocr",
-        import_path: "video_analysis::image_ocr",
-        domain: "image",
-        linked: true,
-        required_feature: None,
-    },
-    ModuleInfo {
-        package: "image-analysis-processing",
-        import_path: "video_analysis::image_processing",
-        domain: "image",
-        linked: true,
-        required_feature: None,
-    },
-    ModuleInfo {
-        package: "image-analysis-segmentation",
-        import_path: "video_analysis::image_segmentation",
-        domain: "image",
-        linked: true,
-        required_feature: None,
-    },
-    ModuleInfo {
-        package: "image-analysis-synthesis",
-        import_path: "video_analysis::image_synthesis",
-        domain: "image",
-        linked: true,
-        required_feature: None,
-    },
-    ModuleInfo {
-        package: "jobs-core",
-        import_path: "video_analysis::jobs",
-        domain: "jobs",
-        linked: true,
-        required_feature: None,
-    },
-    ModuleInfo {
-        package: "model-runtime",
-        import_path: "video_analysis::model_runtime",
-        domain: "runtime",
-        linked: true,
-        required_feature: None,
-    },
-    ModuleInfo {
-        package: "math-geometry-2d",
-        import_path: "video_analysis::geometry2d",
-        domain: "math",
-        linked: true,
-        required_feature: None,
-    },
-    ModuleInfo {
-        package: "math-linear",
-        import_path: "video_analysis::linear",
-        domain: "math",
-        linked: true,
-        required_feature: None,
-    },
-    ModuleInfo {
-        package: "math-signal-core",
-        import_path: "video_analysis::signal",
-        domain: "math",
-        linked: true,
-        required_feature: None,
-    },
-    ModuleInfo {
-        package: "math-sparse-data",
-        import_path: "video_analysis::sparse",
-        domain: "math",
-        linked: true,
-        required_feature: None,
-    },
-    ModuleInfo {
-        package: "math-statistics",
-        import_path: "video_analysis::stats",
-        domain: "math",
-        linked: true,
-        required_feature: None,
-    },
-    ModuleInfo {
-        package: "numbers-core",
-        import_path: "video_analysis::numbers",
-        domain: "data",
-        linked: true,
-        required_feature: None,
-    },
-    ModuleInfo {
-        package: "tensor-data",
-        import_path: "video_analysis::tensor_data",
-        domain: "data",
-        linked: true,
-        required_feature: None,
-    },
-    ModuleInfo {
-        package: "text-analysis",
-        import_path: "video_analysis::text_analysis",
-        domain: "text",
-        linked: true,
-        required_feature: None,
-    },
-    ModuleInfo {
-        package: "text-classification",
-        import_path: "video_analysis::text_classification",
-        domain: "text",
-        linked: true,
-        required_feature: None,
-    },
-    ModuleInfo {
-        package: "text-core",
-        import_path: "video_analysis::text_core",
-        domain: "text",
-        linked: true,
-        required_feature: None,
-    },
-    ModuleInfo {
-        package: "text-lexical",
-        import_path: "video_analysis::text_lexical",
-        domain: "text",
-        linked: true,
-        required_feature: None,
-    },
-    ModuleInfo {
-        package: "text-linguistics",
-        import_path: "video_analysis::text_linguistics",
-        domain: "text",
-        linked: true,
-        required_feature: None,
-    },
-    ModuleInfo {
-        package: "text-model-runtime",
-        import_path: "video_analysis::text_model_runtime",
-        domain: "text",
-        linked: true,
-        required_feature: None,
-    },
-    ModuleInfo {
-        package: "text-question-answering",
-        import_path: "video_analysis::text_question_answering",
-        domain: "text",
-        linked: true,
-        required_feature: None,
-    },
-    ModuleInfo {
-        package: "text-generation",
-        import_path: "video_analysis::text_generation",
-        domain: "text",
-        linked: true,
-        required_feature: None,
-    },
-    ModuleInfo {
-        package: "text-generation-linguistics",
-        import_path: "video_analysis::text_generation_linguistics",
-        domain: "text",
-        linked: true,
-        required_feature: None,
-    },
-    ModuleInfo {
-        package: "text-index",
-        import_path: "video_analysis::text_index",
-        domain: "text",
-        linked: true,
-        required_feature: None,
-    },
-    ModuleInfo {
-        package: "text-retrieval",
-        import_path: "video_analysis::text_retrieval",
-        domain: "text",
-        linked: true,
-        required_feature: None,
-    },
-    ModuleInfo {
-        package: "text-embeddings",
-        import_path: "video_analysis::text_embeddings",
-        domain: "text",
-        linked: true,
-        required_feature: None,
-    },
-    ModuleInfo {
-        package: "text-transcripts",
-        import_path: "video_analysis::text_transcripts",
-        domain: "text",
         linked: true,
         required_feature: None,
     },
@@ -2158,69 +930,6 @@ const MODULES: &[ModuleInfo] = &[
         required_feature: None,
     },
     ModuleInfo {
-        package: "vector-analysis-core",
-        import_path: "video_analysis::vector_core",
-        domain: "vector",
-        linked: true,
-        required_feature: None,
-    },
-    ModuleInfo {
-        package: "vector-analysis-index",
-        import_path: "video_analysis::vector_index",
-        domain: "vector",
-        linked: true,
-        required_feature: None,
-    },
-    ModuleInfo {
-        package: "video-analysis-core",
-        import_path: "video_analysis",
-        domain: "video",
-        linked: true,
-        required_feature: None,
-    },
-    ModuleInfo {
-        package: "video-analysis-data",
-        import_path: "video_analysis::data",
-        domain: "video",
-        linked: true,
-        required_feature: None,
-    },
-    ModuleInfo {
-        package: "video-analysis-dataset",
-        import_path: "video_analysis::dataset_records",
-        domain: "video",
-        linked: true,
-        required_feature: None,
-    },
-    ModuleInfo {
-        package: "video-analysis-detectors",
-        import_path: "video_analysis",
-        domain: "video",
-        linked: true,
-        required_feature: None,
-    },
-    ModuleInfo {
-        package: "video-analysis-editing",
-        import_path: "video_analysis::editing",
-        domain: "video",
-        linked: true,
-        required_feature: None,
-    },
-    ModuleInfo {
-        package: "video-analysis-features",
-        import_path: "video_analysis::features",
-        domain: "video",
-        linked: true,
-        required_feature: None,
-    },
-    ModuleInfo {
-        package: "video-analysis-ffmpeg",
-        import_path: "video_analysis::ffmpeg",
-        domain: "video",
-        linked: true,
-        required_feature: None,
-    },
-    ModuleInfo {
         package: "video-analysis-gaussian-splatting",
         import_path: "video_analysis::gaussian_splatting",
         domain: "video",
@@ -2228,22 +937,8 @@ const MODULES: &[ModuleInfo] = &[
         required_feature: None,
     },
     ModuleInfo {
-        package: "video-analysis-ingest",
-        import_path: "video_analysis::ingest",
-        domain: "video",
-        linked: true,
-        required_feature: None,
-    },
-    ModuleInfo {
         package: "video-analysis-mvs",
         import_path: "video_analysis::mvs",
-        domain: "video",
-        linked: true,
-        required_feature: None,
-    },
-    ModuleInfo {
-        package: "video-analysis-output",
-        import_path: "video_analysis::output",
         domain: "video",
         linked: true,
         required_feature: None,
@@ -2284,13 +979,6 @@ const MODULES: &[ModuleInfo] = &[
         required_feature: None,
     },
     ModuleInfo {
-        package: "video-analysis-recognition",
-        import_path: "video_analysis::recognition",
-        domain: "video",
-        linked: true,
-        required_feature: None,
-    },
-    ModuleInfo {
         package: "video-analysis-reconstruction",
         import_path: "video_analysis::reconstruction",
         domain: "video",
@@ -2298,50 +986,8 @@ const MODULES: &[ModuleInfo] = &[
         required_feature: None,
     },
     ModuleInfo {
-        package: "video-analysis-segmentation",
-        import_path: "video_analysis::video_segmentation",
-        domain: "video",
-        linked: true,
-        required_feature: None,
-    },
-    ModuleInfo {
         package: "video-analysis-sfm",
         import_path: "video_analysis::sfm",
-        domain: "video",
-        linked: true,
-        required_feature: None,
-    },
-    ModuleInfo {
-        package: "video-analysis-split",
-        import_path: "video_analysis::split",
-        domain: "video",
-        linked: true,
-        required_feature: None,
-    },
-    ModuleInfo {
-        package: "video-analysis-storage",
-        import_path: "video_analysis::storage",
-        domain: "video",
-        linked: true,
-        required_feature: None,
-    },
-    ModuleInfo {
-        package: "video-analysis-synthesis",
-        import_path: "video_analysis::synthesis",
-        domain: "video",
-        linked: true,
-        required_feature: None,
-    },
-    ModuleInfo {
-        package: "video-analysis-tracking",
-        import_path: "video_analysis::tracking",
-        domain: "video",
-        linked: true,
-        required_feature: None,
-    },
-    ModuleInfo {
-        package: "video-analysis-transform",
-        import_path: "video_analysis::transform",
         domain: "video",
         linked: true,
         required_feature: None,
@@ -2354,8 +1000,8 @@ mod tests {
 
     #[test]
     fn infers_wrapper_package_from_referer() {
-        let module = module_from_referer("http://127.0.0.1:5173/wrappers/video-analysis-core/");
-        assert_eq!(module.unwrap().package, "video-analysis-core");
+        let module = module_from_referer("http://127.0.0.1:5173/wrappers/comfyui-models/");
+        assert_eq!(module.unwrap().package, "comfyui-models");
     }
 
     #[test]
@@ -2366,14 +1012,13 @@ mod tests {
             query: HashMap::new(),
             headers: HashMap::from([(
                 "referer".to_string(),
-                "http://127.0.0.1:5173/wrappers/text-core/".to_string(),
+                "http://127.0.0.1:5173/wrappers/three-d-scene-svg/".to_string(),
             )]),
             body: String::new(),
         };
         let response = response_for(&request);
         assert_eq!(response.status_code, 200);
-        assert!(response.body.contains("text-core-server"));
-        assert!(response.body.contains("text.statistics"));
+        assert!(response.body.contains("three-d-scene-svg-server"));
     }
 
     #[test]
@@ -2405,71 +1050,6 @@ mod tests {
     }
 
     #[test]
-    fn serves_text_linguistics_analysis_from_package_route() {
-        let request = Request {
-            method: "POST".to_string(),
-            path: "/api/rust/packages/text-linguistics/api/run".to_string(),
-            query: HashMap::new(),
-            headers: HashMap::new(),
-            body: r#"{"operation":"linguistics.analyze","input":{"profile":"fast","text":"Alice presented the roadmap in Berlin."}}"#.to_string(),
-        };
-        let response = response_for(&request);
-        assert_eq!(response.status_code, 200);
-        assert!(response
-            .body
-            .contains("\"operation\":\"linguistics.analyze\""));
-        assert!(response.body.contains("\"tokens\""));
-    }
-
-    #[test]
-    fn serves_text_analysis_metadata_from_package_route() {
-        let request = Request {
-            method: "GET".to_string(),
-            path: "/api/rust/packages/text-analysis/api/package".to_string(),
-            query: HashMap::new(),
-            headers: HashMap::new(),
-            body: String::new(),
-        };
-        let response = response_for(&request);
-        assert_eq!(response.status_code, 200);
-        assert!(response.body.contains("text-analysis-server"));
-        assert!(response.body.contains("analysis.document"));
-    }
-
-    #[test]
-    fn serves_text_analysis_document_operation_from_package_route() {
-        let request = Request {
-            method: "POST".to_string(),
-            path: "/api/rust/packages/text-analysis/api/run".to_string(),
-            query: HashMap::new(),
-            headers: HashMap::new(),
-            body: r#"{"operation":"analysis.document","input":{"id":"doc-1","text":"Alice presented the tokenizer roadmap in Berlin."}}"#.to_string(),
-        };
-        let response = response_for(&request);
-        assert_eq!(response.status_code, 200);
-        assert!(response
-            .body
-            .contains("\"operation\":\"analysis.document\""));
-        assert!(response.body.contains("\"enrichedStats\""));
-        assert!(response.body.contains("\"lexical\""));
-    }
-
-    #[test]
-    fn serves_text_index_search_from_package_route() {
-        let request = Request {
-            method: "POST".to_string(),
-            path: "/api/rust/packages/text-index/api/run".to_string(),
-            query: HashMap::new(),
-            headers: HashMap::new(),
-            body: r#"{"operation":"index.search","input":{"documents":[{"id":"doc-1","body":"Rust text index search"},{"id":"doc-2","body":"Video scene reports"}],"query":{"text":"text search","topK":2}}}"#.to_string(),
-        };
-        let response = response_for(&request);
-        assert_eq!(response.status_code, 200);
-        assert!(response.body.contains("\"operation\":\"index.search\""));
-        assert!(response.body.contains("\"results\""));
-    }
-
-    #[test]
     fn serves_colmap_reconstruct_video_from_native_package_route() {
         let request = Request {
             method: "POST".to_string(),
@@ -2488,22 +1068,22 @@ mod tests {
     fn serves_package_model_catalog_from_package_route() {
         let request = Request {
             method: "GET".to_string(),
-            path: "/api/rust/packages/image-analysis-detection/api/models".to_string(),
+            path: "/api/rust/packages/video-analysis-posture/api/models".to_string(),
             query: HashMap::new(),
             headers: HashMap::new(),
             body: String::new(),
         };
         let response = response_for(&request);
         assert_eq!(response.status_code, 200);
-        assert!(response.body.contains("mask-proposal-demo"));
-        assert!(response.body.contains("yolo-onnx"));
+        assert!(response.body.contains("stick-figure-posture"));
+        assert!(response.body.contains("openpose-local"));
     }
 
     #[test]
     fn packages_without_models_return_empty_catalog() {
         let request = Request {
             method: "GET".to_string(),
-            path: "/api/rust/packages/math-linear/api/models".to_string(),
+            path: "/api/rust/packages/three-d-processing-core/api/models".to_string(),
             query: HashMap::new(),
             headers: HashMap::new(),
             body: String::new(),
@@ -2511,94 +1091,5 @@ mod tests {
         let response = response_for(&request);
         assert_eq!(response.status_code, 200);
         assert_eq!(response.body, "[]");
-    }
-
-    #[test]
-    fn onnx_model_catalog_flows_through_task_crate() {
-        let request = Request {
-            method: "GET".to_string(),
-            path: "/api/rust/packages/image-analysis-detection/api/models".to_string(),
-            query: HashMap::new(),
-            headers: HashMap::new(),
-            body: String::new(),
-        };
-        let response = response_for(&request);
-        assert_eq!(response.status_code, 200);
-        assert!(response.body.contains("mask-proposal-demo"));
-    }
-
-    #[test]
-    fn expected_text_library_crates_have_overview_surfaces() {
-        let expected = [
-            "text-analysis",
-            "text-core",
-            "text-classification",
-            "text-lexical",
-            "text-linguistics",
-            "text-model-runtime",
-            "text-question-answering",
-            "text-generation",
-            "text-generation-linguistics",
-            "text-retrieval",
-            "text-embeddings",
-            "text-transcripts",
-        ];
-
-        for package in expected {
-            let module = MODULES
-                .iter()
-                .copied()
-                .find(|module| module.package == package)
-                .unwrap_or_else(|| panic!("missing text module registration for {package}"));
-            let surface = package_surface_for(module)
-                .unwrap_or_else(|| panic!("missing package surface for {package}"));
-            assert!(
-                !surface.operations.is_empty(),
-                "missing operations for {package}"
-            );
-        }
-    }
-
-    #[test]
-    fn serves_text_nlp_task_endpoint_from_package_route() {
-        let request = Request {
-            method: "POST".to_string(),
-            path: "/api/rust/packages/text-linguistics/api/sentiment".to_string(),
-            query: HashMap::new(),
-            headers: HashMap::new(),
-            body: r#"{"text":"excellent reliable work","model":{"fallbackPolicy":"lexical_fallback"}}"#
-                .to_string(),
-        };
-        let response = response_for(&request);
-        assert_eq!(response.status_code, 200);
-        assert!(response.body.contains("\"operation\":\"sentiment\""));
-        assert!(response.body.contains("\"runtime\":\"lexical\""));
-    }
-
-    #[test]
-    fn serves_imported_transcript_normalization_from_text_transcripts_package_route() {
-        let request = Request {
-            method: "POST".to_string(),
-            path: "/api/rust/packages/text-transcripts/api/run".to_string(),
-            query: HashMap::new(),
-            headers: HashMap::new(),
-            body: r#"{"operation":"transcripts.normalize","input":{"source":"fixture.wav","language":"en","segments":[{"index":0,"startSeconds":0.0,"endSeconds":1.0,"text":" hello ","isFinal":true}]}}"#
-                .to_string(),
-        };
-        let response = response_for(&request);
-        assert_eq!(response.status_code, 200);
-        assert!(response
-            .body
-            .contains("\"operation\":\"transcripts.normalize\""));
-        assert!(response.body.contains("\"text\":\"hello\""));
-    }
-
-    #[test]
-    fn text_linguistics_default_config_uses_rich_local_model() {
-        let config = text_linguistics_config_from_payload(&json!({}));
-        assert_eq!(config.profile, text_linguistics::AnalysisProfile::Rich);
-        let metadata = text_linguistics_model_metadata_for_config(&config);
-        assert_eq!(metadata.entity_recognition, "local-model");
-        assert_eq!(metadata.entity_model, Some("bert-base-ner"));
     }
 }

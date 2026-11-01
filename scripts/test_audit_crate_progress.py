@@ -34,12 +34,12 @@ class CrateProgressAuditTests(unittest.TestCase):
         self.assertEqual(env["CARGO_TARGET_DIR"], "/tmp/custom-target")
 
     def test_generated_ledger_is_stable(self) -> None:
-        first = audit.render_ledger(audit.audit_records(ROOT, "moenarch-text-core"))
-        second = audit.render_ledger(audit.audit_records(ROOT, "moenarch-text-core"))
+        first = audit.render_ledger(audit.audit_records(ROOT, "moenarch-comfyui-models"))
+        second = audit.render_ledger(audit.audit_records(ROOT, "moenarch-comfyui-models"))
         self.assertEqual(first, second)
 
     def test_complete_companion_crate_reaches_transport_complete(self) -> None:
-        record = audit.audit_records(ROOT, "moenarch-text-core")[0]
+        record = audit.audit_records(ROOT, "moenarch-comfyui-models")[0]
         self.assertGreaterEqual(audit.LEVEL_RANK[record.level], audit.LEVEL_RANK["L3 Transport Complete"])
 
     def test_only_enumerated_contract_foundations_are_exempt_from_progress(self) -> None:

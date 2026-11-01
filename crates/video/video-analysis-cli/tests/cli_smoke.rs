@@ -31,24 +31,19 @@ fn vanalyze_lists_model_presets_from_binary() {
 #[test]
 fn vanalyze_exposes_package_capabilities_from_binary() {
     let output = std::process::Command::new(env!("CARGO_BIN_EXE_vanalyze"))
-        .args([
-            "packages",
-            "inspect",
-            "moenarch-video-analysis-core",
-            "--json",
-        ])
+        .args(["packages", "inspect", "moenarch-comfyui-models", "--json"])
         .output()
         .unwrap();
     assert!(output.status.success());
     let stdout = String::from_utf8(output.stdout).unwrap();
-    assert!(stdout.contains("\"name\": \"moenarch-video-analysis-core\""));
+    assert!(stdout.contains("\"name\": \"moenarch-comfyui-models\""));
     assert!(stdout.contains("\"kind\": \"library\""));
     assert!(stdout.contains("\"kind\": \"cli\""));
     assert!(stdout.contains("\"kind\": \"api\""));
     assert!(stdout.contains("\"kind\": \"ui\""));
-    assert!(stdout.contains("video-analysis-core/cli"));
-    assert!(stdout.contains("video-analysis-core/api"));
-    assert!(stdout.contains("video-analysis-core/app"));
+    assert!(stdout.contains("comfyui-models/cli"));
+    assert!(stdout.contains("comfyui-models/api"));
+    assert!(stdout.contains("comfyui-models/app"));
 }
 
 #[test]

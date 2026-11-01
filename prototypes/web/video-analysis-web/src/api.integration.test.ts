@@ -33,11 +33,11 @@ afterAll(async () => {
 
 describe("workspace API integration", () => {
   it("serves the package catalog over HTTP", async () => {
-    const response = await fetch(`${baseUrl}/api/packages?name=moenarch-video-analysis-core`);
+    const response = await fetch(`${baseUrl}/api/packages?name=moenarch-comfyui-models`);
 
     expect(response.status).toBe(200);
     const body = await response.json();
-    expect(body.name).toBe("moenarch-video-analysis-core");
+    expect(body.name).toBe("moenarch-comfyui-models");
     expect(body.capabilities.map((capability: { kind: string }) => capability.kind)).toEqual([
       "library",
       "cli",
@@ -81,33 +81,21 @@ describe("workspace API integration", () => {
     expect(body.interop.length).toBeGreaterThan(0);
   }, apiTestTimeoutMs);
 
-  it("serves complete text package overview surfaces", async () => {
+  it("serves complete ComfyUI package overview surfaces", async () => {
     const response = await fetch(`${baseUrl}/api/workspace-architecture`);
 
     expect(response.status).toBe(200);
     const body = await response.json();
     const packageNames = new Set(body.packages.map((pkg: { name: string }) => pkg.name));
-    const expectedTextLibraries = [
-      "text-analysis",
-      "text-core",
-      "text-classification",
-      "text-lexical",
-      "text-linguistics",
-      "text-model-runtime",
-      "text-question-answering",
-      "text-generation",
-      "text-generation-linguistics",
-      "text-retrieval",
-      "text-embeddings",
-      "text-transcripts",
+    const expectedComfyLibraries = [
+      "comfyui-data",
+      "comfyui-latents",
+      "comfyui-models",
+      "image-analysis-comfyui",
     ];
 
-    expect(packageNames.has("moenarch-text-analysis")).toBe(true);
-    expect(packageNames.has("moenarch-text-analysis-server")).toBe(true);
-    expect(packageNames.has("@moritzbrantner/text-analysis-app")).toBe(true);
-    expect(packageNames.has("@moritzbrantner/text-analysis-wasm")).toBe(true);
-
-    for (const library of expectedTextLibraries) {
+    for (const library of expectedComfyLibraries) {
+      expect(packageNames.has(`moenarch-${library}`), `${library} library`).toBe(true);
       expect(packageNames.has(`@moritzbrantner/${library}-app`), `${library} app`).toBe(true);
       expect(packageNames.has(`moenarch-${library}-server`), `${library} server`).toBe(true);
       expect(packageNames.has(`@moritzbrantner/${library}-wasm`), `${library} wasm`).toBe(true);

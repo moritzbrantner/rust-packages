@@ -2,8 +2,6 @@ use std::collections::{BTreeMap, BTreeSet};
 use std::fs;
 use std::path::Path;
 
-use runtime_core::{PackageSurface, SurfaceOperation};
-
 #[derive(Debug)]
 struct MatrixRow {
     operations: Vec<String>,
@@ -56,196 +54,6 @@ fn deterministic_family_matrix_rows_are_transport_complete() {
     }
 }
 
-#[test]
-fn migrated_tranche_operation_metadata_is_complete() {
-    for surface in [
-        image_analysis_processing::surface::package_surface(),
-        text_core::surface::package_surface(),
-        math_geometry_2d::surface::package_surface(),
-        math_linear::surface::package_surface(),
-        math_signal_core::surface::package_surface(),
-        math_sparse_data::surface::package_surface(),
-        math_statistics::surface::package_surface(),
-        video_analysis_detectors::surface::package_surface(),
-        video_analysis_editing::surface::package_surface(),
-        video_analysis_output::surface::package_surface(),
-        video_analysis_recognition::surface::package_surface(),
-        video_analysis_segmentation::surface::package_surface(),
-        video_analysis_split::surface::package_surface(),
-        video_analysis_synthesis::surface::package_surface(),
-        video_analysis_tracking::surface::package_surface(),
-    ] {
-        assert_surface_metadata(surface);
-    }
-
-    for (surface, runner) in [
-        (
-            math_geometry_2d::surface::package_surface(),
-            math_geometry_2d::surface::run_surface_operation
-                as fn(
-                    runtime_core::SurfaceRequest,
-                ) -> Result<runtime_core::SurfaceResponse, String>,
-        ),
-        (
-            math_linear::surface::package_surface(),
-            math_linear::surface::run_surface_operation
-                as fn(
-                    runtime_core::SurfaceRequest,
-                ) -> Result<runtime_core::SurfaceResponse, String>,
-        ),
-        (
-            math_signal_core::surface::package_surface(),
-            math_signal_core::surface::run_surface_operation
-                as fn(
-                    runtime_core::SurfaceRequest,
-                ) -> Result<runtime_core::SurfaceResponse, String>,
-        ),
-        (
-            math_sparse_data::surface::package_surface(),
-            math_sparse_data::surface::run_surface_operation
-                as fn(
-                    runtime_core::SurfaceRequest,
-                ) -> Result<runtime_core::SurfaceResponse, String>,
-        ),
-        (
-            math_statistics::surface::package_surface(),
-            math_statistics::surface::run_surface_operation
-                as fn(
-                    runtime_core::SurfaceRequest,
-                ) -> Result<runtime_core::SurfaceResponse, String>,
-        ),
-        (
-            video_analysis_detectors::surface::package_surface(),
-            video_analysis_detectors::surface::run_surface_operation
-                as fn(
-                    runtime_core::SurfaceRequest,
-                ) -> Result<runtime_core::SurfaceResponse, String>,
-        ),
-        (
-            video_analysis_output::surface::package_surface(),
-            video_analysis_output::surface::run_surface_operation,
-        ),
-        (
-            video_analysis_recognition::surface::package_surface(),
-            video_analysis_recognition::surface::run_surface_operation,
-        ),
-        (
-            video_analysis_segmentation::surface::package_surface(),
-            video_analysis_segmentation::surface::run_surface_operation,
-        ),
-        (
-            video_analysis_split::surface::package_surface(),
-            video_analysis_split::surface::run_surface_operation,
-        ),
-        (
-            video_analysis_synthesis::surface::package_surface(),
-            video_analysis_synthesis::surface::run_surface_operation,
-        ),
-        (
-            video_analysis_tracking::surface::package_surface(),
-            video_analysis_tracking::surface::run_surface_operation,
-        ),
-    ] {
-        assert_surface_operations_are_not_scaffold(surface, runner);
-    }
-}
-
-#[test]
-fn video_segmentation_surface_outputs_do_not_expose_scaffold_operation_kind() {
-    let surface = video_analysis_segmentation::surface::package_surface();
-    for operation in surface
-        .operations
-        .iter()
-        .filter(|operation| operation.id.as_str() != "describe")
-    {
-        let response = video_analysis_segmentation::surface::run_surface_operation(
-            runtime_core::SurfaceRequest {
-                operation: operation.id.clone(),
-                input: operation.example_request.clone(),
-            },
-        )
-        .unwrap_or_else(|error| {
-            panic!(
-                "{}:{} example request failed: {error}",
-                surface.library,
-                operation.id.as_str()
-            )
-        });
-        assert!(
-            !response.value.to_string().contains("operationKind"),
-            "{}:{} still exposes scaffold operationKind",
-            surface.library,
-            operation.id.as_str()
-        );
-    }
-}
-
-fn assert_surface_metadata(surface: PackageSurface) {
-    for operation in &surface.operations {
-        assert_operation_metadata(&surface.library, operation);
-    }
-}
-
-fn assert_operation_metadata(library: &str, operation: &SurfaceOperation) {
-    let id = operation.id.as_str();
-    assert!(!id.trim().is_empty(), "{library} operation id is empty");
-    assert!(
-        !operation.name.trim().is_empty(),
-        "{library}:{id} operation name is empty"
-    );
-    assert!(
-        operation
-            .description
-            .as_deref()
-            .is_some_and(|description| !description.trim().is_empty()),
-        "{library}:{id} operation description is empty"
-    );
-    assert!(
-        operation.example_request.is_object(),
-        "{library}:{id} example_request must be an object"
-    );
-    assert!(
-        operation.input_schema.is_object(),
-        "{library}:{id} input_schema must be an object"
-    );
-    assert!(
-        operation.output_schema.is_object(),
-        "{library}:{id} output_schema must be an object"
-    );
-}
-
-fn assert_surface_operations_are_not_scaffold(
-    surface: PackageSurface,
-    runner: fn(runtime_core::SurfaceRequest) -> Result<runtime_core::SurfaceResponse, String>,
-) {
-    for operation in surface
-        .operations
-        .iter()
-        .filter(|operation| operation.id.as_str() != "describe")
-    {
-        let response = runner(runtime_core::SurfaceRequest {
-            operation: operation.id.clone(),
-            input: operation.example_request.clone(),
-        })
-        .unwrap_or_else(|error| {
-            panic!(
-                "{}:{} example request failed: {error}",
-                surface.library,
-                operation.id.as_str()
-            )
-        });
-        assert!(
-            !response
-                .value
-                .to_string()
-                .contains("A deterministic summary or execution plan owned by the Rust library"),
-            "{}:{} still returns scaffold payload",
-            surface.library,
-            operation.id.as_str()
-        );
-    }
-}
-
 fn parse_matrix() -> BTreeMap<String, MatrixRow> {
     let root = Path::new(env!("CARGO_MANIFEST_DIR"));
     let matrix = fs::read_to_string(root.join("docs/PACKAGE_SURFACE_MATRIX.md"))
@@ -286,19 +94,8 @@ fn strip_ticks(value: &str) -> &str {
 }
 
 fn deterministic_family(library: &str) -> bool {
-    library.starts_with("text-")
+    library.starts_with("comfyui-")
         || library.starts_with("image-")
-        || library.starts_with("audio-")
-        || library.starts_with("math-")
-        || library.ends_with("-data")
-        || library.starts_with("data-")
-        || library.starts_with("dense-")
-        || library.starts_with("vector-")
-        || library.starts_with("comfyui-")
         || library.starts_with("three-d-")
         || library.starts_with("video-")
-        || matches!(
-            library,
-            "jobs-core" | "model-runtime" | "numbers-core" | "tensor-data"
-        )
 }

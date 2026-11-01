@@ -241,10 +241,6 @@ if [[ "$frontend_scope" == "all" ]]; then
     log "frontend reason: $reason"
   done
   fixed_frontend_commands=(
-    "bun run text-wasm:test"
-    "bun run text-analysis-wasm:test"
-    "bun run text-linguistics-wasm:test"
-    "bun run video-wasm:test"
     "bun run ui:typecheck"
     "bun run web:typecheck"
     "bun run ui:test:unit"

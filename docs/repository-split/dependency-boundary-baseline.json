@@ -2,46 +2,5 @@
   "repository": "moritzbrantner/rust-packages",
   "schema_version": 1,
   "source_commit": "d032ad2890c1df3c6a5b9eff024562f00d017fce",
-  "violations": [
-    {
-      "dependency_kind": "dev",
-      "dependency_package": "moenarch-three-d-processing-core",
-      "migration_issue": "https://github.com/moritzbrantner/rust-packages/issues/118",
-      "reason": "visual implementation still imports spatial contracts",
-      "source_package": "moenarch-video-analysis-dataset",
-      "target_phase": "visual"
-    },
-    {
-      "dependency_kind": "normal",
-      "dependency_package": "moenarch-video-analysis-posture",
-      "migration_issue": "https://github.com/moritzbrantner/rust-packages/issues/118",
-      "reason": "visual implementation still imports spatial contracts",
-      "source_package": "moenarch-video-analysis-dataset",
-      "target_phase": "visual"
-    },
-    {
-      "dependency_kind": "dev",
-      "dependency_package": "moenarch-video-analysis-test-support",
-      "migration_issue": "https://github.com/moritzbrantner/rust-packages/issues/107",
-      "reason": "test support remains with the compatibility repository",
-      "source_package": "moenarch-video-analysis-detectors",
-      "target_phase": "phase-a"
-    },
-    {
-      "dependency_kind": "normal",
-      "dependency_package": "moenarch-three-d-processing-core",
-      "migration_issue": "https://github.com/moritzbrantner/rust-packages/issues/118",
-      "reason": "visual implementation still imports spatial contracts",
-      "source_package": "moenarch-video-analysis-recognition",
-      "target_phase": "visual"
-    },
-    {
-      "dependency_kind": "normal",
-      "dependency_package": "moenarch-video-analysis-posture",
-      "migration_issue": "https://github.com/moritzbrantner/rust-packages/issues/118",
-      "reason": "visual implementation still imports spatial contracts",
-      "source_package": "moenarch-video-analysis-recognition",
-      "target_phase": "visual"
-    }
-  ]
+  "violations": []
 }

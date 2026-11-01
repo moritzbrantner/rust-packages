@@ -2173,8 +2173,7 @@ fn analyze_transcript_text(
         });
     }
 
-    let mut builder =
-        video_analysis_core::TextPipeline::builder().analyzer(TranscriptHeuristicAnalyzer);
+    let mut builder = text_core::TextPipeline::builder().analyzer(TranscriptHeuristicAnalyzer);
     if let Some(command) = &args.text_command {
         let backend = ExternalCommandModel::new(
             command,
@@ -2184,7 +2183,10 @@ fn analyze_transcript_text(
             ),
         )
         .args(args.text_args.clone());
-        builder = builder.analyzer(ModelTextAnalyzer::new("transcript_text_model", backend));
+        builder = builder.analyzer(TranscriptModelAnalyzer(ModelTextAnalyzer::new(
+            "transcript_text_model",
+            backend,
+        )));
     }
     let mut pipeline = builder.build()?;
 
@@ -2366,10 +2368,29 @@ fn display_path(path: &Path) -> String {
     path.to_string_lossy().into_owned()
 }
 
+/// Runs a visual-analysis text model inside a `text_core` pipeline. The adapter is
+/// consumer-owned: visual-analysis no longer implements the NLP analyzer trait.
+struct TranscriptModelAnalyzer<B>(ModelTextAnalyzer<B>);
+
+impl<B: video_analysis_recognition::TextModelBackend> text_core::TextAnalyzer
+    for TranscriptModelAnalyzer<B>
+{
+    fn name(&self) -> &str {
+        "transcript_text_model"
+    }
+
+    fn process_segment(
+        &mut self,
+        segment: &text_core::TextSegment<'_>,
+    ) -> Result<Vec<video_analysis_core::AnalysisEvent>> {
+        self.0.analyze_segment(segment)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
-    use video_analysis_core::TextAnalyzer;
+    use text_core::TextAnalyzer;
 
     #[cfg(unix)]
     #[test]
@@ -2453,7 +2474,7 @@ mod tests {
     #[test]
     fn transcript_heuristics_identify_common_events() {
         let mut analyzer = TranscriptHeuristicAnalyzer;
-        let segment = video_analysis_core::OwnedTextSegment::new(0, "Visit https://example.com?");
+        let segment = text_core::OwnedTextSegment::new(0, "Visit https://example.com?");
 
         let events = analyzer.process_segment(&segment.as_segment()).unwrap();
 

@@ -37,137 +37,11 @@ flowchart LR
     crate_moenarch_video_analysis["moenarch-video-analysis"]:::root
   end
 
-  subgraph group_data["Data"]
-    direction TB
-    crate_moenarch_data_inversion_core["moenarch-data-inversion-core"]:::crate
-    crate_moenarch_data_inversion_core_cli["moenarch-data-inversion-core-cli"]:::crate
-    crate_moenarch_data_inversion_core_server["moenarch-data-inversion-core-server"]:::crate
-    crate_moenarch_dense_data["moenarch-dense-data"]:::crate
-    crate_moenarch_dense_data_cli["moenarch-dense-data-cli"]:::crate
-    crate_moenarch_dense_data_server["moenarch-dense-data-server"]:::crate
-    crate_moenarch_graph_analysis_core["moenarch-graph-analysis-core"]:::crate
-    crate_moenarch_graph_analysis_core_cli["moenarch-graph-analysis-core-cli"]:::crate
-    crate_moenarch_graph_analysis_core_server["moenarch-graph-analysis-core-server"]:::crate
-    crate_moenarch_numbers_core["moenarch-numbers-core"]:::crate
-    crate_moenarch_numbers_core_cli["moenarch-numbers-core-cli"]:::crate
-    crate_moenarch_numbers_core_server["moenarch-numbers-core-server"]:::crate
-    crate_moenarch_tensor_data["moenarch-tensor-data"]:::crate
-    crate_moenarch_tensor_data_cli["moenarch-tensor-data-cli"]:::crate
-    crate_moenarch_tensor_data_server["moenarch-tensor-data-server"]:::crate
-  end
-
-  subgraph group_math["Math"]
-    direction TB
-    crate_moenarch_math_geometry_2d["moenarch-math-geometry-2d"]:::crate
-    crate_moenarch_math_geometry_2d_cli["moenarch-math-geometry-2d-cli"]:::crate
-    crate_moenarch_math_geometry_2d_server["moenarch-math-geometry-2d-server"]:::crate
-    crate_moenarch_math_linear["moenarch-math-linear"]:::crate
-    crate_moenarch_math_linear_cli["moenarch-math-linear-cli"]:::crate
-    crate_moenarch_math_linear_server["moenarch-math-linear-server"]:::crate
-    crate_moenarch_math_signal_core["moenarch-math-signal-core"]:::crate
-    crate_moenarch_math_signal_core_cli["moenarch-math-signal-core-cli"]:::crate
-    crate_moenarch_math_signal_core_server["moenarch-math-signal-core-server"]:::crate
-    crate_moenarch_math_sparse_data["moenarch-math-sparse-data"]:::crate
-    crate_moenarch_math_sparse_data_cli["moenarch-math-sparse-data-cli"]:::crate
-    crate_moenarch_math_sparse_data_server["moenarch-math-sparse-data-server"]:::crate
-    crate_moenarch_math_statistics["moenarch-math-statistics"]:::crate
-    crate_moenarch_math_statistics_cli["moenarch-math-statistics-cli"]:::crate
-    crate_moenarch_math_statistics_server["moenarch-math-statistics-server"]:::crate
-  end
-
-  subgraph group_audio["Audio"]
-    direction TB
-    crate_moenarch_audio_contracts["moenarch-audio-contracts"]:::crate
-  end
-
   subgraph group_image["Image"]
     direction TB
-    crate_moenarch_image_analysis_captioning["moenarch-image-analysis-captioning"]:::crate
-    crate_moenarch_image_analysis_captioning_cli["moenarch-image-analysis-captioning-cli"]:::crate
-    crate_moenarch_image_analysis_captioning_server["moenarch-image-analysis-captioning-server"]:::crate
-    crate_moenarch_image_analysis_classification["moenarch-image-analysis-classification"]:::crate
-    crate_moenarch_image_analysis_classification_cli["moenarch-image-analysis-classification-cli"]:::crate
-    crate_moenarch_image_analysis_classification_server["moenarch-image-analysis-classification-server"]:::crate
     crate_moenarch_image_analysis_comfyui["moenarch-image-analysis-comfyui"]:::crate
     crate_moenarch_image_analysis_comfyui_cli["moenarch-image-analysis-comfyui-cli"]:::crate
     crate_moenarch_image_analysis_comfyui_server["moenarch-image-analysis-comfyui-server"]:::crate
-    crate_moenarch_image_analysis_core["moenarch-image-analysis-core"]:::crate
-    crate_moenarch_image_analysis_core_cli["moenarch-image-analysis-core-cli"]:::crate
-    crate_moenarch_image_analysis_core_server["moenarch-image-analysis-core-server"]:::crate
-    crate_moenarch_image_analysis_detection["moenarch-image-analysis-detection"]:::crate
-    crate_moenarch_image_analysis_detection_cli["moenarch-image-analysis-detection-cli"]:::crate
-    crate_moenarch_image_analysis_detection_server["moenarch-image-analysis-detection-server"]:::crate
-    crate_moenarch_image_analysis_embeddings["moenarch-image-analysis-embeddings"]:::crate
-    crate_moenarch_image_analysis_embeddings_cli["moenarch-image-analysis-embeddings-cli"]:::crate
-    crate_moenarch_image_analysis_embeddings_server["moenarch-image-analysis-embeddings-server"]:::crate
-    crate_moenarch_image_analysis_io["moenarch-image-analysis-io"]:::crate
-    crate_moenarch_image_analysis_io_cli["moenarch-image-analysis-io-cli"]:::crate
-    crate_moenarch_image_analysis_io_server["moenarch-image-analysis-io-server"]:::crate
-    crate_moenarch_image_analysis_ocr["moenarch-image-analysis-ocr"]:::crate
-    crate_moenarch_image_analysis_ocr_cli["moenarch-image-analysis-ocr-cli"]:::crate
-    crate_moenarch_image_analysis_ocr_server["moenarch-image-analysis-ocr-server"]:::crate
-    crate_moenarch_image_analysis_processing["moenarch-image-analysis-processing"]:::crate
-    crate_moenarch_image_analysis_processing_cli["moenarch-image-analysis-processing-cli"]:::crate
-    crate_moenarch_image_analysis_processing_server["moenarch-image-analysis-processing-server"]:::crate
-    crate_moenarch_image_analysis_segmentation["moenarch-image-analysis-segmentation"]:::crate
-    crate_moenarch_image_analysis_segmentation_cli["moenarch-image-analysis-segmentation-cli"]:::crate
-    crate_moenarch_image_analysis_segmentation_server["moenarch-image-analysis-segmentation-server"]:::crate
-    crate_moenarch_image_analysis_synthesis["moenarch-image-analysis-synthesis"]:::crate
-    crate_moenarch_image_analysis_synthesis_cli["moenarch-image-analysis-synthesis-cli"]:::crate
-    crate_moenarch_image_analysis_synthesis_server["moenarch-image-analysis-synthesis-server"]:::crate
-  end
-
-  subgraph group_text["Text"]
-    direction TB
-    crate_moenarch_text_analysis["moenarch-text-analysis"]:::crate
-    crate_moenarch_text_analysis_cli["moenarch-text-analysis-cli"]:::crate
-    crate_moenarch_text_analysis_server["moenarch-text-analysis-server"]:::crate
-    crate_moenarch_text_classification["moenarch-text-classification"]:::crate
-    crate_moenarch_text_classification_cli["moenarch-text-classification-cli"]:::crate
-    crate_moenarch_text_classification_server["moenarch-text-classification-server"]:::crate
-    crate_moenarch_text_core["moenarch-text-core"]:::crate
-    crate_moenarch_text_core_cli["moenarch-text-core-cli"]:::crate
-    crate_moenarch_text_core_server["moenarch-text-core-server"]:::crate
-    crate_moenarch_text_embeddings["moenarch-text-embeddings"]:::crate
-    crate_moenarch_text_embeddings_cli["moenarch-text-embeddings-cli"]:::crate
-    crate_moenarch_text_embeddings_server["moenarch-text-embeddings-server"]:::crate
-    crate_moenarch_text_generation["moenarch-text-generation"]:::crate
-    crate_moenarch_text_generation_cli["moenarch-text-generation-cli"]:::crate
-    crate_moenarch_text_generation_linguistics["moenarch-text-generation-linguistics"]:::crate
-    crate_moenarch_text_generation_linguistics_cli["moenarch-text-generation-linguistics-cli"]:::crate
-    crate_moenarch_text_generation_linguistics_server["moenarch-text-generation-linguistics-server"]:::crate
-    crate_moenarch_text_generation_server["moenarch-text-generation-server"]:::crate
-    crate_moenarch_text_index["moenarch-text-index"]:::crate
-    crate_moenarch_text_index_cli["moenarch-text-index-cli"]:::crate
-    crate_moenarch_text_index_server["moenarch-text-index-server"]:::crate
-    crate_moenarch_text_lexical["moenarch-text-lexical"]:::crate
-    crate_moenarch_text_lexical_cli["moenarch-text-lexical-cli"]:::crate
-    crate_moenarch_text_lexical_server["moenarch-text-lexical-server"]:::crate
-    crate_moenarch_text_linguistics["moenarch-text-linguistics"]:::crate
-    crate_moenarch_text_linguistics_cli["moenarch-text-linguistics-cli"]:::crate
-    crate_moenarch_text_linguistics_server["moenarch-text-linguistics-server"]:::crate
-    crate_moenarch_text_model_runtime["moenarch-text-model-runtime"]:::crate
-    crate_moenarch_text_model_runtime_cli["moenarch-text-model-runtime-cli"]:::crate
-    crate_moenarch_text_model_runtime_server["moenarch-text-model-runtime-server"]:::crate
-    crate_moenarch_text_question_answering["moenarch-text-question-answering"]:::crate
-    crate_moenarch_text_question_answering_cli["moenarch-text-question-answering-cli"]:::crate
-    crate_moenarch_text_question_answering_server["moenarch-text-question-answering-server"]:::crate
-    crate_moenarch_text_retrieval["moenarch-text-retrieval"]:::crate
-    crate_moenarch_text_retrieval_cli["moenarch-text-retrieval-cli"]:::crate
-    crate_moenarch_text_retrieval_server["moenarch-text-retrieval-server"]:::crate
-    crate_moenarch_text_transcripts["moenarch-text-transcripts"]:::crate
-    crate_moenarch_text_transcripts_cli["moenarch-text-transcripts-cli"]:::crate
-    crate_moenarch_text_transcripts_server["moenarch-text-transcripts-server"]:::crate
-  end
-
-  subgraph group_vector["Vector"]
-    direction TB
-    crate_moenarch_vector_analysis_core["moenarch-vector-analysis-core"]:::crate
-    crate_moenarch_vector_analysis_core_cli["moenarch-vector-analysis-core-cli"]:::crate
-    crate_moenarch_vector_analysis_core_server["moenarch-vector-analysis-core-server"]:::crate
-    crate_moenarch_vector_analysis_index["moenarch-vector-analysis-index"]:::crate
-    crate_moenarch_vector_analysis_index_cli["moenarch-vector-analysis-index-cli"]:::crate
-    crate_moenarch_vector_analysis_index_server["moenarch-vector-analysis-index-server"]:::crate
   end
 
   subgraph group_three_d["Three-D"]
@@ -189,39 +63,12 @@ flowchart LR
   subgraph group_video["Video"]
     direction TB
     crate_moenarch_video_analysis_cli["moenarch-video-analysis-cli"]:::crate
-    crate_moenarch_video_analysis_core["moenarch-video-analysis-core"]:::crate
-    crate_moenarch_video_analysis_core_cli["moenarch-video-analysis-core-cli"]:::crate
-    crate_moenarch_video_analysis_core_server["moenarch-video-analysis-core-server"]:::crate
-    crate_moenarch_video_analysis_data["moenarch-video-analysis-data"]:::crate
-    crate_moenarch_video_analysis_data_cli["moenarch-video-analysis-data-cli"]:::crate
-    crate_moenarch_video_analysis_data_server["moenarch-video-analysis-data-server"]:::crate
-    crate_moenarch_video_analysis_dataset["moenarch-video-analysis-dataset"]:::crate
-    crate_moenarch_video_analysis_dataset_cli["moenarch-video-analysis-dataset-cli"]:::crate
-    crate_moenarch_video_analysis_dataset_server["moenarch-video-analysis-dataset-server"]:::crate
-    crate_moenarch_video_analysis_detectors["moenarch-video-analysis-detectors"]:::crate
-    crate_moenarch_video_analysis_detectors_cli["moenarch-video-analysis-detectors-cli"]:::crate
-    crate_moenarch_video_analysis_detectors_server["moenarch-video-analysis-detectors-server"]:::crate
-    crate_moenarch_video_analysis_editing["moenarch-video-analysis-editing"]:::crate
-    crate_moenarch_video_analysis_editing_cli["moenarch-video-analysis-editing-cli"]:::crate
-    crate_moenarch_video_analysis_editing_server["moenarch-video-analysis-editing-server"]:::crate
-    crate_moenarch_video_analysis_features["moenarch-video-analysis-features"]:::crate
-    crate_moenarch_video_analysis_features_cli["moenarch-video-analysis-features-cli"]:::crate
-    crate_moenarch_video_analysis_features_server["moenarch-video-analysis-features-server"]:::crate
-    crate_moenarch_video_analysis_ffmpeg["moenarch-video-analysis-ffmpeg"]:::crate
-    crate_moenarch_video_analysis_ffmpeg_cli["moenarch-video-analysis-ffmpeg-cli"]:::crate
-    crate_moenarch_video_analysis_ffmpeg_server["moenarch-video-analysis-ffmpeg-server"]:::crate
     crate_moenarch_video_analysis_gaussian_splatting["moenarch-video-analysis-gaussian-splatting"]:::crate
     crate_moenarch_video_analysis_gaussian_splatting_cli["moenarch-video-analysis-gaussian-splatting-cli"]:::crate
     crate_moenarch_video_analysis_gaussian_splatting_server["moenarch-video-analysis-gaussian-splatting-server"]:::crate
-    crate_moenarch_video_analysis_ingest["moenarch-video-analysis-ingest"]:::crate
-    crate_moenarch_video_analysis_ingest_cli["moenarch-video-analysis-ingest-cli"]:::crate
-    crate_moenarch_video_analysis_ingest_server["moenarch-video-analysis-ingest-server"]:::crate
     crate_moenarch_video_analysis_mvs["moenarch-video-analysis-mvs"]:::crate
     crate_moenarch_video_analysis_mvs_cli["moenarch-video-analysis-mvs-cli"]:::crate
     crate_moenarch_video_analysis_mvs_server["moenarch-video-analysis-mvs-server"]:::crate
-    crate_moenarch_video_analysis_output["moenarch-video-analysis-output"]:::crate
-    crate_moenarch_video_analysis_output_cli["moenarch-video-analysis-output-cli"]:::crate
-    crate_moenarch_video_analysis_output_server["moenarch-video-analysis-output-server"]:::crate
     crate_moenarch_video_analysis_posture["moenarch-video-analysis-posture"]:::crate
     crate_moenarch_video_analysis_posture_cli["moenarch-video-analysis-posture-cli"]:::crate
     crate_moenarch_video_analysis_posture_io["moenarch-video-analysis-posture-io"]:::crate
@@ -237,33 +84,12 @@ flowchart LR
     crate_moenarch_video_analysis_radiance_pipeline["moenarch-video-analysis-radiance-pipeline"]:::crate
     crate_moenarch_video_analysis_radiance_pipeline_cli["moenarch-video-analysis-radiance-pipeline-cli"]:::crate
     crate_moenarch_video_analysis_radiance_pipeline_server["moenarch-video-analysis-radiance-pipeline-server"]:::crate
-    crate_moenarch_video_analysis_recognition["moenarch-video-analysis-recognition"]:::crate
-    crate_moenarch_video_analysis_recognition_cli["moenarch-video-analysis-recognition-cli"]:::crate
-    crate_moenarch_video_analysis_recognition_server["moenarch-video-analysis-recognition-server"]:::crate
     crate_moenarch_video_analysis_reconstruction["moenarch-video-analysis-reconstruction"]:::crate
     crate_moenarch_video_analysis_reconstruction_cli["moenarch-video-analysis-reconstruction-cli"]:::crate
     crate_moenarch_video_analysis_reconstruction_server["moenarch-video-analysis-reconstruction-server"]:::crate
-    crate_moenarch_video_analysis_segmentation["moenarch-video-analysis-segmentation"]:::crate
-    crate_moenarch_video_analysis_segmentation_cli["moenarch-video-analysis-segmentation-cli"]:::crate
-    crate_moenarch_video_analysis_segmentation_server["moenarch-video-analysis-segmentation-server"]:::crate
     crate_moenarch_video_analysis_sfm["moenarch-video-analysis-sfm"]:::crate
     crate_moenarch_video_analysis_sfm_cli["moenarch-video-analysis-sfm-cli"]:::crate
     crate_moenarch_video_analysis_sfm_server["moenarch-video-analysis-sfm-server"]:::crate
-    crate_moenarch_video_analysis_split["moenarch-video-analysis-split"]:::crate
-    crate_moenarch_video_analysis_split_cli["moenarch-video-analysis-split-cli"]:::crate
-    crate_moenarch_video_analysis_split_server["moenarch-video-analysis-split-server"]:::crate
-    crate_moenarch_video_analysis_storage["moenarch-video-analysis-storage"]:::crate
-    crate_moenarch_video_analysis_storage_cli["moenarch-video-analysis-storage-cli"]:::crate
-    crate_moenarch_video_analysis_storage_server["moenarch-video-analysis-storage-server"]:::crate
-    crate_moenarch_video_analysis_synthesis["moenarch-video-analysis-synthesis"]:::crate
-    crate_moenarch_video_analysis_synthesis_cli["moenarch-video-analysis-synthesis-cli"]:::crate
-    crate_moenarch_video_analysis_synthesis_server["moenarch-video-analysis-synthesis-server"]:::crate
-    crate_moenarch_video_analysis_tracking["moenarch-video-analysis-tracking"]:::crate
-    crate_moenarch_video_analysis_tracking_cli["moenarch-video-analysis-tracking-cli"]:::crate
-    crate_moenarch_video_analysis_tracking_server["moenarch-video-analysis-tracking-server"]:::crate
-    crate_moenarch_video_analysis_transform["moenarch-video-analysis-transform"]:::crate
-    crate_moenarch_video_analysis_transform_cli["moenarch-video-analysis-transform-cli"]:::crate
-    crate_moenarch_video_analysis_transform_server["moenarch-video-analysis-transform-server"]:::crate
   end
 
   subgraph group_comfyui["ComfyUI"]
@@ -285,74 +111,20 @@ flowchart LR
     crate_moenarch_comfyui_data_wasm["moenarch-comfyui-data-wasm"]:::crate
     crate_moenarch_comfyui_latents_wasm["moenarch-comfyui-latents-wasm"]:::crate
     crate_moenarch_comfyui_models_wasm["moenarch-comfyui-models-wasm"]:::crate
-    crate_moenarch_data_inversion_core_wasm["moenarch-data-inversion-core-wasm"]:::crate
-    crate_moenarch_dense_data_wasm["moenarch-dense-data-wasm"]:::crate
-    crate_moenarch_graph_analysis_core_wasm["moenarch-graph-analysis-core-wasm"]:::crate
-    crate_moenarch_image_analysis_captioning_wasm["moenarch-image-analysis-captioning-wasm"]:::crate
-    crate_moenarch_image_analysis_classification_wasm["moenarch-image-analysis-classification-wasm"]:::crate
     crate_moenarch_image_analysis_comfyui_wasm["moenarch-image-analysis-comfyui-wasm"]:::crate
-    crate_moenarch_image_analysis_core_wasm["moenarch-image-analysis-core-wasm"]:::crate
-    crate_moenarch_image_analysis_detection_wasm["moenarch-image-analysis-detection-wasm"]:::crate
-    crate_moenarch_image_analysis_embeddings_wasm["moenarch-image-analysis-embeddings-wasm"]:::crate
-    crate_moenarch_image_analysis_io_wasm["moenarch-image-analysis-io-wasm"]:::crate
-    crate_moenarch_image_analysis_ocr_wasm["moenarch-image-analysis-ocr-wasm"]:::crate
-    crate_moenarch_image_analysis_processing_wasm["moenarch-image-analysis-processing-wasm"]:::crate
-    crate_moenarch_image_analysis_segmentation_wasm["moenarch-image-analysis-segmentation-wasm"]:::crate
-    crate_moenarch_image_analysis_synthesis_wasm["moenarch-image-analysis-synthesis-wasm"]:::crate
-    crate_moenarch_jobs_core_wasm["moenarch-jobs-core-wasm"]:::crate
-    crate_moenarch_math_geometry_2d_wasm["moenarch-math-geometry-2d-wasm"]:::crate
-    crate_moenarch_math_linear_wasm["moenarch-math-linear-wasm"]:::crate
-    crate_moenarch_math_signal_core_wasm["moenarch-math-signal-core-wasm"]:::crate
-    crate_moenarch_math_sparse_data_wasm["moenarch-math-sparse-data-wasm"]:::crate
-    crate_moenarch_math_statistics_wasm["moenarch-math-statistics-wasm"]:::crate
-    crate_moenarch_model_runtime_wasm["moenarch-model-runtime-wasm"]:::crate
-    crate_moenarch_numbers_core_wasm["moenarch-numbers-core-wasm"]:::crate
-    crate_moenarch_tensor_data_wasm["moenarch-tensor-data-wasm"]:::crate
-    crate_moenarch_text_analysis_wasm["moenarch-text-analysis-wasm"]:::crate
-    crate_moenarch_text_classification_wasm["moenarch-text-classification-wasm"]:::crate
-    crate_moenarch_text_core_wasm["moenarch-text-core-wasm"]:::crate
-    crate_moenarch_text_embeddings_wasm["moenarch-text-embeddings-wasm"]:::crate
-    crate_moenarch_text_generation_linguistics_wasm["moenarch-text-generation-linguistics-wasm"]:::crate
-    crate_moenarch_text_generation_wasm["moenarch-text-generation-wasm"]:::crate
-    crate_moenarch_text_index_wasm["moenarch-text-index-wasm"]:::crate
-    crate_moenarch_text_lexical_wasm["moenarch-text-lexical-wasm"]:::crate
-    crate_moenarch_text_linguistics_wasm["moenarch-text-linguistics-wasm"]:::crate
-    crate_moenarch_text_model_runtime_wasm["moenarch-text-model-runtime-wasm"]:::crate
-    crate_moenarch_text_question_answering_wasm["moenarch-text-question-answering-wasm"]:::crate
-    crate_moenarch_text_retrieval_wasm["moenarch-text-retrieval-wasm"]:::crate
-    crate_moenarch_text_transcripts_wasm["moenarch-text-transcripts-wasm"]:::crate
     crate_moenarch_three_d_processing_core_wasm["moenarch-three-d-processing-core-wasm"]:::crate
     crate_moenarch_three_d_processing_io_wasm["moenarch-three-d-processing-io-wasm"]:::crate
     crate_moenarch_three_d_processing_mesh_wasm["moenarch-three-d-processing-mesh-wasm"]:::crate
     crate_moenarch_three_d_scene_svg_wasm["moenarch-three-d-scene-svg-wasm"]:::crate
-    crate_moenarch_vector_analysis_core_wasm["moenarch-vector-analysis-core-wasm"]:::crate
-    crate_moenarch_vector_analysis_index_wasm["moenarch-vector-analysis-index-wasm"]:::crate
-    crate_moenarch_video_analysis_core_wasm["moenarch-video-analysis-core-wasm"]:::crate
-    crate_moenarch_video_analysis_data_wasm["moenarch-video-analysis-data-wasm"]:::crate
-    crate_moenarch_video_analysis_dataset_wasm["moenarch-video-analysis-dataset-wasm"]:::crate
-    crate_moenarch_video_analysis_detectors_wasm["moenarch-video-analysis-detectors-wasm"]:::crate
-    crate_moenarch_video_analysis_editing_wasm["moenarch-video-analysis-editing-wasm"]:::crate
-    crate_moenarch_video_analysis_features_wasm["moenarch-video-analysis-features-wasm"]:::crate
-    crate_moenarch_video_analysis_ffmpeg_wasm["moenarch-video-analysis-ffmpeg-wasm"]:::crate
     crate_moenarch_video_analysis_gaussian_splatting_wasm["moenarch-video-analysis-gaussian-splatting-wasm"]:::crate
-    crate_moenarch_video_analysis_ingest_wasm["moenarch-video-analysis-ingest-wasm"]:::crate
     crate_moenarch_video_analysis_mvs_wasm["moenarch-video-analysis-mvs-wasm"]:::crate
-    crate_moenarch_video_analysis_output_wasm["moenarch-video-analysis-output-wasm"]:::crate
     crate_moenarch_video_analysis_posture_io_wasm["moenarch-video-analysis-posture-io-wasm"]:::crate
     crate_moenarch_video_analysis_posture_wasm["moenarch-video-analysis-posture-wasm"]:::crate
     crate_moenarch_video_analysis_radiance_fields_wasm["moenarch-video-analysis-radiance-fields-wasm"]:::crate
     crate_moenarch_video_analysis_radiance_io_wasm["moenarch-video-analysis-radiance-io-wasm"]:::crate
     crate_moenarch_video_analysis_radiance_pipeline_wasm["moenarch-video-analysis-radiance-pipeline-wasm"]:::crate
-    crate_moenarch_video_analysis_recognition_wasm["moenarch-video-analysis-recognition-wasm"]:::crate
     crate_moenarch_video_analysis_reconstruction_wasm["moenarch-video-analysis-reconstruction-wasm"]:::crate
-    crate_moenarch_video_analysis_segmentation_wasm["moenarch-video-analysis-segmentation-wasm"]:::crate
     crate_moenarch_video_analysis_sfm_wasm["moenarch-video-analysis-sfm-wasm"]:::crate
-    crate_moenarch_video_analysis_split_wasm["moenarch-video-analysis-split-wasm"]:::crate
-    crate_moenarch_video_analysis_storage_wasm["moenarch-video-analysis-storage-wasm"]:::crate
-    crate_moenarch_video_analysis_synthesis_wasm["moenarch-video-analysis-synthesis-wasm"]:::crate
-    crate_moenarch_video_analysis_tracking_wasm["moenarch-video-analysis-tracking-wasm"]:::crate
-    crate_moenarch_video_analysis_transform_wasm["moenarch-video-analysis-transform-wasm"]:::crate
-    crate_moenarch_vision_core_wasm["moenarch-vision-core-wasm"]:::crate
   end
 
   subgraph group_test_support["Test Support"]
@@ -372,923 +144,117 @@ flowchart LR
     crate_moenarch_animation_core_server["moenarch-animation-core-server"]:::crate
   end
 
-  subgraph group_jobs["Jobs"]
-    direction TB
-    crate_moenarch_jobs_core["moenarch-jobs-core"]:::crate
-    crate_moenarch_jobs_core_cli["moenarch-jobs-core-cli"]:::crate
-    crate_moenarch_jobs_core_server["moenarch-jobs-core-server"]:::crate
-  end
-
-  subgraph group_media["Media"]
-    direction TB
-    crate_moenarch_media_core["moenarch-media-core"]:::crate
-  end
-
-  subgraph group_runtime["Runtime"]
-    direction TB
-    crate_moenarch_model_runtime["moenarch-model-runtime"]:::crate
-    crate_moenarch_model_runtime_cli["moenarch-model-runtime-cli"]:::crate
-    crate_moenarch_model_runtime_server["moenarch-model-runtime-server"]:::crate
-    crate_moenarch_runtime_core["moenarch-runtime-core"]:::crate
-    crate_moenarch_runtime_onnx["moenarch-runtime-onnx"]:::crate
-  end
-
-  subgraph group_vision["Vision"]
-    direction TB
-    crate_moenarch_vision_core["moenarch-vision-core"]:::crate
-    crate_moenarch_vision_core_cli["moenarch-vision-core-cli"]:::crate
-    crate_moenarch_vision_core_server["moenarch-vision-core-server"]:::crate
-  end
-
-  crate_moenarch_video_analysis -. optional .-> crate_moenarch_data_inversion_core
-  crate_moenarch_video_analysis -. optional .-> crate_moenarch_dense_data
-  crate_moenarch_video_analysis -. optional .-> crate_moenarch_graph_analysis_core
-  crate_moenarch_video_analysis -. optional .-> crate_moenarch_numbers_core
-  crate_moenarch_video_analysis -. optional .-> crate_moenarch_tensor_data
-  crate_moenarch_video_analysis -. optional .-> crate_moenarch_math_geometry_2d
-  crate_moenarch_video_analysis -. optional .-> crate_moenarch_math_linear
-  crate_moenarch_video_analysis -. optional .-> crate_moenarch_math_signal_core
-  crate_moenarch_video_analysis -. optional .-> crate_moenarch_math_sparse_data
-  crate_moenarch_video_analysis -. optional .-> crate_moenarch_math_statistics
-  crate_moenarch_video_analysis -. dev .-> crate_moenarch_audio_contracts
-  crate_moenarch_video_analysis -. optional .-> crate_moenarch_image_analysis_captioning
-  crate_moenarch_video_analysis -. optional .-> crate_moenarch_image_analysis_classification
   crate_moenarch_video_analysis -. optional .-> crate_moenarch_image_analysis_comfyui
-  crate_moenarch_video_analysis -. optional .-> crate_moenarch_image_analysis_core
-  crate_moenarch_video_analysis -. optional .-> crate_moenarch_image_analysis_detection
-  crate_moenarch_video_analysis -. optional .-> crate_moenarch_image_analysis_embeddings
-  crate_moenarch_video_analysis -. optional .-> crate_moenarch_image_analysis_io
-  crate_moenarch_video_analysis -. optional .-> crate_moenarch_image_analysis_ocr
-  crate_moenarch_video_analysis -. optional .-> crate_moenarch_image_analysis_processing
-  crate_moenarch_video_analysis -. optional .-> crate_moenarch_image_analysis_segmentation
-  crate_moenarch_video_analysis -. optional .-> crate_moenarch_image_analysis_synthesis
-  crate_moenarch_video_analysis -. optional .-> crate_moenarch_text_analysis
-  crate_moenarch_video_analysis -. dev .-> crate_moenarch_text_analysis_cli
-  crate_moenarch_video_analysis -. dev .-> crate_moenarch_text_analysis_server
-  crate_moenarch_video_analysis -. optional .-> crate_moenarch_text_classification
-  crate_moenarch_video_analysis -. dev .-> crate_moenarch_text_classification_cli
-  crate_moenarch_video_analysis -. dev .-> crate_moenarch_text_classification_server
-  crate_moenarch_video_analysis -. optional .-> crate_moenarch_text_core
-  crate_moenarch_video_analysis -. dev .-> crate_moenarch_text_core_cli
-  crate_moenarch_video_analysis -. dev .-> crate_moenarch_text_core_server
-  crate_moenarch_video_analysis -. optional .-> crate_moenarch_text_embeddings
-  crate_moenarch_video_analysis -. dev .-> crate_moenarch_text_embeddings_cli
-  crate_moenarch_video_analysis -. dev .-> crate_moenarch_text_embeddings_server
-  crate_moenarch_video_analysis -. optional .-> crate_moenarch_text_generation
-  crate_moenarch_video_analysis -. dev .-> crate_moenarch_text_generation_cli
-  crate_moenarch_video_analysis -. optional .-> crate_moenarch_text_generation_linguistics
-  crate_moenarch_video_analysis -. dev .-> crate_moenarch_text_generation_linguistics_cli
-  crate_moenarch_video_analysis -. dev .-> crate_moenarch_text_generation_linguistics_server
-  crate_moenarch_video_analysis -. dev .-> crate_moenarch_text_generation_server
-  crate_moenarch_video_analysis -. optional .-> crate_moenarch_text_index
-  crate_moenarch_video_analysis -. dev .-> crate_moenarch_text_index_cli
-  crate_moenarch_video_analysis -. dev .-> crate_moenarch_text_index_server
-  crate_moenarch_video_analysis -. optional .-> crate_moenarch_text_lexical
-  crate_moenarch_video_analysis -. dev .-> crate_moenarch_text_lexical_cli
-  crate_moenarch_video_analysis -. dev .-> crate_moenarch_text_lexical_server
-  crate_moenarch_video_analysis -. optional .-> crate_moenarch_text_linguistics
-  crate_moenarch_video_analysis -. dev .-> crate_moenarch_text_linguistics_cli
-  crate_moenarch_video_analysis -. dev .-> crate_moenarch_text_linguistics_server
-  crate_moenarch_video_analysis -. optional .-> crate_moenarch_text_model_runtime
-  crate_moenarch_video_analysis -. dev .-> crate_moenarch_text_model_runtime_cli
-  crate_moenarch_video_analysis -. dev .-> crate_moenarch_text_model_runtime_server
-  crate_moenarch_video_analysis -. optional .-> crate_moenarch_text_question_answering
-  crate_moenarch_video_analysis -. dev .-> crate_moenarch_text_question_answering_cli
-  crate_moenarch_video_analysis -. dev .-> crate_moenarch_text_question_answering_server
-  crate_moenarch_video_analysis -. optional .-> crate_moenarch_text_retrieval
-  crate_moenarch_video_analysis -. dev .-> crate_moenarch_text_retrieval_cli
-  crate_moenarch_video_analysis -. dev .-> crate_moenarch_text_retrieval_server
-  crate_moenarch_video_analysis -. optional .-> crate_moenarch_text_transcripts
-  crate_moenarch_video_analysis -. dev .-> crate_moenarch_text_transcripts_cli
-  crate_moenarch_video_analysis -. dev .-> crate_moenarch_text_transcripts_server
-  crate_moenarch_video_analysis -. optional .-> crate_moenarch_vector_analysis_core
-  crate_moenarch_video_analysis -. optional .-> crate_moenarch_vector_analysis_index
   crate_moenarch_video_analysis -. optional .-> crate_moenarch_three_d_processing_core
   crate_moenarch_video_analysis -. optional .-> crate_moenarch_three_d_processing_io
   crate_moenarch_video_analysis -. optional .-> crate_moenarch_three_d_processing_mesh
   crate_moenarch_video_analysis -. optional .-> crate_moenarch_three_d_scene_svg
-  crate_moenarch_video_analysis -. optional .-> crate_moenarch_video_analysis_core
-  crate_moenarch_video_analysis -. optional .-> crate_moenarch_video_analysis_data
-  crate_moenarch_video_analysis -. optional .-> crate_moenarch_video_analysis_dataset
-  crate_moenarch_video_analysis -. optional .-> crate_moenarch_video_analysis_detectors
-  crate_moenarch_video_analysis -. optional .-> crate_moenarch_video_analysis_editing
-  crate_moenarch_video_analysis -. optional .-> crate_moenarch_video_analysis_features
-  crate_moenarch_video_analysis -. optional .-> crate_moenarch_video_analysis_ffmpeg
   crate_moenarch_video_analysis -. optional .-> crate_moenarch_video_analysis_gaussian_splatting
-  crate_moenarch_video_analysis -. optional .-> crate_moenarch_video_analysis_ingest
   crate_moenarch_video_analysis -. optional .-> crate_moenarch_video_analysis_mvs
-  crate_moenarch_video_analysis -. optional .-> crate_moenarch_video_analysis_output
   crate_moenarch_video_analysis -. optional .-> crate_moenarch_video_analysis_posture
   crate_moenarch_video_analysis -. optional .-> crate_moenarch_video_analysis_posture_io
   crate_moenarch_video_analysis -. optional .-> crate_moenarch_video_analysis_radiance_fields
   crate_moenarch_video_analysis -. optional .-> crate_moenarch_video_analysis_radiance_io
   crate_moenarch_video_analysis -. optional .-> crate_moenarch_video_analysis_radiance_pipeline
-  crate_moenarch_video_analysis -. optional .-> crate_moenarch_video_analysis_recognition
   crate_moenarch_video_analysis -. optional .-> crate_moenarch_video_analysis_reconstruction
-  crate_moenarch_video_analysis -. optional .-> crate_moenarch_video_analysis_segmentation
   crate_moenarch_video_analysis -. optional .-> crate_moenarch_video_analysis_sfm
-  crate_moenarch_video_analysis -. optional .-> crate_moenarch_video_analysis_split
-  crate_moenarch_video_analysis -. optional .-> crate_moenarch_video_analysis_storage
-  crate_moenarch_video_analysis -. optional .-> crate_moenarch_video_analysis_synthesis
-  crate_moenarch_video_analysis -. optional .-> crate_moenarch_video_analysis_tracking
-  crate_moenarch_video_analysis -. optional .-> crate_moenarch_video_analysis_transform
   crate_moenarch_video_analysis -. optional .-> crate_moenarch_comfyui_data
   crate_moenarch_video_analysis -. optional .-> crate_moenarch_comfyui_latents
   crate_moenarch_video_analysis -. optional .-> crate_moenarch_comfyui_models
   crate_moenarch_video_analysis -. dev .-> crate_moenarch_video_analysis_test_support
   crate_moenarch_video_analysis -. optional .-> crate_moenarch_animation_core
-  crate_moenarch_video_analysis -. optional .-> crate_moenarch_jobs_core
-  crate_moenarch_video_analysis -. dev .-> crate_moenarch_media_core
-  crate_moenarch_video_analysis -. optional .-> crate_moenarch_model_runtime
-  crate_moenarch_video_analysis -. optional .-> crate_moenarch_runtime_core
-  crate_moenarch_video_analysis -. optional .-> crate_moenarch_runtime_onnx
-  crate_moenarch_video_analysis -. optional .-> crate_moenarch_vision_core
-  crate_moenarch_data_inversion_core --> crate_moenarch_media_core
-  crate_moenarch_data_inversion_core --> crate_moenarch_runtime_core
-  crate_moenarch_data_inversion_core_cli --> crate_moenarch_data_inversion_core
-  crate_moenarch_data_inversion_core_cli --> crate_moenarch_runtime_core
-  crate_moenarch_data_inversion_core_server --> crate_moenarch_data_inversion_core
-  crate_moenarch_data_inversion_core_server --> crate_moenarch_runtime_core
-  crate_moenarch_dense_data --> crate_moenarch_numbers_core
-  crate_moenarch_dense_data --> crate_moenarch_math_linear
-  crate_moenarch_dense_data --> crate_moenarch_math_statistics
-  crate_moenarch_dense_data --> crate_moenarch_media_core
-  crate_moenarch_dense_data --> crate_moenarch_runtime_core
-  crate_moenarch_dense_data_cli --> crate_moenarch_dense_data
-  crate_moenarch_dense_data_cli --> crate_moenarch_runtime_core
-  crate_moenarch_dense_data_server --> crate_moenarch_dense_data
-  crate_moenarch_dense_data_server --> crate_moenarch_runtime_core
-  crate_moenarch_graph_analysis_core --> crate_moenarch_media_core
-  crate_moenarch_graph_analysis_core --> crate_moenarch_runtime_core
-  crate_moenarch_graph_analysis_core_cli --> crate_moenarch_graph_analysis_core
-  crate_moenarch_graph_analysis_core_cli --> crate_moenarch_runtime_core
-  crate_moenarch_graph_analysis_core_server --> crate_moenarch_graph_analysis_core
-  crate_moenarch_graph_analysis_core_server --> crate_moenarch_runtime_core
-  crate_moenarch_numbers_core --> crate_moenarch_media_core
-  crate_moenarch_numbers_core --> crate_moenarch_runtime_core
-  crate_moenarch_numbers_core_cli --> crate_moenarch_numbers_core
-  crate_moenarch_numbers_core_cli --> crate_moenarch_runtime_core
-  crate_moenarch_numbers_core_server --> crate_moenarch_numbers_core
-  crate_moenarch_numbers_core_server --> crate_moenarch_runtime_core
-  crate_moenarch_tensor_data --> crate_moenarch_media_core
-  crate_moenarch_tensor_data --> crate_moenarch_runtime_core
-  crate_moenarch_tensor_data_cli --> crate_moenarch_tensor_data
-  crate_moenarch_tensor_data_cli --> crate_moenarch_runtime_core
-  crate_moenarch_tensor_data_server --> crate_moenarch_tensor_data
-  crate_moenarch_tensor_data_server --> crate_moenarch_runtime_core
-  crate_moenarch_math_geometry_2d --> crate_moenarch_media_core
-  crate_moenarch_math_geometry_2d --> crate_moenarch_runtime_core
-  crate_moenarch_math_geometry_2d_cli --> crate_moenarch_math_geometry_2d
-  crate_moenarch_math_geometry_2d_cli --> crate_moenarch_runtime_core
-  crate_moenarch_math_geometry_2d_server --> crate_moenarch_math_geometry_2d
-  crate_moenarch_math_geometry_2d_server --> crate_moenarch_runtime_core
-  crate_moenarch_math_linear --> crate_moenarch_tensor_data
-  crate_moenarch_math_linear --> crate_moenarch_vector_analysis_core
-  crate_moenarch_math_linear --> crate_moenarch_media_core
-  crate_moenarch_math_linear --> crate_moenarch_runtime_core
-  crate_moenarch_math_linear_cli --> crate_moenarch_math_linear
-  crate_moenarch_math_linear_cli --> crate_moenarch_runtime_core
-  crate_moenarch_math_linear_server --> crate_moenarch_math_linear
-  crate_moenarch_math_linear_server --> crate_moenarch_runtime_core
-  crate_moenarch_math_signal_core --> crate_moenarch_numbers_core
-  crate_moenarch_math_signal_core --> crate_moenarch_media_core
-  crate_moenarch_math_signal_core --> crate_moenarch_runtime_core
-  crate_moenarch_math_signal_core_cli --> crate_moenarch_math_signal_core
-  crate_moenarch_math_signal_core_cli --> crate_moenarch_runtime_core
-  crate_moenarch_math_signal_core_server --> crate_moenarch_math_signal_core
-  crate_moenarch_math_signal_core_server --> crate_moenarch_runtime_core
-  crate_moenarch_math_sparse_data --> crate_moenarch_numbers_core
-  crate_moenarch_math_sparse_data --> crate_moenarch_math_linear
-  crate_moenarch_math_sparse_data --> crate_moenarch_vector_analysis_core
-  crate_moenarch_math_sparse_data --> crate_moenarch_media_core
-  crate_moenarch_math_sparse_data --> crate_moenarch_runtime_core
-  crate_moenarch_math_sparse_data_cli --> crate_moenarch_math_sparse_data
-  crate_moenarch_math_sparse_data_cli --> crate_moenarch_runtime_core
-  crate_moenarch_math_sparse_data_server --> crate_moenarch_math_sparse_data
-  crate_moenarch_math_sparse_data_server --> crate_moenarch_runtime_core
-  crate_moenarch_math_statistics --> crate_moenarch_numbers_core
-  crate_moenarch_math_statistics --> crate_moenarch_math_linear
-  crate_moenarch_math_statistics --> crate_moenarch_media_core
-  crate_moenarch_math_statistics --> crate_moenarch_runtime_core
-  crate_moenarch_math_statistics_cli --> crate_moenarch_math_statistics
-  crate_moenarch_math_statistics_cli --> crate_moenarch_runtime_core
-  crate_moenarch_math_statistics_server --> crate_moenarch_math_statistics
-  crate_moenarch_math_statistics_server --> crate_moenarch_runtime_core
-  crate_moenarch_audio_contracts --> crate_moenarch_media_core
-  crate_moenarch_image_analysis_captioning --> crate_moenarch_image_analysis_core
-  crate_moenarch_image_analysis_captioning --> crate_moenarch_image_analysis_detection
-  crate_moenarch_image_analysis_captioning --> crate_moenarch_image_analysis_ocr
-  crate_moenarch_image_analysis_captioning --> crate_moenarch_image_analysis_processing
-  crate_moenarch_image_analysis_captioning --> crate_moenarch_image_analysis_segmentation
-  crate_moenarch_image_analysis_captioning --> crate_moenarch_image_analysis_synthesis
-  crate_moenarch_image_analysis_captioning --> crate_moenarch_video_analysis_core
-  crate_moenarch_image_analysis_captioning --> crate_moenarch_model_runtime
-  crate_moenarch_image_analysis_captioning --> crate_moenarch_runtime_core
-  crate_moenarch_image_analysis_captioning --> crate_moenarch_runtime_onnx
-  crate_moenarch_image_analysis_captioning_cli --> crate_moenarch_image_analysis_captioning
-  crate_moenarch_image_analysis_captioning_cli --> crate_moenarch_runtime_core
-  crate_moenarch_image_analysis_captioning_server --> crate_moenarch_image_analysis_captioning
-  crate_moenarch_image_analysis_captioning_server --> crate_moenarch_runtime_core
-  crate_moenarch_image_analysis_classification --> crate_moenarch_image_analysis_core
-  crate_moenarch_image_analysis_classification --> crate_moenarch_image_analysis_detection
-  crate_moenarch_image_analysis_classification --> crate_moenarch_image_analysis_ocr
-  crate_moenarch_image_analysis_classification --> crate_moenarch_image_analysis_processing
-  crate_moenarch_image_analysis_classification --> crate_moenarch_image_analysis_segmentation
-  crate_moenarch_image_analysis_classification --> crate_moenarch_image_analysis_synthesis
-  crate_moenarch_image_analysis_classification --> crate_moenarch_video_analysis_core
-  crate_moenarch_image_analysis_classification --> crate_moenarch_model_runtime
-  crate_moenarch_image_analysis_classification --> crate_moenarch_runtime_core
-  crate_moenarch_image_analysis_classification --> crate_moenarch_runtime_onnx
-  crate_moenarch_image_analysis_classification_cli --> crate_moenarch_image_analysis_classification
-  crate_moenarch_image_analysis_classification_cli --> crate_moenarch_runtime_core
-  crate_moenarch_image_analysis_classification_server --> crate_moenarch_image_analysis_classification
-  crate_moenarch_image_analysis_classification_server --> crate_moenarch_runtime_core
-  crate_moenarch_image_analysis_comfyui --> crate_moenarch_video_analysis_core
   crate_moenarch_image_analysis_comfyui --> crate_moenarch_comfyui_data
   crate_moenarch_image_analysis_comfyui --> crate_moenarch_comfyui_models
-  crate_moenarch_image_analysis_comfyui --> crate_moenarch_runtime_core
   crate_moenarch_image_analysis_comfyui_cli --> crate_moenarch_image_analysis_comfyui
-  crate_moenarch_image_analysis_comfyui_cli --> crate_moenarch_runtime_core
   crate_moenarch_image_analysis_comfyui_server --> crate_moenarch_image_analysis_comfyui
-  crate_moenarch_image_analysis_comfyui_server --> crate_moenarch_runtime_core
-  crate_moenarch_image_analysis_core --> crate_moenarch_tensor_data
-  crate_moenarch_image_analysis_core --> crate_moenarch_video_analysis_core
-  crate_moenarch_image_analysis_core --> crate_moenarch_runtime_core
-  crate_moenarch_image_analysis_core_cli --> crate_moenarch_image_analysis_core
-  crate_moenarch_image_analysis_core_cli --> crate_moenarch_runtime_core
-  crate_moenarch_image_analysis_core_server --> crate_moenarch_image_analysis_core
-  crate_moenarch_image_analysis_core_server --> crate_moenarch_runtime_core
-  crate_moenarch_image_analysis_detection --> crate_moenarch_image_analysis_core
-  crate_moenarch_image_analysis_detection --> crate_moenarch_image_analysis_processing
-  crate_moenarch_image_analysis_detection --> crate_moenarch_image_analysis_segmentation
-  crate_moenarch_image_analysis_detection --> crate_moenarch_video_analysis_core
-  crate_moenarch_image_analysis_detection --> crate_moenarch_model_runtime
-  crate_moenarch_image_analysis_detection --> crate_moenarch_runtime_core
-  crate_moenarch_image_analysis_detection --> crate_moenarch_runtime_onnx
-  crate_moenarch_image_analysis_detection --> crate_moenarch_vision_core
-  crate_moenarch_image_analysis_detection_cli --> crate_moenarch_image_analysis_detection
-  crate_moenarch_image_analysis_detection_cli --> crate_moenarch_runtime_core
-  crate_moenarch_image_analysis_detection_server --> crate_moenarch_image_analysis_detection
-  crate_moenarch_image_analysis_detection_server --> crate_moenarch_runtime_core
-  crate_moenarch_image_analysis_embeddings --> crate_moenarch_math_geometry_2d
-  crate_moenarch_image_analysis_embeddings --> crate_moenarch_image_analysis_core
-  crate_moenarch_image_analysis_embeddings --> crate_moenarch_image_analysis_detection
-  crate_moenarch_image_analysis_embeddings --> crate_moenarch_image_analysis_ocr
-  crate_moenarch_image_analysis_embeddings --> crate_moenarch_image_analysis_processing
-  crate_moenarch_image_analysis_embeddings --> crate_moenarch_image_analysis_segmentation
-  crate_moenarch_image_analysis_embeddings --> crate_moenarch_image_analysis_synthesis
-  crate_moenarch_image_analysis_embeddings --> crate_moenarch_video_analysis_core
-  crate_moenarch_image_analysis_embeddings --> crate_moenarch_model_runtime
-  crate_moenarch_image_analysis_embeddings --> crate_moenarch_runtime_core
-  crate_moenarch_image_analysis_embeddings --> crate_moenarch_runtime_onnx
-  crate_moenarch_image_analysis_embeddings --> crate_moenarch_vision_core
-  crate_moenarch_image_analysis_embeddings_cli --> crate_moenarch_image_analysis_embeddings
-  crate_moenarch_image_analysis_embeddings_cli --> crate_moenarch_runtime_core
-  crate_moenarch_image_analysis_embeddings_server --> crate_moenarch_image_analysis_embeddings
-  crate_moenarch_image_analysis_embeddings_server --> crate_moenarch_runtime_core
-  crate_moenarch_image_analysis_io --> crate_moenarch_image_analysis_core
-  crate_moenarch_image_analysis_io --> crate_moenarch_video_analysis_core
-  crate_moenarch_image_analysis_io --> crate_moenarch_runtime_core
-  crate_moenarch_image_analysis_io_cli --> crate_moenarch_image_analysis_io
-  crate_moenarch_image_analysis_io_cli --> crate_moenarch_runtime_core
-  crate_moenarch_image_analysis_io_server --> crate_moenarch_image_analysis_io
-  crate_moenarch_image_analysis_io_server --> crate_moenarch_runtime_core
-  crate_moenarch_image_analysis_ocr --> crate_moenarch_image_analysis_core
-  crate_moenarch_image_analysis_ocr --> crate_moenarch_image_analysis_io
-  crate_moenarch_image_analysis_ocr --> crate_moenarch_image_analysis_processing
-  crate_moenarch_image_analysis_ocr --> crate_moenarch_text_core
-  crate_moenarch_image_analysis_ocr --> crate_moenarch_video_analysis_core
-  crate_moenarch_image_analysis_ocr --> crate_moenarch_model_runtime
-  crate_moenarch_image_analysis_ocr --> crate_moenarch_runtime_core
-  crate_moenarch_image_analysis_ocr --> crate_moenarch_runtime_onnx
-  crate_moenarch_image_analysis_ocr_cli --> crate_moenarch_image_analysis_ocr
-  crate_moenarch_image_analysis_ocr_cli --> crate_moenarch_runtime_core
-  crate_moenarch_image_analysis_ocr_server --> crate_moenarch_image_analysis_ocr
-  crate_moenarch_image_analysis_ocr_server --> crate_moenarch_runtime_core
-  crate_moenarch_image_analysis_processing --> crate_moenarch_math_geometry_2d
-  crate_moenarch_image_analysis_processing --> crate_moenarch_math_linear
-  crate_moenarch_image_analysis_processing --> crate_moenarch_image_analysis_core
-  crate_moenarch_image_analysis_processing --> crate_moenarch_video_analysis_core
-  crate_moenarch_image_analysis_processing --> crate_moenarch_runtime_core
-  crate_moenarch_image_analysis_processing_cli --> crate_moenarch_image_analysis_processing
-  crate_moenarch_image_analysis_processing_cli --> crate_moenarch_runtime_core
-  crate_moenarch_image_analysis_processing_server --> crate_moenarch_image_analysis_processing
-  crate_moenarch_image_analysis_processing_server --> crate_moenarch_runtime_core
-  crate_moenarch_image_analysis_segmentation --> crate_moenarch_image_analysis_core
-  crate_moenarch_image_analysis_segmentation --> crate_moenarch_video_analysis_core
-  crate_moenarch_image_analysis_segmentation --> crate_moenarch_model_runtime
-  crate_moenarch_image_analysis_segmentation --> crate_moenarch_runtime_core
-  crate_moenarch_image_analysis_segmentation_cli --> crate_moenarch_image_analysis_segmentation
-  crate_moenarch_image_analysis_segmentation_cli --> crate_moenarch_runtime_core
-  crate_moenarch_image_analysis_segmentation_server --> crate_moenarch_image_analysis_segmentation
-  crate_moenarch_image_analysis_segmentation_server --> crate_moenarch_runtime_core
-  crate_moenarch_image_analysis_synthesis --> crate_moenarch_data_inversion_core
-  crate_moenarch_image_analysis_synthesis --> crate_moenarch_image_analysis_core
-  crate_moenarch_image_analysis_synthesis --> crate_moenarch_video_analysis_core
-  crate_moenarch_image_analysis_synthesis --> crate_moenarch_runtime_core
-  crate_moenarch_image_analysis_synthesis_cli --> crate_moenarch_image_analysis_synthesis
-  crate_moenarch_image_analysis_synthesis_cli --> crate_moenarch_runtime_core
-  crate_moenarch_image_analysis_synthesis_server --> crate_moenarch_image_analysis_synthesis
-  crate_moenarch_image_analysis_synthesis_server --> crate_moenarch_runtime_core
-  crate_moenarch_text_analysis --> crate_moenarch_text_classification
-  crate_moenarch_text_analysis --> crate_moenarch_text_core
-  crate_moenarch_text_analysis --> crate_moenarch_text_embeddings
-  crate_moenarch_text_analysis --> crate_moenarch_text_index
-  crate_moenarch_text_analysis --> crate_moenarch_text_lexical
-  crate_moenarch_text_analysis --> crate_moenarch_text_linguistics
-  crate_moenarch_text_analysis --> crate_moenarch_text_retrieval
-  crate_moenarch_text_analysis -. optional .-> crate_moenarch_text_transcripts
-  crate_moenarch_text_analysis -. optional .-> crate_moenarch_model_runtime
-  crate_moenarch_text_analysis --> crate_moenarch_runtime_core
-  crate_moenarch_text_analysis_cli --> crate_moenarch_text_analysis
-  crate_moenarch_text_analysis_cli --> crate_moenarch_runtime_core
-  crate_moenarch_text_analysis_server --> crate_moenarch_text_analysis
-  crate_moenarch_text_analysis_server --> crate_moenarch_text_model_runtime
-  crate_moenarch_text_analysis_server --> crate_moenarch_runtime_core
-  crate_moenarch_text_classification --> crate_moenarch_text_core
-  crate_moenarch_text_classification --> crate_moenarch_text_lexical
-  crate_moenarch_text_classification --> crate_moenarch_text_model_runtime
-  crate_moenarch_text_classification -. optional .-> crate_moenarch_model_runtime
-  crate_moenarch_text_classification --> crate_moenarch_runtime_core
-  crate_moenarch_text_classification_cli --> crate_moenarch_text_classification
-  crate_moenarch_text_classification_cli --> crate_moenarch_runtime_core
-  crate_moenarch_text_classification_server --> crate_moenarch_text_classification
-  crate_moenarch_text_classification_server --> crate_moenarch_runtime_core
-  crate_moenarch_text_core --> crate_moenarch_jobs_core
-  crate_moenarch_text_core --> crate_moenarch_media_core
-  crate_moenarch_text_core --> crate_moenarch_runtime_core
-  crate_moenarch_text_core_cli --> crate_moenarch_text_core
-  crate_moenarch_text_core_cli --> crate_moenarch_runtime_core
-  crate_moenarch_text_core_server --> crate_moenarch_text_core
-  crate_moenarch_text_core_server --> crate_moenarch_runtime_core
-  crate_moenarch_text_embeddings --> crate_moenarch_math_sparse_data
-  crate_moenarch_text_embeddings --> crate_moenarch_text_core
-  crate_moenarch_text_embeddings --> crate_moenarch_text_lexical
-  crate_moenarch_text_embeddings --> crate_moenarch_text_model_runtime
-  crate_moenarch_text_embeddings --> crate_moenarch_vector_analysis_core
-  crate_moenarch_text_embeddings --> crate_moenarch_vector_analysis_index
-  crate_moenarch_text_embeddings -. optional .-> crate_moenarch_model_runtime
-  crate_moenarch_text_embeddings --> crate_moenarch_runtime_core
-  crate_moenarch_text_embeddings --> crate_moenarch_runtime_onnx
-  crate_moenarch_text_embeddings_cli --> crate_moenarch_text_embeddings
-  crate_moenarch_text_embeddings_cli --> crate_moenarch_runtime_core
-  crate_moenarch_text_embeddings_server --> crate_moenarch_text_embeddings
-  crate_moenarch_text_embeddings_server --> crate_moenarch_text_model_runtime
-  crate_moenarch_text_embeddings_server --> crate_moenarch_runtime_core
-  crate_moenarch_text_generation --> crate_moenarch_data_inversion_core
-  crate_moenarch_text_generation --> crate_moenarch_text_core
-  crate_moenarch_text_generation --> crate_moenarch_runtime_core
-  crate_moenarch_text_generation_cli --> crate_moenarch_text_generation
-  crate_moenarch_text_generation_cli --> crate_moenarch_runtime_core
-  crate_moenarch_text_generation_linguistics --> crate_moenarch_data_inversion_core
-  crate_moenarch_text_generation_linguistics --> crate_moenarch_text_core
-  crate_moenarch_text_generation_linguistics --> crate_moenarch_text_generation
-  crate_moenarch_text_generation_linguistics --> crate_moenarch_text_linguistics
-  crate_moenarch_text_generation_linguistics --> crate_moenarch_runtime_core
-  crate_moenarch_text_generation_linguistics_cli --> crate_moenarch_text_generation_linguistics
-  crate_moenarch_text_generation_linguistics_cli --> crate_moenarch_runtime_core
-  crate_moenarch_text_generation_linguistics_server --> crate_moenarch_text_generation_linguistics
-  crate_moenarch_text_generation_linguistics_server --> crate_moenarch_runtime_core
-  crate_moenarch_text_generation_server --> crate_moenarch_text_generation
-  crate_moenarch_text_generation_server --> crate_moenarch_runtime_core
-  crate_moenarch_text_index --> crate_moenarch_text_core
-  crate_moenarch_text_index --> crate_moenarch_text_embeddings
-  crate_moenarch_text_index --> crate_moenarch_text_lexical
-  crate_moenarch_text_index --> crate_moenarch_vector_analysis_index
-  crate_moenarch_text_index --> crate_moenarch_runtime_core
-  crate_moenarch_text_index_cli --> crate_moenarch_text_index
-  crate_moenarch_text_index_cli --> crate_moenarch_runtime_core
-  crate_moenarch_text_index_server --> crate_moenarch_text_index
-  crate_moenarch_text_index_server --> crate_moenarch_runtime_core
-  crate_moenarch_text_lexical --> crate_moenarch_math_sparse_data
-  crate_moenarch_text_lexical --> crate_moenarch_text_core
-  crate_moenarch_text_lexical --> crate_moenarch_runtime_core
-  crate_moenarch_text_lexical_cli --> crate_moenarch_text_lexical
-  crate_moenarch_text_lexical_cli --> crate_moenarch_runtime_core
-  crate_moenarch_text_lexical_server --> crate_moenarch_text_lexical
-  crate_moenarch_text_lexical_server --> crate_moenarch_runtime_core
-  crate_moenarch_text_linguistics --> crate_moenarch_text_core
-  crate_moenarch_text_linguistics --> crate_moenarch_text_lexical
-  crate_moenarch_text_linguistics --> crate_moenarch_text_model_runtime
-  crate_moenarch_text_linguistics -. optional .-> crate_moenarch_text_transcripts
-  crate_moenarch_text_linguistics -. optional .-> crate_moenarch_jobs_core
-  crate_moenarch_text_linguistics -. optional .-> crate_moenarch_model_runtime
-  crate_moenarch_text_linguistics --> crate_moenarch_runtime_core
-  crate_moenarch_text_linguistics_cli --> crate_moenarch_text_linguistics
-  crate_moenarch_text_linguistics_cli --> crate_moenarch_runtime_core
-  crate_moenarch_text_linguistics_server --> crate_moenarch_text_linguistics
-  crate_moenarch_text_linguistics_server --> crate_moenarch_text_model_runtime
-  crate_moenarch_text_linguistics_server --> crate_moenarch_runtime_core
-  crate_moenarch_text_model_runtime -. optional .-> crate_moenarch_jobs_core
-  crate_moenarch_text_model_runtime --> crate_moenarch_media_core
-  crate_moenarch_text_model_runtime -. optional .-> crate_moenarch_model_runtime
-  crate_moenarch_text_model_runtime --> crate_moenarch_runtime_core
-  crate_moenarch_text_model_runtime --> crate_moenarch_runtime_onnx
-  crate_moenarch_text_model_runtime_cli --> crate_moenarch_text_model_runtime
-  crate_moenarch_text_model_runtime_cli --> crate_moenarch_runtime_core
-  crate_moenarch_text_model_runtime_server --> crate_moenarch_text_model_runtime
-  crate_moenarch_text_model_runtime_server --> crate_moenarch_runtime_core
-  crate_moenarch_text_question_answering --> crate_moenarch_text_embeddings
-  crate_moenarch_text_question_answering --> crate_moenarch_text_index
-  crate_moenarch_text_question_answering --> crate_moenarch_text_lexical
-  crate_moenarch_text_question_answering --> crate_moenarch_text_model_runtime
-  crate_moenarch_text_question_answering --> crate_moenarch_text_retrieval
-  crate_moenarch_text_question_answering --> crate_moenarch_media_core
-  crate_moenarch_text_question_answering -. optional .-> crate_moenarch_model_runtime
-  crate_moenarch_text_question_answering --> crate_moenarch_runtime_core
-  crate_moenarch_text_question_answering -. dev .-> crate_moenarch_runtime_onnx
-  crate_moenarch_text_question_answering_cli --> crate_moenarch_text_question_answering
-  crate_moenarch_text_question_answering_cli --> crate_moenarch_runtime_core
-  crate_moenarch_text_question_answering_server --> crate_moenarch_text_question_answering
-  crate_moenarch_text_question_answering_server --> crate_moenarch_runtime_core
-  crate_moenarch_text_retrieval --> crate_moenarch_text_core
-  crate_moenarch_text_retrieval --> crate_moenarch_text_embeddings
-  crate_moenarch_text_retrieval --> crate_moenarch_text_index
-  crate_moenarch_text_retrieval --> crate_moenarch_text_lexical
-  crate_moenarch_text_retrieval --> crate_moenarch_text_model_runtime
-  crate_moenarch_text_retrieval -. optional .-> crate_moenarch_text_transcripts
-  crate_moenarch_text_retrieval --> crate_moenarch_vector_analysis_index
-  crate_moenarch_text_retrieval --> crate_moenarch_runtime_core
-  crate_moenarch_text_retrieval_cli --> crate_moenarch_text_retrieval
-  crate_moenarch_text_retrieval_cli --> crate_moenarch_runtime_core
-  crate_moenarch_text_retrieval_server --> crate_moenarch_text_retrieval
-  crate_moenarch_text_retrieval_server --> crate_moenarch_runtime_core
-  crate_moenarch_text_transcripts --> crate_moenarch_text_core
-  crate_moenarch_text_transcripts --> crate_moenarch_runtime_core
-  crate_moenarch_text_transcripts_cli --> crate_moenarch_text_transcripts
-  crate_moenarch_text_transcripts_cli --> crate_moenarch_runtime_core
-  crate_moenarch_text_transcripts_server --> crate_moenarch_text_transcripts
-  crate_moenarch_text_transcripts_server --> crate_moenarch_runtime_core
-  crate_moenarch_vector_analysis_core --> crate_moenarch_media_core
-  crate_moenarch_vector_analysis_core --> crate_moenarch_runtime_core
-  crate_moenarch_vector_analysis_core_cli --> crate_moenarch_vector_analysis_core
-  crate_moenarch_vector_analysis_core_cli --> crate_moenarch_runtime_core
-  crate_moenarch_vector_analysis_core_server --> crate_moenarch_vector_analysis_core
-  crate_moenarch_vector_analysis_core_server --> crate_moenarch_runtime_core
-  crate_moenarch_vector_analysis_index --> crate_moenarch_vector_analysis_core
-  crate_moenarch_vector_analysis_index --> crate_moenarch_media_core
-  crate_moenarch_vector_analysis_index --> crate_moenarch_runtime_core
-  crate_moenarch_vector_analysis_index_cli --> crate_moenarch_vector_analysis_index
-  crate_moenarch_vector_analysis_index_cli --> crate_moenarch_runtime_core
-  crate_moenarch_vector_analysis_index_server --> crate_moenarch_vector_analysis_index
-  crate_moenarch_vector_analysis_index_server --> crate_moenarch_runtime_core
-  crate_moenarch_three_d_processing_core --> crate_moenarch_video_analysis_core
-  crate_moenarch_three_d_processing_core --> crate_moenarch_runtime_core
   crate_moenarch_three_d_processing_core_cli --> crate_moenarch_three_d_processing_core
-  crate_moenarch_three_d_processing_core_cli --> crate_moenarch_runtime_core
   crate_moenarch_three_d_processing_core_server --> crate_moenarch_three_d_processing_core
-  crate_moenarch_three_d_processing_core_server --> crate_moenarch_runtime_core
   crate_moenarch_three_d_processing_io --> crate_moenarch_three_d_processing_core
   crate_moenarch_three_d_processing_io --> crate_moenarch_three_d_processing_mesh
-  crate_moenarch_three_d_processing_io --> crate_moenarch_video_analysis_core
-  crate_moenarch_three_d_processing_io --> crate_moenarch_runtime_core
   crate_moenarch_three_d_processing_io_cli --> crate_moenarch_three_d_processing_io
-  crate_moenarch_three_d_processing_io_cli --> crate_moenarch_runtime_core
   crate_moenarch_three_d_processing_io_server --> crate_moenarch_three_d_processing_io
-  crate_moenarch_three_d_processing_io_server --> crate_moenarch_runtime_core
   crate_moenarch_three_d_processing_mesh --> crate_moenarch_three_d_processing_core
-  crate_moenarch_three_d_processing_mesh --> crate_moenarch_video_analysis_core
-  crate_moenarch_three_d_processing_mesh --> crate_moenarch_runtime_core
   crate_moenarch_three_d_processing_mesh_cli --> crate_moenarch_three_d_processing_mesh
-  crate_moenarch_three_d_processing_mesh_cli --> crate_moenarch_runtime_core
   crate_moenarch_three_d_processing_mesh_server --> crate_moenarch_three_d_processing_mesh
-  crate_moenarch_three_d_processing_mesh_server --> crate_moenarch_runtime_core
   crate_moenarch_three_d_scene_svg --> crate_moenarch_three_d_processing_core
   crate_moenarch_three_d_scene_svg --> crate_moenarch_three_d_processing_mesh
-  crate_moenarch_three_d_scene_svg --> crate_moenarch_video_analysis_core
-  crate_moenarch_three_d_scene_svg --> crate_moenarch_runtime_core
   crate_moenarch_three_d_scene_svg_cli --> crate_moenarch_three_d_scene_svg
-  crate_moenarch_three_d_scene_svg_cli --> crate_moenarch_runtime_core
   crate_moenarch_three_d_scene_svg_server --> crate_moenarch_three_d_scene_svg
-  crate_moenarch_three_d_scene_svg_server --> crate_moenarch_runtime_core
   crate_moenarch_video_analysis_cli --> crate_moenarch_three_d_processing_core
   crate_moenarch_video_analysis_cli --> crate_moenarch_three_d_processing_io
-  crate_moenarch_video_analysis_cli --> crate_moenarch_video_analysis_core
-  crate_moenarch_video_analysis_cli --> crate_moenarch_video_analysis_dataset
-  crate_moenarch_video_analysis_cli --> crate_moenarch_video_analysis_detectors
-  crate_moenarch_video_analysis_cli --> crate_moenarch_video_analysis_ffmpeg
-  crate_moenarch_video_analysis_cli --> crate_moenarch_video_analysis_output
   crate_moenarch_video_analysis_cli --> crate_moenarch_video_analysis_posture
   crate_moenarch_video_analysis_cli --> crate_moenarch_video_analysis_posture_io
-  crate_moenarch_video_analysis_cli --> crate_moenarch_video_analysis_recognition
-  crate_moenarch_video_analysis_cli --> crate_moenarch_video_analysis_split
-  crate_moenarch_video_analysis_cli --> crate_moenarch_jobs_core
-  crate_moenarch_video_analysis_cli --> crate_moenarch_model_runtime
-  crate_moenarch_video_analysis_core --> crate_moenarch_math_geometry_2d
-  crate_moenarch_video_analysis_core --> crate_moenarch_audio_contracts
-  crate_moenarch_video_analysis_core --> crate_moenarch_text_core
-  crate_moenarch_video_analysis_core --> crate_moenarch_media_core
-  crate_moenarch_video_analysis_core --> crate_moenarch_runtime_core
-  crate_moenarch_video_analysis_core_cli --> crate_moenarch_video_analysis_core
-  crate_moenarch_video_analysis_core_cli --> crate_moenarch_runtime_core
-  crate_moenarch_video_analysis_core_server --> crate_moenarch_video_analysis_core
-  crate_moenarch_video_analysis_core_server --> crate_moenarch_runtime_core
-  crate_moenarch_video_analysis_data --> crate_moenarch_numbers_core
-  crate_moenarch_video_analysis_data --> crate_moenarch_video_analysis_core
-  crate_moenarch_video_analysis_data --> crate_moenarch_runtime_core
-  crate_moenarch_video_analysis_data_cli --> crate_moenarch_video_analysis_data
-  crate_moenarch_video_analysis_data_cli --> crate_moenarch_runtime_core
-  crate_moenarch_video_analysis_data_server --> crate_moenarch_video_analysis_data
-  crate_moenarch_video_analysis_data_server --> crate_moenarch_runtime_core
-  crate_moenarch_video_analysis_dataset -. dev .-> crate_moenarch_three_d_processing_core
-  crate_moenarch_video_analysis_dataset --> crate_moenarch_video_analysis_core
-  crate_moenarch_video_analysis_dataset --> crate_moenarch_video_analysis_posture
-  crate_moenarch_video_analysis_dataset --> crate_moenarch_runtime_core
-  crate_moenarch_video_analysis_dataset_cli --> crate_moenarch_video_analysis_dataset
-  crate_moenarch_video_analysis_dataset_cli --> crate_moenarch_runtime_core
-  crate_moenarch_video_analysis_dataset_server --> crate_moenarch_video_analysis_dataset
-  crate_moenarch_video_analysis_dataset_server --> crate_moenarch_runtime_core
-  crate_moenarch_video_analysis_detectors --> crate_moenarch_video_analysis_core
-  crate_moenarch_video_analysis_detectors -. dev .-> crate_moenarch_video_analysis_ffmpeg
-  crate_moenarch_video_analysis_detectors -. dev .-> crate_moenarch_video_analysis_ingest
-  crate_moenarch_video_analysis_detectors -. dev .-> crate_moenarch_video_analysis_test_support
-  crate_moenarch_video_analysis_detectors --> crate_moenarch_runtime_core
-  crate_moenarch_video_analysis_detectors_cli --> crate_moenarch_video_analysis_detectors
-  crate_moenarch_video_analysis_detectors_cli --> crate_moenarch_runtime_core
-  crate_moenarch_video_analysis_detectors_server --> crate_moenarch_video_analysis_detectors
-  crate_moenarch_video_analysis_detectors_server --> crate_moenarch_runtime_core
-  crate_moenarch_video_analysis_editing --> crate_moenarch_math_geometry_2d
-  crate_moenarch_video_analysis_editing --> crate_moenarch_math_linear
-  crate_moenarch_video_analysis_editing --> crate_moenarch_video_analysis_core
-  crate_moenarch_video_analysis_editing --> crate_moenarch_runtime_core
-  crate_moenarch_video_analysis_editing_cli --> crate_moenarch_video_analysis_editing
-  crate_moenarch_video_analysis_editing_cli --> crate_moenarch_runtime_core
-  crate_moenarch_video_analysis_editing_server --> crate_moenarch_video_analysis_editing
-  crate_moenarch_video_analysis_editing_server --> crate_moenarch_runtime_core
-  crate_moenarch_video_analysis_features --> crate_moenarch_video_analysis_core
-  crate_moenarch_video_analysis_features --> crate_moenarch_video_analysis_dataset
-  crate_moenarch_video_analysis_features --> crate_moenarch_video_analysis_transform
-  crate_moenarch_video_analysis_features --> crate_moenarch_runtime_core
-  crate_moenarch_video_analysis_features_cli --> crate_moenarch_video_analysis_features
-  crate_moenarch_video_analysis_features_cli --> crate_moenarch_runtime_core
-  crate_moenarch_video_analysis_features_server --> crate_moenarch_video_analysis_features
-  crate_moenarch_video_analysis_features_server --> crate_moenarch_runtime_core
-  crate_moenarch_video_analysis_ffmpeg --> crate_moenarch_video_analysis_core
-  crate_moenarch_video_analysis_ffmpeg --> crate_moenarch_video_analysis_ingest
-  crate_moenarch_video_analysis_ffmpeg --> crate_moenarch_runtime_core
-  crate_moenarch_video_analysis_ffmpeg_cli --> crate_moenarch_video_analysis_ffmpeg
-  crate_moenarch_video_analysis_ffmpeg_cli --> crate_moenarch_runtime_core
-  crate_moenarch_video_analysis_ffmpeg_server --> crate_moenarch_video_analysis_ffmpeg
-  crate_moenarch_video_analysis_ffmpeg_server --> crate_moenarch_runtime_core
   crate_moenarch_video_analysis_gaussian_splatting --> crate_moenarch_three_d_processing_core
-  crate_moenarch_video_analysis_gaussian_splatting --> crate_moenarch_video_analysis_core
   crate_moenarch_video_analysis_gaussian_splatting --> crate_moenarch_video_analysis_radiance_fields
-  crate_moenarch_video_analysis_gaussian_splatting --> crate_moenarch_runtime_core
   crate_moenarch_video_analysis_gaussian_splatting_cli --> crate_moenarch_video_analysis_gaussian_splatting
-  crate_moenarch_video_analysis_gaussian_splatting_cli --> crate_moenarch_runtime_core
   crate_moenarch_video_analysis_gaussian_splatting_server --> crate_moenarch_video_analysis_gaussian_splatting
-  crate_moenarch_video_analysis_gaussian_splatting_server --> crate_moenarch_runtime_core
-  crate_moenarch_video_analysis_ingest --> crate_moenarch_video_analysis_core
-  crate_moenarch_video_analysis_ingest --> crate_moenarch_runtime_core
-  crate_moenarch_video_analysis_ingest_cli --> crate_moenarch_video_analysis_ingest
-  crate_moenarch_video_analysis_ingest_cli --> crate_moenarch_runtime_core
-  crate_moenarch_video_analysis_ingest_server --> crate_moenarch_video_analysis_ingest
-  crate_moenarch_video_analysis_ingest_server --> crate_moenarch_runtime_core
   crate_moenarch_video_analysis_mvs --> crate_moenarch_three_d_processing_core
   crate_moenarch_video_analysis_mvs --> crate_moenarch_three_d_processing_mesh
-  crate_moenarch_video_analysis_mvs --> crate_moenarch_video_analysis_core
   crate_moenarch_video_analysis_mvs --> crate_moenarch_video_analysis_radiance_fields
   crate_moenarch_video_analysis_mvs -. dev .-> crate_moenarch_video_analysis_radiance_io
   crate_moenarch_video_analysis_mvs --> crate_moenarch_video_analysis_reconstruction
-  crate_moenarch_video_analysis_mvs --> crate_moenarch_runtime_core
   crate_moenarch_video_analysis_mvs_cli --> crate_moenarch_video_analysis_mvs
-  crate_moenarch_video_analysis_mvs_cli --> crate_moenarch_runtime_core
   crate_moenarch_video_analysis_mvs_server --> crate_moenarch_video_analysis_mvs
-  crate_moenarch_video_analysis_mvs_server --> crate_moenarch_runtime_core
-  crate_moenarch_video_analysis_output --> crate_moenarch_video_analysis_core
-  crate_moenarch_video_analysis_output --> crate_moenarch_runtime_core
-  crate_moenarch_video_analysis_output_cli --> crate_moenarch_video_analysis_output
-  crate_moenarch_video_analysis_output_cli --> crate_moenarch_runtime_core
-  crate_moenarch_video_analysis_output_server --> crate_moenarch_video_analysis_output
-  crate_moenarch_video_analysis_output_server --> crate_moenarch_runtime_core
-  crate_moenarch_video_analysis_posture --> crate_moenarch_math_geometry_2d
-  crate_moenarch_video_analysis_posture --> crate_moenarch_image_analysis_core
-  crate_moenarch_video_analysis_posture --> crate_moenarch_image_analysis_processing
   crate_moenarch_video_analysis_posture --> crate_moenarch_three_d_processing_core
-  crate_moenarch_video_analysis_posture --> crate_moenarch_video_analysis_core
-  crate_moenarch_video_analysis_posture --> crate_moenarch_model_runtime
-  crate_moenarch_video_analysis_posture --> crate_moenarch_runtime_core
-  crate_moenarch_video_analysis_posture --> crate_moenarch_runtime_onnx
   crate_moenarch_video_analysis_posture_cli --> crate_moenarch_video_analysis_posture
-  crate_moenarch_video_analysis_posture_cli --> crate_moenarch_runtime_core
   crate_moenarch_video_analysis_posture_io --> crate_moenarch_three_d_processing_core
-  crate_moenarch_video_analysis_posture_io --> crate_moenarch_video_analysis_core
   crate_moenarch_video_analysis_posture_io --> crate_moenarch_video_analysis_posture
-  crate_moenarch_video_analysis_posture_io --> crate_moenarch_runtime_core
   crate_moenarch_video_analysis_posture_io_cli --> crate_moenarch_video_analysis_posture_io
-  crate_moenarch_video_analysis_posture_io_cli --> crate_moenarch_runtime_core
   crate_moenarch_video_analysis_posture_io_server --> crate_moenarch_video_analysis_posture_io
-  crate_moenarch_video_analysis_posture_io_server --> crate_moenarch_runtime_core
   crate_moenarch_video_analysis_posture_server --> crate_moenarch_video_analysis_posture
-  crate_moenarch_video_analysis_posture_server --> crate_moenarch_runtime_core
   crate_moenarch_video_analysis_radiance_fields --> crate_moenarch_three_d_processing_core
-  crate_moenarch_video_analysis_radiance_fields --> crate_moenarch_video_analysis_core
-  crate_moenarch_video_analysis_radiance_fields --> crate_moenarch_runtime_core
   crate_moenarch_video_analysis_radiance_fields_cli --> crate_moenarch_video_analysis_radiance_fields
-  crate_moenarch_video_analysis_radiance_fields_cli --> crate_moenarch_runtime_core
   crate_moenarch_video_analysis_radiance_fields_server --> crate_moenarch_video_analysis_radiance_fields
-  crate_moenarch_video_analysis_radiance_fields_server --> crate_moenarch_runtime_core
-  crate_moenarch_video_analysis_radiance_io --> crate_moenarch_video_analysis_core
   crate_moenarch_video_analysis_radiance_io --> crate_moenarch_video_analysis_gaussian_splatting
   crate_moenarch_video_analysis_radiance_io --> crate_moenarch_video_analysis_radiance_fields
   crate_moenarch_video_analysis_radiance_io --> crate_moenarch_video_analysis_reconstruction
-  crate_moenarch_video_analysis_radiance_io --> crate_moenarch_runtime_core
   crate_moenarch_video_analysis_radiance_io_cli --> crate_moenarch_video_analysis_radiance_io
-  crate_moenarch_video_analysis_radiance_io_cli --> crate_moenarch_runtime_core
   crate_moenarch_video_analysis_radiance_io_server --> crate_moenarch_video_analysis_radiance_io
-  crate_moenarch_video_analysis_radiance_io_server --> crate_moenarch_runtime_core
-  crate_moenarch_video_analysis_radiance_pipeline --> crate_moenarch_video_analysis_core
   crate_moenarch_video_analysis_radiance_pipeline --> crate_moenarch_video_analysis_gaussian_splatting
   crate_moenarch_video_analysis_radiance_pipeline --> crate_moenarch_video_analysis_radiance_fields
   crate_moenarch_video_analysis_radiance_pipeline --> crate_moenarch_video_analysis_radiance_io
   crate_moenarch_video_analysis_radiance_pipeline --> crate_moenarch_video_analysis_reconstruction
-  crate_moenarch_video_analysis_radiance_pipeline --> crate_moenarch_runtime_core
   crate_moenarch_video_analysis_radiance_pipeline_cli --> crate_moenarch_video_analysis_radiance_pipeline
-  crate_moenarch_video_analysis_radiance_pipeline_cli --> crate_moenarch_runtime_core
   crate_moenarch_video_analysis_radiance_pipeline_server --> crate_moenarch_video_analysis_radiance_pipeline
-  crate_moenarch_video_analysis_radiance_pipeline_server --> crate_moenarch_runtime_core
-  crate_moenarch_video_analysis_recognition --> crate_moenarch_image_analysis_core
-  crate_moenarch_video_analysis_recognition -. optional .-> crate_moenarch_image_analysis_detection
-  crate_moenarch_video_analysis_recognition --> crate_moenarch_three_d_processing_core
-  crate_moenarch_video_analysis_recognition --> crate_moenarch_video_analysis_core
-  crate_moenarch_video_analysis_recognition --> crate_moenarch_video_analysis_posture
-  crate_moenarch_video_analysis_recognition --> crate_moenarch_model_runtime
-  crate_moenarch_video_analysis_recognition --> crate_moenarch_runtime_core
-  crate_moenarch_video_analysis_recognition --> crate_moenarch_runtime_onnx
-  crate_moenarch_video_analysis_recognition --> crate_moenarch_vision_core
-  crate_moenarch_video_analysis_recognition_cli --> crate_moenarch_video_analysis_recognition
-  crate_moenarch_video_analysis_recognition_cli --> crate_moenarch_runtime_core
-  crate_moenarch_video_analysis_recognition_server --> crate_moenarch_video_analysis_recognition
-  crate_moenarch_video_analysis_recognition_server --> crate_moenarch_runtime_core
-  crate_moenarch_video_analysis_reconstruction --> crate_moenarch_video_analysis_core
   crate_moenarch_video_analysis_reconstruction --> crate_moenarch_video_analysis_radiance_fields
-  crate_moenarch_video_analysis_reconstruction --> crate_moenarch_runtime_core
   crate_moenarch_video_analysis_reconstruction_cli --> crate_moenarch_video_analysis_reconstruction
-  crate_moenarch_video_analysis_reconstruction_cli --> crate_moenarch_runtime_core
   crate_moenarch_video_analysis_reconstruction_server --> crate_moenarch_video_analysis_reconstruction
-  crate_moenarch_video_analysis_reconstruction_server --> crate_moenarch_runtime_core
-  crate_moenarch_video_analysis_segmentation --> crate_moenarch_image_analysis_segmentation
-  crate_moenarch_video_analysis_segmentation --> crate_moenarch_video_analysis_core
-  crate_moenarch_video_analysis_segmentation -. dev .-> crate_moenarch_video_analysis_ffmpeg
-  crate_moenarch_video_analysis_segmentation -. dev .-> crate_moenarch_video_analysis_ingest
-  crate_moenarch_video_analysis_segmentation -. dev .-> crate_moenarch_video_analysis_recognition
-  crate_moenarch_video_analysis_segmentation --> crate_moenarch_model_runtime
-  crate_moenarch_video_analysis_segmentation --> crate_moenarch_runtime_core
-  crate_moenarch_video_analysis_segmentation_cli --> crate_moenarch_video_analysis_segmentation
-  crate_moenarch_video_analysis_segmentation_cli --> crate_moenarch_runtime_core
-  crate_moenarch_video_analysis_segmentation_server --> crate_moenarch_video_analysis_segmentation
-  crate_moenarch_video_analysis_segmentation_server --> crate_moenarch_runtime_core
-  crate_moenarch_video_analysis_sfm --> crate_moenarch_video_analysis_core
   crate_moenarch_video_analysis_sfm --> crate_moenarch_video_analysis_radiance_fields
   crate_moenarch_video_analysis_sfm --> crate_moenarch_video_analysis_radiance_io
   crate_moenarch_video_analysis_sfm --> crate_moenarch_video_analysis_reconstruction
-  crate_moenarch_video_analysis_sfm --> crate_moenarch_runtime_core
   crate_moenarch_video_analysis_sfm_cli --> crate_moenarch_video_analysis_sfm
-  crate_moenarch_video_analysis_sfm_cli --> crate_moenarch_runtime_core
   crate_moenarch_video_analysis_sfm_server --> crate_moenarch_video_analysis_sfm
-  crate_moenarch_video_analysis_sfm_server --> crate_moenarch_runtime_core
-  crate_moenarch_video_analysis_split --> crate_moenarch_video_analysis_core
-  crate_moenarch_video_analysis_split -. dev .-> crate_moenarch_video_analysis_ffmpeg
-  crate_moenarch_video_analysis_split --> crate_moenarch_runtime_core
-  crate_moenarch_video_analysis_split_cli --> crate_moenarch_video_analysis_split
-  crate_moenarch_video_analysis_split_cli --> crate_moenarch_runtime_core
-  crate_moenarch_video_analysis_split_server --> crate_moenarch_video_analysis_split
-  crate_moenarch_video_analysis_split_server --> crate_moenarch_runtime_core
-  crate_moenarch_video_analysis_storage --> crate_moenarch_video_analysis_core
-  crate_moenarch_video_analysis_storage --> crate_moenarch_video_analysis_dataset
-  crate_moenarch_video_analysis_storage --> crate_moenarch_media_core
-  crate_moenarch_video_analysis_storage --> crate_moenarch_runtime_core
-  crate_moenarch_video_analysis_storage_cli --> crate_moenarch_video_analysis_storage
-  crate_moenarch_video_analysis_storage_cli --> crate_moenarch_runtime_core
-  crate_moenarch_video_analysis_storage_server --> crate_moenarch_video_analysis_storage
-  crate_moenarch_video_analysis_storage_server --> crate_moenarch_runtime_core
-  crate_moenarch_video_analysis_synthesis --> crate_moenarch_data_inversion_core
-  crate_moenarch_video_analysis_synthesis --> crate_moenarch_video_analysis_core
-  crate_moenarch_video_analysis_synthesis --> crate_moenarch_runtime_core
-  crate_moenarch_video_analysis_synthesis_cli --> crate_moenarch_video_analysis_synthesis
-  crate_moenarch_video_analysis_synthesis_cli --> crate_moenarch_runtime_core
-  crate_moenarch_video_analysis_synthesis_server --> crate_moenarch_video_analysis_synthesis
-  crate_moenarch_video_analysis_synthesis_server --> crate_moenarch_runtime_core
-  crate_moenarch_video_analysis_tracking --> crate_moenarch_math_geometry_2d
-  crate_moenarch_video_analysis_tracking --> crate_moenarch_video_analysis_core
-  crate_moenarch_video_analysis_tracking --> crate_moenarch_runtime_core
-  crate_moenarch_video_analysis_tracking --> crate_moenarch_vision_core
-  crate_moenarch_video_analysis_tracking_cli --> crate_moenarch_video_analysis_tracking
-  crate_moenarch_video_analysis_tracking_cli --> crate_moenarch_runtime_core
-  crate_moenarch_video_analysis_tracking_server --> crate_moenarch_video_analysis_tracking
-  crate_moenarch_video_analysis_tracking_server --> crate_moenarch_runtime_core
-  crate_moenarch_video_analysis_transform --> crate_moenarch_video_analysis_core
-  crate_moenarch_video_analysis_transform --> crate_moenarch_video_analysis_dataset
-  crate_moenarch_video_analysis_transform --> crate_moenarch_runtime_core
-  crate_moenarch_video_analysis_transform_cli --> crate_moenarch_video_analysis_transform
-  crate_moenarch_video_analysis_transform_cli --> crate_moenarch_runtime_core
-  crate_moenarch_video_analysis_transform_server --> crate_moenarch_video_analysis_transform
-  crate_moenarch_video_analysis_transform_server --> crate_moenarch_runtime_core
-  crate_moenarch_comfyui_data --> crate_moenarch_tensor_data
-  crate_moenarch_comfyui_data --> crate_moenarch_runtime_core
   crate_moenarch_comfyui_data_cli --> crate_moenarch_comfyui_data
-  crate_moenarch_comfyui_data_cli --> crate_moenarch_runtime_core
   crate_moenarch_comfyui_data_server --> crate_moenarch_comfyui_data
-  crate_moenarch_comfyui_data_server --> crate_moenarch_runtime_core
-  crate_moenarch_comfyui_latents --> crate_moenarch_tensor_data
-  crate_moenarch_comfyui_latents --> crate_moenarch_video_analysis_core
-  crate_moenarch_comfyui_latents --> crate_moenarch_runtime_core
   crate_moenarch_comfyui_latents_cli --> crate_moenarch_comfyui_latents
-  crate_moenarch_comfyui_latents_cli --> crate_moenarch_runtime_core
   crate_moenarch_comfyui_latents_server --> crate_moenarch_comfyui_latents
-  crate_moenarch_comfyui_latents_server --> crate_moenarch_runtime_core
-  crate_moenarch_comfyui_models --> crate_moenarch_runtime_core
   crate_moenarch_comfyui_models_cli --> crate_moenarch_comfyui_models
-  crate_moenarch_comfyui_models_cli --> crate_moenarch_runtime_core
   crate_moenarch_comfyui_models_server --> crate_moenarch_comfyui_models
-  crate_moenarch_comfyui_models_server --> crate_moenarch_runtime_core
   crate_moenarch_animation_core_wasm --> crate_moenarch_animation_core
-  crate_moenarch_animation_core_wasm --> crate_moenarch_runtime_core
   crate_moenarch_comfyui_data_wasm --> crate_moenarch_comfyui_data
-  crate_moenarch_comfyui_data_wasm --> crate_moenarch_runtime_core
   crate_moenarch_comfyui_latents_wasm --> crate_moenarch_comfyui_latents
-  crate_moenarch_comfyui_latents_wasm --> crate_moenarch_runtime_core
   crate_moenarch_comfyui_models_wasm --> crate_moenarch_comfyui_models
-  crate_moenarch_comfyui_models_wasm --> crate_moenarch_runtime_core
-  crate_moenarch_data_inversion_core_wasm --> crate_moenarch_data_inversion_core
-  crate_moenarch_data_inversion_core_wasm --> crate_moenarch_runtime_core
-  crate_moenarch_dense_data_wasm --> crate_moenarch_dense_data
-  crate_moenarch_dense_data_wasm --> crate_moenarch_runtime_core
-  crate_moenarch_graph_analysis_core_wasm --> crate_moenarch_graph_analysis_core
-  crate_moenarch_graph_analysis_core_wasm --> crate_moenarch_runtime_core
-  crate_moenarch_image_analysis_captioning_wasm --> crate_moenarch_image_analysis_captioning
-  crate_moenarch_image_analysis_captioning_wasm --> crate_moenarch_runtime_core
-  crate_moenarch_image_analysis_classification_wasm --> crate_moenarch_image_analysis_classification
-  crate_moenarch_image_analysis_classification_wasm --> crate_moenarch_runtime_core
   crate_moenarch_image_analysis_comfyui_wasm --> crate_moenarch_image_analysis_comfyui
-  crate_moenarch_image_analysis_comfyui_wasm --> crate_moenarch_runtime_core
-  crate_moenarch_image_analysis_core_wasm --> crate_moenarch_image_analysis_core
-  crate_moenarch_image_analysis_core_wasm --> crate_moenarch_runtime_core
-  crate_moenarch_image_analysis_detection_wasm --> crate_moenarch_image_analysis_detection
-  crate_moenarch_image_analysis_detection_wasm --> crate_moenarch_runtime_core
-  crate_moenarch_image_analysis_embeddings_wasm --> crate_moenarch_image_analysis_embeddings
-  crate_moenarch_image_analysis_embeddings_wasm --> crate_moenarch_runtime_core
-  crate_moenarch_image_analysis_io_wasm --> crate_moenarch_image_analysis_io
-  crate_moenarch_image_analysis_io_wasm --> crate_moenarch_runtime_core
-  crate_moenarch_image_analysis_ocr_wasm --> crate_moenarch_image_analysis_ocr
-  crate_moenarch_image_analysis_ocr_wasm --> crate_moenarch_runtime_core
-  crate_moenarch_image_analysis_processing_wasm --> crate_moenarch_image_analysis_processing
-  crate_moenarch_image_analysis_processing_wasm --> crate_moenarch_runtime_core
-  crate_moenarch_image_analysis_segmentation_wasm --> crate_moenarch_image_analysis_segmentation
-  crate_moenarch_image_analysis_segmentation_wasm --> crate_moenarch_runtime_core
-  crate_moenarch_image_analysis_synthesis_wasm --> crate_moenarch_image_analysis_synthesis
-  crate_moenarch_image_analysis_synthesis_wasm --> crate_moenarch_runtime_core
-  crate_moenarch_jobs_core_wasm --> crate_moenarch_jobs_core
-  crate_moenarch_jobs_core_wasm --> crate_moenarch_runtime_core
-  crate_moenarch_math_geometry_2d_wasm --> crate_moenarch_math_geometry_2d
-  crate_moenarch_math_geometry_2d_wasm --> crate_moenarch_runtime_core
-  crate_moenarch_math_linear_wasm --> crate_moenarch_math_linear
-  crate_moenarch_math_linear_wasm --> crate_moenarch_runtime_core
-  crate_moenarch_math_signal_core_wasm --> crate_moenarch_math_signal_core
-  crate_moenarch_math_signal_core_wasm --> crate_moenarch_runtime_core
-  crate_moenarch_math_sparse_data_wasm --> crate_moenarch_math_sparse_data
-  crate_moenarch_math_sparse_data_wasm --> crate_moenarch_runtime_core
-  crate_moenarch_math_statistics_wasm --> crate_moenarch_math_statistics
-  crate_moenarch_math_statistics_wasm --> crate_moenarch_runtime_core
-  crate_moenarch_model_runtime_wasm --> crate_moenarch_model_runtime
-  crate_moenarch_model_runtime_wasm --> crate_moenarch_runtime_core
-  crate_moenarch_numbers_core_wasm --> crate_moenarch_numbers_core
-  crate_moenarch_numbers_core_wasm --> crate_moenarch_runtime_core
-  crate_moenarch_tensor_data_wasm --> crate_moenarch_tensor_data
-  crate_moenarch_tensor_data_wasm --> crate_moenarch_runtime_core
-  crate_moenarch_text_analysis_wasm --> crate_moenarch_text_analysis
-  crate_moenarch_text_analysis_wasm --> crate_moenarch_runtime_core
-  crate_moenarch_text_classification_wasm --> crate_moenarch_text_classification
-  crate_moenarch_text_classification_wasm --> crate_moenarch_runtime_core
-  crate_moenarch_text_core_wasm --> crate_moenarch_text_core
-  crate_moenarch_text_core_wasm --> crate_moenarch_runtime_core
-  crate_moenarch_text_embeddings_wasm --> crate_moenarch_text_embeddings
-  crate_moenarch_text_embeddings_wasm --> crate_moenarch_runtime_core
-  crate_moenarch_text_generation_linguistics_wasm --> crate_moenarch_text_generation_linguistics
-  crate_moenarch_text_generation_linguistics_wasm --> crate_moenarch_runtime_core
-  crate_moenarch_text_generation_wasm --> crate_moenarch_text_generation
-  crate_moenarch_text_generation_wasm --> crate_moenarch_runtime_core
-  crate_moenarch_text_index_wasm --> crate_moenarch_text_index
-  crate_moenarch_text_index_wasm --> crate_moenarch_runtime_core
-  crate_moenarch_text_lexical_wasm --> crate_moenarch_text_lexical
-  crate_moenarch_text_lexical_wasm --> crate_moenarch_runtime_core
-  crate_moenarch_text_linguistics_wasm --> crate_moenarch_text_linguistics
-  crate_moenarch_text_linguistics_wasm --> crate_moenarch_runtime_core
-  crate_moenarch_text_model_runtime_wasm --> crate_moenarch_text_model_runtime
-  crate_moenarch_text_model_runtime_wasm --> crate_moenarch_runtime_core
-  crate_moenarch_text_question_answering_wasm --> crate_moenarch_text_question_answering
-  crate_moenarch_text_question_answering_wasm --> crate_moenarch_runtime_core
-  crate_moenarch_text_retrieval_wasm --> crate_moenarch_text_retrieval
-  crate_moenarch_text_retrieval_wasm --> crate_moenarch_runtime_core
-  crate_moenarch_text_transcripts_wasm --> crate_moenarch_text_transcripts
-  crate_moenarch_text_transcripts_wasm --> crate_moenarch_runtime_core
   crate_moenarch_three_d_processing_core_wasm --> crate_moenarch_three_d_processing_core
-  crate_moenarch_three_d_processing_core_wasm --> crate_moenarch_runtime_core
   crate_moenarch_three_d_processing_io_wasm --> crate_moenarch_three_d_processing_io
-  crate_moenarch_three_d_processing_io_wasm --> crate_moenarch_runtime_core
   crate_moenarch_three_d_processing_mesh_wasm --> crate_moenarch_three_d_processing_mesh
-  crate_moenarch_three_d_processing_mesh_wasm --> crate_moenarch_runtime_core
   crate_moenarch_three_d_scene_svg_wasm --> crate_moenarch_three_d_scene_svg
-  crate_moenarch_three_d_scene_svg_wasm --> crate_moenarch_runtime_core
-  crate_moenarch_vector_analysis_core_wasm --> crate_moenarch_vector_analysis_core
-  crate_moenarch_vector_analysis_core_wasm --> crate_moenarch_runtime_core
-  crate_moenarch_vector_analysis_index_wasm --> crate_moenarch_vector_analysis_index
-  crate_moenarch_vector_analysis_index_wasm --> crate_moenarch_runtime_core
-  crate_moenarch_video_analysis_core_wasm --> crate_moenarch_video_analysis_core
-  crate_moenarch_video_analysis_core_wasm --> crate_moenarch_runtime_core
-  crate_moenarch_video_analysis_data_wasm --> crate_moenarch_video_analysis_data
-  crate_moenarch_video_analysis_data_wasm --> crate_moenarch_runtime_core
-  crate_moenarch_video_analysis_dataset_wasm --> crate_moenarch_video_analysis_dataset
-  crate_moenarch_video_analysis_dataset_wasm --> crate_moenarch_runtime_core
-  crate_moenarch_video_analysis_detectors_wasm --> crate_moenarch_video_analysis_detectors
-  crate_moenarch_video_analysis_detectors_wasm --> crate_moenarch_runtime_core
-  crate_moenarch_video_analysis_editing_wasm --> crate_moenarch_video_analysis_editing
-  crate_moenarch_video_analysis_editing_wasm --> crate_moenarch_runtime_core
-  crate_moenarch_video_analysis_features_wasm --> crate_moenarch_video_analysis_features
-  crate_moenarch_video_analysis_features_wasm --> crate_moenarch_runtime_core
-  crate_moenarch_video_analysis_ffmpeg_wasm --> crate_moenarch_video_analysis_ffmpeg
-  crate_moenarch_video_analysis_ffmpeg_wasm --> crate_moenarch_runtime_core
   crate_moenarch_video_analysis_gaussian_splatting_wasm --> crate_moenarch_video_analysis_gaussian_splatting
-  crate_moenarch_video_analysis_gaussian_splatting_wasm --> crate_moenarch_runtime_core
-  crate_moenarch_video_analysis_ingest_wasm --> crate_moenarch_video_analysis_ingest
-  crate_moenarch_video_analysis_ingest_wasm --> crate_moenarch_runtime_core
   crate_moenarch_video_analysis_mvs_wasm --> crate_moenarch_video_analysis_mvs
-  crate_moenarch_video_analysis_mvs_wasm --> crate_moenarch_runtime_core
-  crate_moenarch_video_analysis_output_wasm --> crate_moenarch_video_analysis_output
-  crate_moenarch_video_analysis_output_wasm --> crate_moenarch_runtime_core
   crate_moenarch_video_analysis_posture_io_wasm --> crate_moenarch_video_analysis_posture_io
-  crate_moenarch_video_analysis_posture_io_wasm --> crate_moenarch_runtime_core
   crate_moenarch_video_analysis_posture_wasm --> crate_moenarch_video_analysis_posture
-  crate_moenarch_video_analysis_posture_wasm --> crate_moenarch_runtime_core
   crate_moenarch_video_analysis_radiance_fields_wasm --> crate_moenarch_video_analysis_radiance_fields
-  crate_moenarch_video_analysis_radiance_fields_wasm --> crate_moenarch_runtime_core
   crate_moenarch_video_analysis_radiance_io_wasm --> crate_moenarch_video_analysis_radiance_io
-  crate_moenarch_video_analysis_radiance_io_wasm --> crate_moenarch_runtime_core
   crate_moenarch_video_analysis_radiance_pipeline_wasm --> crate_moenarch_video_analysis_radiance_pipeline
-  crate_moenarch_video_analysis_radiance_pipeline_wasm --> crate_moenarch_runtime_core
-  crate_moenarch_video_analysis_recognition_wasm --> crate_moenarch_video_analysis_recognition
-  crate_moenarch_video_analysis_recognition_wasm --> crate_moenarch_runtime_core
   crate_moenarch_video_analysis_reconstruction_wasm --> crate_moenarch_video_analysis_reconstruction
-  crate_moenarch_video_analysis_reconstruction_wasm --> crate_moenarch_runtime_core
-  crate_moenarch_video_analysis_segmentation_wasm --> crate_moenarch_video_analysis_segmentation
-  crate_moenarch_video_analysis_segmentation_wasm --> crate_moenarch_runtime_core
   crate_moenarch_video_analysis_sfm_wasm --> crate_moenarch_video_analysis_sfm
-  crate_moenarch_video_analysis_sfm_wasm --> crate_moenarch_runtime_core
-  crate_moenarch_video_analysis_split_wasm --> crate_moenarch_video_analysis_split
-  crate_moenarch_video_analysis_split_wasm --> crate_moenarch_runtime_core
-  crate_moenarch_video_analysis_storage_wasm --> crate_moenarch_video_analysis_storage
-  crate_moenarch_video_analysis_storage_wasm --> crate_moenarch_runtime_core
-  crate_moenarch_video_analysis_synthesis_wasm --> crate_moenarch_video_analysis_synthesis
-  crate_moenarch_video_analysis_synthesis_wasm --> crate_moenarch_runtime_core
-  crate_moenarch_video_analysis_tracking_wasm --> crate_moenarch_video_analysis_tracking
-  crate_moenarch_video_analysis_tracking_wasm --> crate_moenarch_runtime_core
-  crate_moenarch_video_analysis_transform_wasm --> crate_moenarch_video_analysis_transform
-  crate_moenarch_video_analysis_transform_wasm --> crate_moenarch_runtime_core
-  crate_moenarch_vision_core_wasm --> crate_moenarch_runtime_core
-  crate_moenarch_vision_core_wasm --> crate_moenarch_vision_core
-  crate_moenarch_video_analysis_test_support --> crate_moenarch_video_analysis_core
-  crate_moenarch_video_analysis_test_support --> crate_moenarch_video_analysis_dataset
   crate_moenarch_video_analysis_test_support --> crate_moenarch_video_analysis_radiance_fields
   crate_moenarch_video_analysis_test_support --> crate_moenarch_video_analysis_radiance_io
-  crate_moenarch_video_analysis_test_support --> crate_moenarch_runtime_core
   crate_moenarch_video_analysis_use_cases --> crate_moenarch_image_analysis_comfyui
-  crate_moenarch_video_analysis_use_cases --> crate_moenarch_image_analysis_core
-  crate_moenarch_video_analysis_use_cases --> crate_moenarch_image_analysis_detection
-  crate_moenarch_video_analysis_use_cases --> crate_moenarch_image_analysis_io
-  crate_moenarch_video_analysis_use_cases --> crate_moenarch_text_lexical
-  crate_moenarch_video_analysis_use_cases --> crate_moenarch_text_transcripts
-  crate_moenarch_video_analysis_use_cases --> crate_moenarch_video_analysis_core
-  crate_moenarch_video_analysis_use_cases --> crate_moenarch_video_analysis_data
-  crate_moenarch_video_analysis_use_cases --> crate_moenarch_video_analysis_detectors
-  crate_moenarch_video_analysis_use_cases --> crate_moenarch_video_analysis_ffmpeg
-  crate_moenarch_video_analysis_use_cases --> crate_moenarch_video_analysis_ingest
-  crate_moenarch_video_analysis_use_cases --> crate_moenarch_video_analysis_recognition
   crate_moenarch_video_analysis_use_cases --> crate_moenarch_comfyui_latents
   crate_moenarch_video_analysis_use_cases --> crate_moenarch_comfyui_models
   crate_moenarch_video_analysis_use_cases -. dev .-> crate_moenarch_video_analysis_test_support
-  crate_moenarch_video_analysis_use_cases --> crate_moenarch_model_runtime
   crate_moenarch_animation_core --> crate_moenarch_three_d_processing_core
-  crate_moenarch_animation_core --> crate_moenarch_video_analysis_core
-  crate_moenarch_animation_core --> crate_moenarch_runtime_core
   crate_moenarch_animation_core_cli --> crate_moenarch_animation_core
-  crate_moenarch_animation_core_cli --> crate_moenarch_runtime_core
   crate_moenarch_animation_core_server --> crate_moenarch_animation_core
-  crate_moenarch_animation_core_server --> crate_moenarch_runtime_core
-  crate_moenarch_jobs_core --> crate_moenarch_runtime_core
-  crate_moenarch_jobs_core_cli --> crate_moenarch_jobs_core
-  crate_moenarch_jobs_core_cli --> crate_moenarch_runtime_core
-  crate_moenarch_jobs_core_server --> crate_moenarch_jobs_core
-  crate_moenarch_jobs_core_server --> crate_moenarch_runtime_core
-  crate_moenarch_model_runtime --> crate_moenarch_jobs_core
-  crate_moenarch_model_runtime --> crate_moenarch_runtime_core
-  crate_moenarch_model_runtime_cli --> crate_moenarch_model_runtime
-  crate_moenarch_model_runtime_cli --> crate_moenarch_runtime_core
-  crate_moenarch_model_runtime_server --> crate_moenarch_model_runtime
-  crate_moenarch_model_runtime_server --> crate_moenarch_runtime_core
-  crate_moenarch_vision_core --> crate_moenarch_math_geometry_2d
-  crate_moenarch_vision_core --> crate_moenarch_runtime_core
-  crate_moenarch_vision_core_cli --> crate_moenarch_runtime_core
-  crate_moenarch_vision_core_cli --> crate_moenarch_vision_core
-  crate_moenarch_vision_core_server --> crate_moenarch_runtime_core
-  crate_moenarch_vision_core_server --> crate_moenarch_vision_core
 ```

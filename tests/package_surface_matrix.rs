@@ -6,16 +6,11 @@ fn prioritized_crates_expose_more_than_describe() {
     let matrix = fs::read_to_string("docs/PACKAGE_SURFACE_MATRIX.md").unwrap();
     let operations_by_crate = parse_matrix(&matrix);
     let prioritized = [
-        "moenarch-numbers-core",
-        "moenarch-tensor-data",
-        "moenarch-vector-analysis-core",
-        "moenarch-vector-analysis-index",
-        "moenarch-graph-analysis-core",
-        "moenarch-math-geometry-2d",
-        "moenarch-math-linear",
-        "moenarch-math-signal-core",
-        "moenarch-math-sparse-data",
-        "moenarch-math-statistics",
+        "moenarch-comfyui-data",
+        "moenarch-comfyui-latents",
+        "moenarch-comfyui-models",
+        "moenarch-image-analysis-comfyui",
+        "moenarch-three-d-scene-svg",
     ];
 
     for crate_name in prioritized {
@@ -27,18 +22,6 @@ fn prioritized_crates_expose_more_than_describe() {
             "{crate_name} must expose more than describe"
         );
     }
-}
-
-#[test]
-fn transcription_surface_ownership_is_explicit() {
-    let matrix = fs::read_to_string("docs/PACKAGE_SURFACE_MATRIX.md").unwrap();
-    let operations_by_crate = parse_matrix(&matrix);
-
-    let text = operations_by_crate
-        .get("moenarch-text-transcripts")
-        .expect("text-transcripts row");
-    assert!(text.contains(&"transcripts.normalize".to_string()));
-    assert!(text.contains(&"transcripts.importWhisperX".to_string()));
 }
 
 fn parse_matrix(markdown: &str) -> BTreeMap<String, Vec<String>> {

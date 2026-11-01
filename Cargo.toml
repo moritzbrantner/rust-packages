@@ -16,24 +16,11 @@ categories = ["multimedia", "computer-vision", "science", "algorithms"]
 members = [
     ".",
     "crates/animation/*",
-    "crates/audio/audio-contracts",
     "crates/bindings/*",
     "crates/comfyui/*",
-    "crates/data/*",
     "crates/image/*",
-    "crates/jobs/*",
-    "crates/media/*",
-    "crates/math/*",
-    "crates/runtime/runtime-core",
-    "crates/runtime/runtime-onnx",
-    "crates/runtime/model-runtime",
-    "crates/runtime/model-runtime-cli",
-    "crates/runtime/model-runtime-server",
     "crates/test-support/*",
-    "crates/text/*",
     "crates/three-d/*",
-    "crates/vector/*",
-    "crates/vision/*",
     "crates/video/*",
     "prototypes/rust/video-analysis-use-cases",
 ]
@@ -88,79 +75,47 @@ animation-core = { package = "moenarch-animation-core", version = "0.1.0", path 
 comfyui-data = { package = "moenarch-comfyui-data", version = "0.1.0", path = "crates/comfyui/comfyui-data" }
 comfyui-latents = { package = "moenarch-comfyui-latents", version = "0.1.0", path = "crates/comfyui/comfyui-latents" }
 comfyui-models = { package = "moenarch-comfyui-models", version = "0.1.0", path = "crates/comfyui/comfyui-models" }
-data-inversion-core = { package = "moenarch-data-inversion-core", version = "0.1.0", path = "crates/data/data-inversion-core" }
-graph-analysis-core = { package = "moenarch-graph-analysis-core", version = "0.1.0", path = "crates/data/graph-analysis-core" }
-dense-data = { package = "moenarch-dense-data", version = "0.1.0", path = "crates/data/dense-data" }
-numbers-core = { package = "moenarch-numbers-core", version = "0.1.0", path = "crates/data/numbers-core" }
-tensor-data = { package = "moenarch-tensor-data", version = "0.1.0", path = "crates/data/tensor-data" }
-jobs-core = { package = "moenarch-jobs-core", version = "0.1.1", path = "crates/jobs/jobs-core" }
-media-core = { package = "moenarch-media-core", version = "0.1.0", path = "crates/media/media-core" }
-audio-contracts = { package = "moenarch-audio-contracts", version = "0.1.0", path = "crates/audio/audio-contracts" }
-model-runtime = { package = "moenarch-model-runtime", version = "0.1.0", path = "crates/runtime/model-runtime" }
-runtime-core = { package = "moenarch-runtime-core", version = "0.2.0", path = "crates/runtime/runtime-core" }
-runtime-onnx = { package = "moenarch-runtime-onnx", version = "0.1.0", path = "crates/runtime/runtime-onnx" }
-math-geometry-2d = { package = "moenarch-math-geometry-2d", version = "0.1.0", path = "crates/math/math-geometry-2d" }
-math-linear = { package = "moenarch-math-linear", version = "0.1.0", path = "crates/math/math-linear" }
-math-signal-core = { package = "moenarch-math-signal-core", version = "0.1.0", path = "crates/math/math-signal-core" }
-math-sparse-data = { package = "moenarch-math-sparse-data", version = "0.1.0", path = "crates/math/math-sparse-data" }
-math-statistics = { package = "moenarch-math-statistics", version = "0.1.0", path = "crates/math/math-statistics" }
+# Packages owned by other repositories. Foundation (moenarch-foundation) and NLP
+# (nlp-stack) crates use their exact registry coordinates; visual-analysis crates
+# come from one pinned visual-analysis revision because several are unpublished.
+runtime-core = { package = "moenarch-runtime-core", version = "=0.2.1" }
+tensor-data = { package = "moenarch-tensor-data", version = "=0.1.1" }
+model-runtime = { package = "moenarch-model-runtime", version = "=0.1.1" }
+runtime-onnx = { package = "moenarch-runtime-onnx", version = "=0.1.1" }
+math-geometry-2d = { package = "moenarch-math-geometry-2d", version = "=0.1.1" }
+jobs-core = { package = "moenarch-jobs-core", version = "=0.1.2" }
+text-core = { package = "moenarch-text-core", version = "=0.1.1" }
+scenedetect-core = "=0.1.0"
+text-lexical = { package = "moenarch-text-lexical", version = "=0.1.1" }
+text-transcripts = { package = "moenarch-text-transcripts", version = "=0.1.3" }
+image-analysis-core = { package = "moenarch-image-analysis-core", git = "https://github.com/moritzbrantner/visual-analysis", rev = "da0460f916ec724a728c805d2206cf7eddec3553" }
+image-analysis-detection = { package = "moenarch-image-analysis-detection", git = "https://github.com/moritzbrantner/visual-analysis", rev = "da0460f916ec724a728c805d2206cf7eddec3553" }
+image-analysis-io = { package = "moenarch-image-analysis-io", git = "https://github.com/moritzbrantner/visual-analysis", rev = "da0460f916ec724a728c805d2206cf7eddec3553" }
+image-analysis-processing = { package = "moenarch-image-analysis-processing", git = "https://github.com/moritzbrantner/visual-analysis", rev = "da0460f916ec724a728c805d2206cf7eddec3553" }
+video-analysis-core = { package = "moenarch-video-analysis-core", git = "https://github.com/moritzbrantner/visual-analysis", rev = "da0460f916ec724a728c805d2206cf7eddec3553" }
+video-analysis-data = { package = "moenarch-video-analysis-data", git = "https://github.com/moritzbrantner/visual-analysis", rev = "da0460f916ec724a728c805d2206cf7eddec3553" }
+video-analysis-dataset = { package = "moenarch-video-analysis-dataset", git = "https://github.com/moritzbrantner/visual-analysis", rev = "da0460f916ec724a728c805d2206cf7eddec3553" }
+video-analysis-detectors = { package = "moenarch-video-analysis-detectors", git = "https://github.com/moritzbrantner/visual-analysis", rev = "da0460f916ec724a728c805d2206cf7eddec3553" }
+video-analysis-ffmpeg = { package = "moenarch-video-analysis-ffmpeg", git = "https://github.com/moritzbrantner/visual-analysis", rev = "da0460f916ec724a728c805d2206cf7eddec3553" }
+video-analysis-ingest = { package = "moenarch-video-analysis-ingest", git = "https://github.com/moritzbrantner/visual-analysis", rev = "da0460f916ec724a728c805d2206cf7eddec3553" }
+video-analysis-output = { package = "moenarch-video-analysis-output", git = "https://github.com/moritzbrantner/visual-analysis", rev = "da0460f916ec724a728c805d2206cf7eddec3553" }
+video-analysis-recognition = { package = "moenarch-video-analysis-recognition", git = "https://github.com/moritzbrantner/visual-analysis", rev = "da0460f916ec724a728c805d2206cf7eddec3553" }
+video-analysis-split = { package = "moenarch-video-analysis-split", git = "https://github.com/moritzbrantner/visual-analysis", rev = "da0460f916ec724a728c805d2206cf7eddec3553" }
 video-analysis-test-support = { package = "moenarch-video-analysis-test-support", version = "0.1.0", path = "crates/test-support/video-analysis-test-support" }
-image-analysis-core = { package = "moenarch-image-analysis-core", version = "0.1.0", path = "crates/image/image-analysis-core" }
-image-analysis-captioning = { package = "moenarch-image-analysis-captioning", version = "0.1.0", path = "crates/image/image-analysis-captioning" }
-image-analysis-classification = { package = "moenarch-image-analysis-classification", version = "0.1.0", path = "crates/image/image-analysis-classification" }
 image-analysis-comfyui = { package = "moenarch-image-analysis-comfyui", version = "0.1.0", path = "crates/image/image-analysis-comfyui" }
-image-analysis-detection = { package = "moenarch-image-analysis-detection", version = "0.1.0", path = "crates/image/image-analysis-detection" }
-image-analysis-embeddings = { package = "moenarch-image-analysis-embeddings", version = "0.1.0", path = "crates/image/image-analysis-embeddings" }
-image-analysis-io = { package = "moenarch-image-analysis-io", version = "0.1.0", path = "crates/image/image-analysis-io" }
-image-analysis-ocr = { package = "moenarch-image-analysis-ocr", version = "0.1.0", path = "crates/image/image-analysis-ocr" }
-image-analysis-processing = { package = "moenarch-image-analysis-processing", version = "0.1.0", path = "crates/image/image-analysis-processing" }
-image-analysis-segmentation = { package = "moenarch-image-analysis-segmentation", version = "0.1.0", path = "crates/image/image-analysis-segmentation" }
-image-analysis-synthesis = { package = "moenarch-image-analysis-synthesis", version = "0.1.0", path = "crates/image/image-analysis-synthesis" }
-text-core = { package = "moenarch-text-core", version = "0.1.0", path = "crates/text/text-core" }
-text-analysis = { package = "moenarch-text-analysis", version = "0.1.0", path = "crates/text/text-analysis" }
-text-classification = { package = "moenarch-text-classification", version = "0.1.0", path = "crates/text/text-classification" }
-text-lexical = { package = "moenarch-text-lexical", version = "0.1.0", path = "crates/text/text-lexical" }
-text-linguistics = { package = "moenarch-text-linguistics", version = "0.1.0", path = "crates/text/text-linguistics" }
-text-model-runtime = { package = "moenarch-text-model-runtime", version = "0.1.0", path = "crates/text/text-model-runtime" }
-text-question-answering = { package = "moenarch-text-question-answering", version = "0.1.0", path = "crates/text/text-question-answering" }
-text-generation = { package = "moenarch-text-generation", version = "0.1.0", path = "crates/text/text-generation" }
-text-generation-linguistics = { package = "moenarch-text-generation-linguistics", version = "0.1.0", path = "crates/text/text-generation-linguistics" }
-text-index = { package = "moenarch-text-index", version = "0.1.0", path = "crates/text/text-index" }
-text-retrieval = { package = "moenarch-text-retrieval", version = "0.1.0", path = "crates/text/text-retrieval" }
-text-embeddings = { package = "moenarch-text-embeddings", version = "0.1.0", path = "crates/text/text-embeddings" }
-text-transcripts = { package = "moenarch-text-transcripts", version = "0.1.1", path = "crates/text/text-transcripts" }
-vector-analysis-core = { package = "moenarch-vector-analysis-core", version = "0.1.0", path = "crates/vector/vector-analysis-core" }
-vector-analysis-index = { package = "moenarch-vector-analysis-index", version = "0.1.0", path = "crates/vector/vector-analysis-index" }
-vision-core = { package = "moenarch-vision-core", version = "0.1.0", path = "crates/vision/vision-core" }
 three-d-processing-core = { package = "moenarch-three-d-processing-core", version = "0.1.0", path = "crates/three-d/three-d-processing-core" }
 three-d-processing-io = { package = "moenarch-three-d-processing-io", version = "0.1.0", path = "crates/three-d/three-d-processing-io" }
 three-d-processing-mesh = { package = "moenarch-three-d-processing-mesh", version = "0.1.0", path = "crates/three-d/three-d-processing-mesh" }
 three-d-scene-svg = { package = "moenarch-three-d-scene-svg", version = "0.1.0", path = "crates/three-d/three-d-scene-svg" }
-video-analysis-core = { package = "moenarch-video-analysis-core", version = "0.1.3", path = "crates/video/video-analysis-core" }
-video-analysis-data = { package = "moenarch-video-analysis-data", version = "0.1.0", path = "crates/video/video-analysis-data" }
-video-analysis-dataset = { package = "moenarch-video-analysis-dataset", version = "0.1.0", path = "crates/video/video-analysis-dataset" }
-video-analysis-detectors = { package = "moenarch-video-analysis-detectors", version = "0.1.0", path = "crates/video/video-analysis-detectors" }
-video-analysis-editing = { package = "moenarch-video-analysis-editing", version = "0.1.0", path = "crates/video/video-analysis-editing" }
-video-analysis-features = { package = "moenarch-video-analysis-features", version = "0.1.0", path = "crates/video/video-analysis-features" }
-video-analysis-ffmpeg = { package = "moenarch-video-analysis-ffmpeg", version = "0.1.1", path = "crates/video/video-analysis-ffmpeg" }
 video-analysis-gaussian-splatting = { package = "moenarch-video-analysis-gaussian-splatting", version = "0.1.0", path = "crates/video/video-analysis-gaussian-splatting" }
-video-analysis-ingest = { package = "moenarch-video-analysis-ingest", version = "0.1.0", path = "crates/video/video-analysis-ingest" }
 video-analysis-mvs = { package = "moenarch-video-analysis-mvs", version = "0.1.0", path = "crates/video/video-analysis-mvs" }
-video-analysis-output = { package = "moenarch-video-analysis-output", version = "0.1.0", path = "crates/video/video-analysis-output" }
 video-analysis-posture = { package = "moenarch-video-analysis-posture", version = "0.1.0", path = "crates/video/video-analysis-posture" }
 video-analysis-posture-io = { package = "moenarch-video-analysis-posture-io", version = "0.1.0", path = "crates/video/video-analysis-posture-io" }
 video-analysis-radiance-fields = { package = "moenarch-video-analysis-radiance-fields", version = "0.1.0", path = "crates/video/video-analysis-radiance-fields" }
 video-analysis-radiance-io = { package = "moenarch-video-analysis-radiance-io", version = "0.1.0", path = "crates/video/video-analysis-radiance-io" }
 video-analysis-radiance-pipeline = { package = "moenarch-video-analysis-radiance-pipeline", version = "0.1.0", path = "crates/video/video-analysis-radiance-pipeline" }
-video-analysis-recognition = { package = "moenarch-video-analysis-recognition", version = "0.1.0", path = "crates/video/video-analysis-recognition" }
 video-analysis-reconstruction = { package = "moenarch-video-analysis-reconstruction", version = "0.1.0", path = "crates/video/video-analysis-reconstruction" }
 video-analysis-sfm = { package = "moenarch-video-analysis-sfm", version = "0.1.0", path = "crates/video/video-analysis-sfm" }
-video-analysis-split = { package = "moenarch-video-analysis-split", version = "0.1.0", path = "crates/video/video-analysis-split" }
-video-analysis-storage = { package = "moenarch-video-analysis-storage", version = "0.1.0", path = "crates/video/video-analysis-storage" }
-video-analysis-synthesis = { package = "moenarch-video-analysis-synthesis", version = "0.1.0", path = "crates/video/video-analysis-synthesis" }
-video-analysis-segmentation = { package = "moenarch-video-analysis-segmentation", version = "0.1.0", path = "crates/video/video-analysis-segmentation" }
-video-analysis-tracking = { package = "moenarch-video-analysis-tracking", version = "0.1.0", path = "crates/video/video-analysis-tracking" }
-video-analysis-transform = { package = "moenarch-video-analysis-transform", version = "0.1.0", path = "crates/video/video-analysis-transform" }
 video-analysis-use-cases = { package = "moenarch-video-analysis-use-cases", version = "0.1.0", path = "prototypes/rust/video-analysis-use-cases" }
 
 [lib]
@@ -168,143 +123,33 @@ name = "video_analysis"
 
 [features]
 default = ["full"]
-full = [
-    "animation",
-    "image",
-    "text",
-    "video",
-    "data",
-    "math",
-    "vector",
-    "vision",
-    "three-d",
-    "comfyui",
-    "runtime",
-]
+full = ["animation", "three-d", "spatial", "comfyui"]
 animation = ["dep:animation-core"]
-image = [
-    "dep:image-analysis-comfyui",
-    "dep:image-analysis-captioning",
-    "dep:image-analysis-classification",
-    "dep:image-analysis-core",
-    "dep:image-analysis-detection",
-    "dep:image-analysis-embeddings",
-    "dep:image-analysis-io",
-    "dep:image-analysis-ocr",
-    "dep:image-analysis-processing",
-    "dep:image-analysis-segmentation",
-    "dep:image-analysis-synthesis",
-]
-text = [
-    "dep:text-core",
-    "dep:text-analysis",
-    "dep:text-classification",
-    "dep:text-lexical",
-    "dep:text-linguistics",
-    "dep:text-model-runtime",
-    "dep:text-question-answering",
-    "dep:text-generation",
-    "dep:text-generation-linguistics",
-    "dep:text-index",
-    "dep:text-retrieval",
-    "dep:text-embeddings",
-    "dep:text-transcripts",
-]
-video = [
-    "dep:video-analysis-core",
-    "dep:video-analysis-data",
-    "dep:video-analysis-dataset",
-    "dep:video-analysis-detectors",
-    "dep:video-analysis-editing",
-    "dep:video-analysis-features",
-    "dep:video-analysis-ffmpeg",
-    "dep:video-analysis-gaussian-splatting",
-    "dep:video-analysis-ingest",
-    "dep:video-analysis-mvs",
-    "dep:video-analysis-output",
-    "dep:video-analysis-posture",
-    "dep:video-analysis-posture-io",
-    "dep:video-analysis-radiance-fields",
-    "dep:video-analysis-radiance-io",
-    "dep:video-analysis-radiance-pipeline",
-    "dep:video-analysis-recognition",
-    "dep:video-analysis-reconstruction",
-    "dep:video-analysis-sfm",
-    "dep:video-analysis-split",
-    "dep:video-analysis-storage",
-    "dep:video-analysis-synthesis",
-    "dep:video-analysis-segmentation",
-    "dep:video-analysis-tracking",
-    "dep:video-analysis-transform",
-]
-data = [
-    "dep:data-inversion-core",
-    "dep:graph-analysis-core",
-    "dep:dense-data",
-    "dep:numbers-core",
-    "dep:tensor-data",
-]
-math = [
-    "dep:math-geometry-2d",
-    "dep:math-linear",
-    "dep:math-signal-core",
-    "dep:math-sparse-data",
-    "dep:math-statistics",
-]
-vector = ["dep:vector-analysis-core", "dep:vector-analysis-index"]
-vision = ["dep:vision-core"]
 three-d = [
     "dep:three-d-processing-core",
     "dep:three-d-processing-io",
     "dep:three-d-processing-mesh",
     "dep:three-d-scene-svg",
 ]
-comfyui = ["dep:comfyui-data", "dep:comfyui-latents", "dep:comfyui-models"]
-runtime = ["dep:runtime-core", "dep:jobs-core", "dep:model-runtime"]
-external-tests = ["runtime", "dep:runtime-onnx", "runtime-onnx/onnxruntime"]
-onnx = [
-    "dep:runtime-onnx",
-    "image-analysis-captioning/local-onnx",
-    "image-analysis-classification/local-onnx",
-    "image-analysis-detection/onnx",
-    "image-analysis-embeddings/onnx",
-    "text-embeddings/onnx",
-    "text-model-runtime/onnx",
-    "text-question-answering/local-onnx",
-    "video-analysis-posture/onnx",
-    "video-analysis-recognition/onnx",
+spatial = [
+    "dep:video-analysis-gaussian-splatting",
+    "dep:video-analysis-mvs",
+    "dep:video-analysis-posture",
+    "dep:video-analysis-posture-io",
+    "dep:video-analysis-radiance-fields",
+    "dep:video-analysis-radiance-io",
+    "dep:video-analysis-radiance-pipeline",
+    "dep:video-analysis-reconstruction",
+    "dep:video-analysis-sfm",
 ]
-ffmpeg-backend = ["dep:video-analysis-ffmpeg", "video-analysis-ffmpeg/ffmpeg-backend"]
-ffmpeg-tests = ["ffmpeg-backend"]
+comfyui = [
+    "dep:comfyui-data",
+    "dep:comfyui-latents",
+    "dep:comfyui-models",
+    "dep:image-analysis-comfyui",
+]
+onnx = ["spatial", "video-analysis-posture/onnx"]
 onnx-backend = ["onnx"]
-text-tokenizers = [
-    "text",
-    "text-analysis/tokenizers",
-    "text-embeddings/tokenizers",
-    "text-linguistics/tokenizers",
-    "text-model-runtime/tokenizers",
-]
-text-candle = [
-    "text",
-    "text-analysis/candle",
-    "text-embeddings/candle",
-    "text-linguistics/candle",
-    "text-model-runtime/candle",
-]
-text-model-bundles = [
-    "text",
-    "text-analysis/model-bundles",
-    "text-embeddings/model-bundles",
-    "text-linguistics/model-bundles",
-    "text-model-runtime/model-bundles",
-]
-text-cuda = [
-    "text-candle",
-    "text-analysis/cuda",
-    "text-embeddings/cuda",
-    "text-linguistics/cuda",
-    "text-model-runtime/cuda",
-]
 
 [[bin]]
 name = "video-analysis-overview-server"
@@ -314,115 +159,38 @@ required-features = ["full"]
 [dependencies]
 animation-core = { workspace = true, optional = true }
 clap.workspace = true
-runtime-core = { workspace = true, optional = true }
-runtime-onnx = { workspace = true, optional = true }
-video-analysis-core = { workspace = true, optional = true }
-video-analysis-data = { workspace = true, optional = true }
-video-analysis-dataset = { workspace = true, optional = true }
-video-analysis-detectors = { workspace = true, optional = true }
-video-analysis-editing = { workspace = true, optional = true }
-video-analysis-features = { workspace = true, optional = true }
-video-analysis-ffmpeg = { workspace = true, optional = true }
-video-analysis-gaussian-splatting = { workspace = true, optional = true }
-video-analysis-ingest = { workspace = true, optional = true }
-video-analysis-mvs = { workspace = true, optional = true }
-video-analysis-output = { workspace = true, optional = true }
-video-analysis-posture = { workspace = true, optional = true }
-video-analysis-radiance-fields = { workspace = true, optional = true }
-video-analysis-radiance-io = { workspace = true, optional = true }
-video-analysis-radiance-pipeline = { workspace = true, optional = true }
-video-analysis-recognition = { workspace = true, optional = true }
-video-analysis-reconstruction = { workspace = true, optional = true }
-video-analysis-sfm = { workspace = true, optional = true }
-video-analysis-split = { workspace = true, optional = true }
-video-analysis-storage = { workspace = true, optional = true }
-video-analysis-synthesis = { workspace = true, optional = true }
-video-analysis-segmentation = { workspace = true, optional = true }
-video-analysis-tracking = { workspace = true, optional = true }
-video-analysis-transform = { workspace = true, optional = true }
-data-inversion-core = { workspace = true, optional = true }
-graph-analysis-core = { workspace = true, optional = true }
-dense-data = { workspace = true, optional = true }
-numbers-core = { workspace = true, optional = true }
-tensor-data = { workspace = true, optional = true }
-jobs-core = { workspace = true, optional = true }
-model-runtime = { workspace = true, optional = true }
-math-geometry-2d = { workspace = true, optional = true }
-math-linear = { workspace = true, optional = true }
-math-signal-core = { workspace = true, optional = true }
-math-sparse-data = { workspace = true, optional = true }
-math-statistics = { workspace = true, optional = true }
 comfyui-data = { workspace = true, optional = true }
 comfyui-latents = { workspace = true, optional = true }
 comfyui-models = { workspace = true, optional = true }
 image-analysis-comfyui = { workspace = true, optional = true }
-image-analysis-captioning = { workspace = true, optional = true }
-image-analysis-classification = { workspace = true, optional = true }
-image-analysis-core = { workspace = true, optional = true }
-image-analysis-detection = { workspace = true, optional = true }
-image-analysis-embeddings = { workspace = true, optional = true }
-image-analysis-io = { workspace = true, optional = true }
-image-analysis-ocr = { workspace = true, optional = true }
-image-analysis-processing = { workspace = true, optional = true }
-image-analysis-segmentation = { workspace = true, optional = true }
-image-analysis-synthesis = { workspace = true, optional = true }
-text-core = { workspace = true, optional = true }
-text-analysis = { workspace = true, optional = true }
-text-classification = { workspace = true, optional = true }
-text-lexical = { workspace = true, optional = true }
-text-linguistics = { workspace = true, features = ["transcripts"], optional = true }
-text-model-runtime = { workspace = true, optional = true }
-text-question-answering = { workspace = true, optional = true }
-text-generation = { workspace = true, optional = true }
-text-generation-linguistics = { workspace = true, optional = true }
-text-index = { workspace = true, optional = true }
-text-retrieval = { workspace = true, optional = true }
-text-embeddings = { workspace = true, optional = true }
-text-transcripts = { workspace = true, optional = true }
-vector-analysis-core = { workspace = true, optional = true }
-vector-analysis-index = { workspace = true, optional = true }
-vision-core = { workspace = true, optional = true }
+runtime-core.workspace = true
+serde.workspace = true
+serde_json.workspace = true
 three-d-processing-core = { workspace = true, optional = true }
 three-d-processing-io = { workspace = true, optional = true }
 three-d-processing-mesh = { workspace = true, optional = true }
 three-d-scene-svg = { workspace = true, optional = true }
+video-analysis-gaussian-splatting = { workspace = true, optional = true }
+video-analysis-mvs = { workspace = true, optional = true }
+video-analysis-posture = { workspace = true, optional = true }
 video-analysis-posture-io = { workspace = true, optional = true }
-serde.workspace = true
-serde_json.workspace = true
+video-analysis-radiance-fields = { workspace = true, optional = true }
+video-analysis-radiance-io = { workspace = true, optional = true }
+video-analysis-radiance-pipeline = { workspace = true, optional = true }
+video-analysis-reconstruction = { workspace = true, optional = true }
+video-analysis-sfm = { workspace = true, optional = true }
 
 [dev-dependencies]
 tempfile.workspace = true
-media-core.workspace = true
-audio-contracts.workspace = true
 comfyui-data.workspace = true
 comfyui-latents.workspace = true
 comfyui-models.workspace = true
 num-rational.workspace = true
 tensor-data.workspace = true
+video-analysis-core.workspace = true
 video-analysis-test-support.workspace = true
-text-core-cli = { package = "moenarch-text-core-cli", path = "crates/text/text-core-cli" }
-text-core-server = { package = "moenarch-text-core-server", path = "crates/text/text-core-server" }
-text-classification-cli = { package = "moenarch-text-classification-cli", path = "crates/text/text-classification-cli" }
-text-classification-server = { package = "moenarch-text-classification-server", path = "crates/text/text-classification-server" }
-text-embeddings-cli = { package = "moenarch-text-embeddings-cli", path = "crates/text/text-embeddings-cli" }
-text-embeddings-server = { package = "moenarch-text-embeddings-server", path = "crates/text/text-embeddings-server" }
-text-generation-cli = { package = "moenarch-text-generation-cli", path = "crates/text/text-generation-cli" }
-text-generation-server = { package = "moenarch-text-generation-server", path = "crates/text/text-generation-server" }
-text-generation-linguistics-cli = { package = "moenarch-text-generation-linguistics-cli", path = "crates/text/text-generation-linguistics-cli" }
-text-generation-linguistics-server = { package = "moenarch-text-generation-linguistics-server", path = "crates/text/text-generation-linguistics-server" }
-text-lexical-cli = { package = "moenarch-text-lexical-cli", path = "crates/text/text-lexical-cli" }
-text-lexical-server = { package = "moenarch-text-lexical-server", path = "crates/text/text-lexical-server" }
-text-analysis-cli = { package = "moenarch-text-analysis-cli", path = "crates/text/text-analysis-cli" }
-text-analysis-server = { package = "moenarch-text-analysis-server", path = "crates/text/text-analysis-server" }
-text-index-cli = { package = "moenarch-text-index-cli", path = "crates/text/text-index-cli" }
-text-index-server = { package = "moenarch-text-index-server", path = "crates/text/text-index-server" }
-text-linguistics-cli = { package = "moenarch-text-linguistics-cli", path = "crates/text/text-linguistics-cli" }
-text-linguistics-server = { package = "moenarch-text-linguistics-server", path = "crates/text/text-linguistics-server" }
-text-model-runtime-cli = { package = "moenarch-text-model-runtime-cli", path = "crates/text/text-model-runtime-cli" }
-text-model-runtime-server = { package = "moenarch-text-model-runtime-server", path = "crates/text/text-model-runtime-server" }
-text-question-answering-cli = { package = "moenarch-text-question-answering-cli", path = "crates/text/text-question-answering-cli" }
-text-question-answering-server = { package = "moenarch-text-question-answering-server", path = "crates/text/text-question-answering-server" }
-text-retrieval-cli = { package = "moenarch-text-retrieval-cli", path = "crates/text/text-retrieval-cli" }
-text-retrieval-server = { package = "moenarch-text-retrieval-server", path = "crates/text/text-retrieval-server" }
-text-transcripts-cli = { package = "moenarch-text-transcripts-cli", path = "crates/text/text-transcripts-cli" }
-text-transcripts-server = { package = "moenarch-text-transcripts-server", path = "crates/text/text-transcripts-server" }
+
+# visual-analysis's recognition crate needs moenarch-semantic-core, which is not on
+# crates.io yet; take it from the foundation revision visual-analysis pins.
+[patch.crates-io]
+moenarch-semantic-core = { git = "https://github.com/moritzbrantner/moenarch-foundation", rev = "b7533cd02269124deece75b76477ca55a853cd77" }

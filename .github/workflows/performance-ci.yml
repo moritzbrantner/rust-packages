@@ -15,7 +15,7 @@ jobs:
       node_version: ""
       install_command: bun install --frozen-lockfile
       pre_command: rustup toolchain install stable --profile minimal && rustup default stable && rustup target add wasm32-unknown-unknown && cargo install wasm-pack --locked --version 0.14.0 && bunx playwright install --with-deps chromium
-      build_command: bun run web:build:deps
+      build_command: bun run ui:build
       benchmark_command: bun run bench
       cache_cargo: true
       timeout_minutes: 120

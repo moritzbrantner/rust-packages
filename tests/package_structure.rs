@@ -114,10 +114,6 @@ fn frontend_libraries_and_ui_packages_have_expected_test_layers() {
     let root = Path::new(env!("CARGO_MANIFEST_DIR"));
 
     assert!(
-        has_frontend_unit_test(&root.join("packages/text-core-wasm")),
-        "@moritzbrantner/text-core-wasm needs frontend package unit tests"
-    );
-    assert!(
         has_frontend_e2e_test(&root.join("packages/video-analysis-ui")),
         "@moritzbrantner/video-analysis-ui needs browser e2e tests"
     );
@@ -299,11 +295,11 @@ fn library_crates_have_complete_runtime_surfaces() {
 #[test]
 fn representative_adapters_delegate_to_library_owned_surfaces() {
     let root = Path::new(env!("CARGO_MANIFEST_DIR"));
-    for crate_name in ["image-analysis-processing", "video-analysis-editing"] {
+    for crate_name in ["image-analysis-comfyui", "comfyui-models"] {
         let domain = if crate_name.starts_with("image-") {
             "image"
         } else {
-            "video"
+            "comfyui"
         };
         let rust_ident = crate_name.replace('-', "_");
         let cli = read_source(root.join(format!("crates/{domain}/{crate_name}-cli/src/lib.rs")));
@@ -865,18 +861,6 @@ fn has_rust_integration_test(crate_dir: &Path) -> bool {
                 .extension()
                 .is_some_and(|extension| extension == "rs")
         })
-}
-
-fn has_frontend_unit_test(package_dir: &Path) -> bool {
-    has_file_matching(package_dir, |path| {
-        path.file_name()
-            .and_then(|name| name.to_str())
-            .is_some_and(|name| {
-                name.ends_with(".test.js")
-                    || name.ends_with(".test.ts")
-                    || name.ends_with(".test.tsx")
-            })
-    })
 }
 
 fn has_frontend_e2e_test(package_dir: &Path) -> bool {

@@ -1,6 +1,6 @@
 #![doc = include_str!("../README.md")]
 
-use std::collections::{BTreeMap, BTreeSet};
+use std::collections::BTreeMap;
 use std::ffi::OsString;
 use std::fs::File;
 use std::path::{Path, PathBuf};
@@ -20,13 +20,12 @@ use video_analysis_core::{
 };
 use video_analysis_dataset::AnalysisDataset;
 use video_analysis_detectors::{
-    AdaptiveDetector, AdaptiveScoreAlgorithm, ContentDetector, ContentScoreAlgorithm, HashDetector,
-    HashScoreAlgorithm, HistogramDetector, HistogramScoreAlgorithm, ThresholdDetector,
-    WeightedComponent, WeightedCompositeDetector,
+    AdaptiveDetector, ContentDetectorConfig, DetectionOptions, DetectorConfig, HashDetector,
+    HistogramDetector, ThresholdDetector,
 };
 use video_analysis_ffmpeg::FfmpegVideoSource;
 use video_analysis_output::{write_scene_list_csv, write_stats_csv};
-use video_analysis_posture::{Keypoint3d, Pose3dEstimate, Skeleton};
+use video_analysis_posture::{Keypoint, Keypoint3d, Pose3dEstimate, PoseEstimate, Skeleton};
 use video_analysis_posture_io::{
     read_coco_keypoints_json, write_coco_keypoints_json, write_stick_figure_gltf,
     write_stick_figure_ply,
@@ -325,14 +324,8 @@ impl std::fmt::Display for RawPixelFormatKind {
 
 #[derive(Debug, Clone, Parser)]
 struct DetectionSelection {
-    #[arg(long, value_enum, default_value_t = DetectorKind::Content, conflicts_with = "detectors")]
+    #[arg(long, value_enum, default_value_t = DetectorKind::Content)]
     detector: DetectorKind,
-    #[arg(long, value_enum, value_delimiter = ',', conflicts_with = "detector")]
-    detectors: Vec<DetectorKind>,
-    #[arg(long, default_value_t = 0.5)]
-    combined_threshold: f32,
-    #[arg(long = "detector-weight", value_parser = parse_detector_weight)]
-    detector_weights: Vec<DetectorWeight>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, ValueEnum)]
@@ -354,38 +347,6 @@ impl DetectorKind {
             Self::Hash => "hash",
         }
     }
-
-    fn from_name(value: &str) -> Option<Self> {
-        match value {
-            "content" => Some(Self::Content),
-            "adaptive" => Some(Self::Adaptive),
-            "threshold" => Some(Self::Threshold),
-            "histogram" | "hist" => Some(Self::Histogram),
-            "hash" => Some(Self::Hash),
-            _ => None,
-        }
-    }
-}
-
-#[derive(Debug, Clone)]
-struct DetectorWeight {
-    detector: DetectorKind,
-    weight: f32,
-}
-
-fn parse_detector_weight(value: &str) -> std::result::Result<DetectorWeight, String> {
-    let (detector, weight) = value
-        .split_once('=')
-        .ok_or_else(|| "detector weight must use detector=value".to_string())?;
-    let detector = DetectorKind::from_name(detector)
-        .ok_or_else(|| format!("unknown detector `{detector}` in detector weight"))?;
-    let weight = weight
-        .parse::<f32>()
-        .map_err(|err| format!("invalid detector weight `{weight}`: {err}"))?;
-    if !weight.is_finite() || weight <= 0.0 {
-        return Err("detector weight must be finite and greater than zero".to_string());
-    }
-    Ok(DetectorWeight { detector, weight })
 }
 
 fn parse_frame_rate_override(value: &str) -> std::result::Result<String, String> {
@@ -866,6 +827,44 @@ fn convert_mesh(args: MeshConvertArgs) -> Result<()> {
     write_mesh(&args.output, &mesh)
 }
 
+/// Converts a raw 2D pose prediction into a posture estimate. visual-analysis no
+/// longer depends on the posture crate, so this conversion is consumer-owned.
+fn raw_pose_to_estimate(prediction: &RawPose2dPrediction) -> Result<PoseEstimate> {
+    let keypoints = prediction
+        .keypoints
+        .iter()
+        .map(|raw| {
+            let mut keypoint = Keypoint::new(raw.name.clone(), raw.x, raw.y)?;
+            if let Some(score) = raw.score {
+                keypoint = keypoint.score(score)?;
+            }
+            if let Some(visible) = raw.visible {
+                keypoint = keypoint.visible(visible);
+            }
+            Ok(keypoint)
+        })
+        .collect::<Result<Vec<_>>>()?;
+    let mut pose = PoseEstimate::new(keypoints)?;
+    pose.id = prediction.id.clone();
+    pose.label = prediction.label.clone();
+    pose.score = prediction.score;
+    pose.region = prediction.region.as_ref().and_then(|region| {
+        if region.normalized {
+            return None;
+        }
+        let (x0, y0, x1, y1) = match (region.x, region.y, region.width, region.height) {
+            (Some(x), Some(y), Some(width), Some(height)) => (x, y, x + width, y + height),
+            _ => (region.xmin?, region.ymin?, region.xmax?, region.ymax?),
+        };
+        let (x0, y0) = (x0.max(0.0).floor(), y0.max(0.0).floor());
+        let (width, height) = ((x1.ceil() - x0) as u32, (y1.ceil() - y0) as u32);
+        video_analysis_core::BoundingBox::new(x0 as u32, y0 as u32, width, height).ok()
+    });
+    pose.attributes = prediction.attributes.clone();
+    pose.validate()?;
+    Ok(pose)
+}
+
 fn estimate_posture(args: PostureEstimateArgs) -> Result<()> {
     let poses = if let Some(path) = args.predictions_json {
         let data = std::fs::read(path)?;
@@ -875,7 +874,7 @@ fn estimate_posture(args: PostureEstimateArgs) -> Result<()> {
             })?;
         predictions
             .iter()
-            .map(|prediction| prediction.to_pose_estimate(None))
+            .map(raw_pose_to_estimate)
             .collect::<Result<Vec<_>>>()?
     } else {
         match args.backend {
@@ -1096,11 +1095,8 @@ fn build_analyze_report(args: &AnalyzeReportArgs) -> Result<AnalyzeReport> {
     };
 
     let mut source = FfmpegVideoSource::open(&args.input)?;
-    let mut pipeline = if args.detection.detectors.is_empty() {
-        build_single_detector_pipeline(args.detection.detector, &args.detector_options)?
-    } else {
-        build_composite_detector_pipeline(&args.detection, &args.detector_options)?
-    };
+    let mut pipeline =
+        build_single_detector_pipeline(args.detection.detector, &args.detector_options)?;
     #[cfg_attr(not(feature = "onnx"), allow(unused_mut))]
     let mut observations = Vec::new();
     let mut decoded = 0_u64;
@@ -1209,11 +1205,7 @@ fn run_detection(
 ) -> Result<video_analysis_core::DetectionResult> {
     let _reserved_frame_rate_override = options.frame_rate.as_deref();
     let mut source = FfmpegVideoSource::open(input)?;
-    let mut pipeline = if selection.detectors.is_empty() {
-        build_single_detector_pipeline(selection.detector, options)?
-    } else {
-        build_composite_detector_pipeline(selection, options)?
-    };
+    let mut pipeline = build_single_detector_pipeline(selection.detector, options)?;
     pipeline.detect(&mut source)
 }
 
@@ -1221,204 +1213,133 @@ fn build_single_detector_pipeline(
     detector: DetectorKind,
     options: &DetectorOptions,
 ) -> Result<ScenePipeline> {
-    match detector {
-        DetectorKind::Content => ScenePipeline::builder()
-            .detector(
-                ContentDetector::new(options.threshold.unwrap_or(27.0), options.min_scene_len)
-                    .luma_only(options.luma_only),
-            )
-            .start_in_scene(true)
-            .build(),
-        DetectorKind::Adaptive => ScenePipeline::builder()
-            .detector(
-                AdaptiveDetector::new(
-                    options.threshold.unwrap_or(3.0),
-                    options.min_scene_len,
-                    options.window_width,
-                    options.min_content_val,
-                )
-                .luma_only(options.luma_only),
-            )
-            .start_in_scene(true)
-            .build(),
-        DetectorKind::Threshold => ScenePipeline::builder()
-            .detector(ThresholdDetector::new(
-                options.threshold.unwrap_or(12.0),
-                options.min_scene_len,
-            ))
-            .start_in_scene(true)
-            .build(),
-        DetectorKind::Histogram => ScenePipeline::builder()
-            .detector(HistogramDetector::new(
-                options.threshold.unwrap_or(0.05),
-                options.bins,
-                options.min_scene_len,
-            ))
-            .start_in_scene(true)
-            .build(),
-        DetectorKind::Hash => ScenePipeline::builder()
-            .detector(HashDetector::new(
-                options.threshold.unwrap_or(0.395),
-                options.hash_size,
-                options.lowpass,
-                options.min_scene_len,
-            ))
-            .start_in_scene(true)
-            .build(),
-    }
-}
-
-fn build_composite_detector_pipeline(
-    selection: &DetectionSelection,
-    options: &DetectorOptions,
-) -> Result<ScenePipeline> {
-    if !selection.combined_threshold.is_finite() || selection.combined_threshold < 0.0 {
-        return Err(video_analysis_core::DetectError::InvalidArgument(
-            "combined threshold must be finite and greater than or equal to zero".to_string(),
-        ));
-    }
-
-    let mut seen = BTreeSet::new();
-    for detector in &selection.detectors {
-        if !seen.insert(*detector) {
-            return Err(video_analysis_core::DetectError::InvalidArgument(format!(
-                "duplicate detector `{}` in --detectors",
-                detector.as_str()
-            )));
-        }
-        if *detector == DetectorKind::Threshold {
-            return Err(video_analysis_core::DetectError::InvalidArgument(
-                "`threshold` cannot be used in weighted composite mode; use --detector threshold or an event-fusion mode when available".to_string(),
-            ));
-        }
-    }
-
-    let weights = detector_weight_map(selection)?;
-    let selected: BTreeSet<_> = selection.detectors.iter().copied().collect();
-    for detector in weights.keys() {
-        if !selected.contains(detector) {
-            return Err(video_analysis_core::DetectError::InvalidArgument(format!(
-                "weight supplied for detector `{}` which is not present in --detectors",
-                detector.as_str()
-            )));
-        }
-    }
-
-    let mut builder = WeightedCompositeDetector::builder()
-        .threshold(selection.combined_threshold)
-        .min_scene_len(options.min_scene_len);
-    for detector in &selection.detectors {
-        let weight = weights.get(detector).copied().unwrap_or(1.0);
-        builder = builder.weighted_component(WeightedComponent::new(
-            score_algorithm_for(*detector, options)?,
-            weight,
-        )?);
-    }
-    let detector = builder.build()?;
+    let threshold = |default: f64| options.threshold.map(f64::from).unwrap_or(default);
+    let config = match detector {
+        DetectorKind::Content => DetectorConfig::Content(ContentDetectorConfig {
+            threshold: threshold(27.0),
+            luma_only: options.luma_only,
+            ..ContentDetectorConfig::default()
+        }),
+        DetectorKind::Adaptive => DetectorConfig::Adaptive(AdaptiveDetector {
+            threshold: threshold(3.0),
+            min_content_val: f64::from(options.min_content_val),
+            frame_window: options.window_width,
+            luma_only: options.luma_only,
+            ..AdaptiveDetector::default()
+        }),
+        DetectorKind::Threshold => DetectorConfig::Threshold(ThresholdDetector {
+            threshold: threshold(12.0),
+            ..ThresholdDetector::default()
+        }),
+        DetectorKind::Histogram => DetectorConfig::Histogram(HistogramDetector {
+            threshold: threshold(0.05),
+            bins: options.bins,
+        }),
+        DetectorKind::Hash => DetectorConfig::Hash(HashDetector {
+            threshold: threshold(0.395),
+            size: options.hash_size,
+            lowpass: options.lowpass,
+        }),
+    };
     ScenePipeline::builder()
-        .detector(detector)
+        .detector(CanonicalSceneDetector {
+            name: detector.as_str(),
+            config,
+            options: DetectionOptions {
+                min_scene_len: options.min_scene_len,
+                ..DetectionOptions::default()
+            },
+            frames: Vec::new(),
+        })
         .start_in_scene(true)
         .build()
 }
 
-fn detector_weight_map(selection: &DetectionSelection) -> Result<BTreeMap<DetectorKind, f32>> {
-    let mut weights = BTreeMap::new();
-    for detector_weight in &selection.detector_weights {
-        if weights
-            .insert(detector_weight.detector, detector_weight.weight)
-            .is_some()
-        {
-            return Err(video_analysis_core::DetectError::InvalidArgument(format!(
-                "duplicate weight for detector `{}`",
-                detector_weight.detector.as_str()
-            )));
-        }
+/// Runs a `scenedetect-core` detector (the canonical scene-detection owner) inside a
+/// visual `ScenePipeline`. Frames are buffered and detected once when the source ends.
+struct CanonicalSceneDetector {
+    name: &'static str,
+    config: DetectorConfig,
+    options: DetectionOptions,
+    frames: Vec<scenedetect_core::Frame>,
+}
+
+impl SceneDetector for CanonicalSceneDetector {
+    fn reset(&mut self) {
+        self.frames.clear();
     }
-    Ok(weights)
-}
 
-fn score_algorithm_for(
-    detector: DetectorKind,
-    options: &DetectorOptions,
-) -> Result<impl video_analysis_detectors::ScoreAlgorithm> {
-    match detector {
-        DetectorKind::Content => Ok(CompositeScoreAlgorithm::Content(
-            ContentScoreAlgorithm::new(options.threshold.unwrap_or(27.0))
-                .luma_only(options.luma_only),
-        )),
-        DetectorKind::Adaptive => Ok(CompositeScoreAlgorithm::Adaptive(
-            AdaptiveScoreAlgorithm::new(
-                options.threshold.unwrap_or(3.0),
-                options.window_width,
-                options.min_content_val,
-            )
-            .luma_only(options.luma_only),
-        )),
-        DetectorKind::Histogram => Ok(CompositeScoreAlgorithm::Histogram(
-            HistogramScoreAlgorithm::new(options.threshold.unwrap_or(0.05), options.bins),
-        )),
-        DetectorKind::Hash => Ok(CompositeScoreAlgorithm::Hash(HashScoreAlgorithm::new(
-            options.threshold.unwrap_or(0.395),
-            options.hash_size,
-            options.lowpass,
-        ))),
-        DetectorKind::Threshold => Err(video_analysis_core::DetectError::InvalidArgument(
-            "`threshold` cannot be used in weighted composite mode; use --detector threshold"
-                .to_string(),
-        )),
-    }
-}
-
-enum CompositeScoreAlgorithm {
-    Content(ContentScoreAlgorithm),
-    Adaptive(AdaptiveScoreAlgorithm),
-    Histogram(HistogramScoreAlgorithm),
-    Hash(HashScoreAlgorithm),
-}
-
-impl video_analysis_detectors::ScoreAlgorithm for CompositeScoreAlgorithm {
     fn name(&self) -> &'static str {
-        match self {
-            Self::Content(algorithm) => algorithm.name(),
-            Self::Adaptive(algorithm) => algorithm.name(),
-            Self::Histogram(algorithm) => algorithm.name(),
-            Self::Hash(algorithm) => algorithm.name(),
-        }
+        self.name
     }
 
-    fn latency(&self) -> usize {
-        match self {
-            Self::Content(algorithm) => algorithm.latency(),
-            Self::Adaptive(algorithm) => algorithm.latency(),
-            Self::Histogram(algorithm) => algorithm.latency(),
-            Self::Hash(algorithm) => algorithm.latency(),
-        }
+    fn metric_keys(&self) -> &'static [&'static str] {
+        &[]
     }
 
     fn process_frame(
         &mut self,
         frame: &video_analysis_core::VideoFrame<'_>,
-        metrics: Option<&mut dyn video_analysis_core::MetricsSink>,
-    ) -> Result<Vec<video_analysis_detectors::AlgorithmScore>> {
-        match self {
-            Self::Content(algorithm) => algorithm.process_frame(frame, metrics),
-            Self::Adaptive(algorithm) => algorithm.process_frame(frame, metrics),
-            Self::Histogram(algorithm) => algorithm.process_frame(frame, metrics),
-            Self::Hash(algorithm) => algorithm.process_frame(frame, metrics),
-        }
+        _metrics: Option<&mut dyn video_analysis_core::MetricsSink>,
+    ) -> Result<Vec<video_analysis_core::Cut>> {
+        let rgb = (0..frame.height)
+            .flat_map(|y| (0..frame.width).flat_map(move |x| frame.pixel_rgb(x, y)))
+            .collect();
+        self.frames.push(scenedetect_core::Frame {
+            index: scenedetect_core::FrameIndex(frame.position.frame_index),
+            width: frame.width,
+            height: frame.height,
+            rgb,
+        });
+        Ok(Vec::new())
     }
 
     fn finish(
         &mut self,
         last_position: video_analysis_core::FramePosition,
-        metrics: Option<&mut dyn video_analysis_core::MetricsSink>,
-    ) -> Result<Vec<video_analysis_detectors::AlgorithmScore>> {
-        match self {
-            Self::Content(algorithm) => algorithm.finish(last_position, metrics),
-            Self::Adaptive(algorithm) => algorithm.finish(last_position, metrics),
-            Self::Histogram(algorithm) => algorithm.finish(last_position, metrics),
-            Self::Hash(algorithm) => algorithm.finish(last_position, metrics),
+        mut metrics: Option<&mut dyn video_analysis_core::MetricsSink>,
+    ) -> Result<Vec<video_analysis_core::Cut>> {
+        let timebase = last_position.timestamp.timebase;
+        let fps = if timebase.num == 0 {
+            1.0
+        } else {
+            timebase.den as f64 / timebase.num as f64
+        };
+        let detected = scenedetect_core::detect_frames(
+            self.config.clone(),
+            scenedetect_core::FrameRate(fps),
+            &self.frames,
+            self.options.clone(),
+        )
+        .map_err(|error| DetectError::Source(error.to_string()))?;
+        if let Some(sink) = metrics.as_mut() {
+            for row in &detected.stats.rows {
+                for (key, value) in &row.metrics {
+                    sink.set_metric(row.frame.0, key, *value);
+                }
+            }
         }
+        Ok(detected
+            .scene_list
+            .scenes
+            .into_iter()
+            .map(|scene| scene.start.0)
+            .filter(|start| *start != 0)
+            .map(|frame_index| {
+                let delta = frame_index as i64 - last_position.frame_index as i64;
+                video_analysis_core::Cut {
+                    position: video_analysis_core::FramePosition {
+                        frame_index,
+                        timestamp: video_analysis_core::Timestamp::new(
+                            last_position.timestamp.pts + delta,
+                            timebase,
+                        ),
+                    },
+                    detector: self.name,
+                    score: None,
+                }
+            })
+            .collect())
     }
 }
 
@@ -1977,9 +1898,6 @@ mod tests {
             input,
             detection: DetectionSelection {
                 detector: DetectorKind::Content,
-                detectors: Vec::new(),
-                combined_threshold: 0.5,
-                detector_weights: Vec::new(),
             },
             output: None,
             sample_every_frames: 30,
@@ -2004,9 +1922,6 @@ mod tests {
             input: PathBuf::from("demo.mp4"),
             detection: DetectionSelection {
                 detector: DetectorKind::Content,
-                detectors: Vec::new(),
-                combined_threshold: 0.5,
-                detector_weights: Vec::new(),
             },
             output: None,
             sample_every_frames: 30,
@@ -2020,98 +1935,6 @@ mod tests {
         assert!(err
             .to_string()
             .contains("requires building video-analysis-cli"));
-    }
-
-    #[test]
-    fn detect_accepts_composite_detectors() {
-        Cli::try_parse_from([
-            "vanalyze",
-            "detect",
-            "--input",
-            "video.mp4",
-            "--detectors",
-            "content,adaptive",
-            "--combined-threshold",
-            "0.5",
-            "--detector-weight",
-            "content=1.0",
-        ])
-        .unwrap();
-    }
-
-    #[test]
-    fn detect_rejects_detector_and_detectors_together() {
-        let err = Cli::try_parse_from([
-            "vanalyze",
-            "detect",
-            "--input",
-            "video.mp4",
-            "--detector",
-            "content",
-            "--detectors",
-            "content,adaptive",
-        ])
-        .unwrap_err();
-
-        assert_eq!(err.kind(), ErrorKind::ArgumentConflict);
-    }
-
-    #[test]
-    fn detect_rejects_invalid_detector_weight() {
-        let err = Cli::try_parse_from([
-            "vanalyze",
-            "detect",
-            "--input",
-            "video.mp4",
-            "--detectors",
-            "content,adaptive",
-            "--detector-weight",
-            "content=abc",
-        ])
-        .unwrap_err();
-
-        assert_eq!(err.kind(), ErrorKind::ValueValidation);
-    }
-
-    #[test]
-    fn composite_builder_rejects_threshold_detector() {
-        let selection = DetectionSelection {
-            detector: DetectorKind::Content,
-            detectors: vec![DetectorKind::Content, DetectorKind::Threshold],
-            combined_threshold: 0.5,
-            detector_weights: Vec::new(),
-        };
-        let err = match build_composite_detector_pipeline(&selection, &detector_options()) {
-            Ok(_) => panic!("threshold detector should be rejected"),
-            Err(err) => err,
-        };
-
-        assert!(err.to_string().contains("threshold"));
-    }
-
-    #[test]
-    fn composite_builder_rejects_duplicate_weights() {
-        let selection = DetectionSelection {
-            detector: DetectorKind::Content,
-            detectors: vec![DetectorKind::Content, DetectorKind::Adaptive],
-            combined_threshold: 0.5,
-            detector_weights: vec![
-                DetectorWeight {
-                    detector: DetectorKind::Content,
-                    weight: 1.0,
-                },
-                DetectorWeight {
-                    detector: DetectorKind::Content,
-                    weight: 0.5,
-                },
-            ],
-        };
-        let err = match build_composite_detector_pipeline(&selection, &detector_options()) {
-            Ok(_) => panic!("duplicate weights should be rejected"),
-            Err(err) => err,
-        };
-
-        assert!(err.to_string().contains("duplicate weight"));
     }
 
     #[test]

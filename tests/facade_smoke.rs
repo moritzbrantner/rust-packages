@@ -1,22 +1,7 @@
-mod support;
-
-use support::{checkerboard_frame, dataset_with_scene_text_and_feature};
 use video_analysis as va;
 
 #[test]
-fn root_facade_covers_compatibility_reexports() {
-    let frame = checkerboard_frame(8, 8, 0);
-    let image = va::image_core::ImageView::from_video_frame(&frame.as_frame()).unwrap();
-    assert_eq!(image.width, 8);
-    assert_eq!(
-        va::image_ocr::default_ocr_model_spec().repo_id_value(),
-        Some("microsoft/trocr-base-printed")
-    );
-    let runtime_spec = va::model_runtime::ModelSpec::new(
-        "facebook/sam-vit-base",
-        va::model_runtime::ModelTask::ImageSegmentation,
-    );
-    assert_eq!(runtime_spec.repo_id_value(), Some("facebook/sam-vit-base"));
+fn root_facade_covers_comfyui_reexports() {
     let workflow = va::image_comfyui::build_generation_workflow(
         &va::image_comfyui::ImageGenerationRequest::new("red cube"),
     )
@@ -27,7 +12,7 @@ fn root_facade_covers_compatibility_reexports() {
         .contains(&va::comfyui_data::ComfySocketType::Latent));
 
     let latent = va::comfyui_latents::LatentBatch::new(
-        va::tensor_data::F32Tensor::from_dims([1, 4, 64, 64], vec![0.0; 16_384]).unwrap(),
+        tensor_data::F32Tensor::from_dims([1, 4, 64, 64], vec![0.0; 16_384]).unwrap(),
     )
     .unwrap();
     assert_eq!(latent.image_size().unwrap().width, 512);
@@ -35,83 +20,4 @@ fn root_facade_covers_compatibility_reexports() {
         va::comfyui_models::ComfyModelRole::Vae.kind(),
         va::comfyui_models::ComfyModelKind::Vae
     );
-
-    let summary = va::text_lexical::summarize_text("Rust tests keep package boundaries honest.", 3);
-    assert_eq!(summary.stats.words, 6);
-
-    let numeric_summary = va::numbers::summarize_numbers(&[1.0, 2.0, 3.0, f64::NAN]);
-    assert_eq!(numeric_summary.finite_count, 3);
-    assert_eq!(
-        va::numbers::quartiles(&[1.0, 2.0, 3.0, 4.0])
-            .unwrap()
-            .median,
-        2.5
-    );
-    let changes = va::stats::changes(
-        &[100.0, 101.0, 99.0, 103.0],
-        va::stats::ChangeMethod::Relative,
-    )
-    .unwrap();
-    assert_eq!(changes.len(), 3);
-    assert!(va::stats::tail_risk(&changes, 0.8)
-        .unwrap()
-        .value_at_risk
-        .is_finite());
-    assert!(va::stats::max_drawdown(&changes).unwrap().depth >= 0.0);
-
-    let linguistic = va::text_linguistics::analyze_text(
-        "Alice launched the API in Berlin.",
-        &va::text_linguistics::LinguisticAnalysisOptions::heuristic(),
-    )
-    .unwrap();
-    assert_eq!(
-        linguistic
-            .language
-            .primary
-            .as_ref()
-            .map(|prediction| prediction.language.as_str()),
-        Some("en")
-    );
-    assert!(linguistic
-        .events
-        .iter()
-        .any(|event| event.lemma == "launch"));
-
-    let dataset = dataset_with_scene_text_and_feature();
-    let dense = va::dense::DenseDataset::from_points([
-        va::dense::DensePoint::new([0.0, 0.0]).unwrap(),
-        va::dense::DensePoint::new([1.0, 1.0]).unwrap(),
-    ])
-    .unwrap();
-    assert_eq!(dense.summary().unwrap().coordinate_stats[0].mean, Some(0.5));
-
-    let mut graph = va::graph_core::Graph::directed();
-    graph.connect("scene-a", "scene-b").unwrap();
-    graph.connect("scene-b", "scene-c").unwrap();
-    assert!(va::graph_core::is_weakly_connected(&graph));
-    assert!(!va::graph_core::is_strongly_connected(&graph));
-    assert_eq!(
-        va::graph_core::shortest_path(&graph, "scene-a", "scene-c")
-            .unwrap()
-            .unwrap()
-            .nodes,
-        vec![
-            "scene-a".to_string(),
-            "scene-b".to_string(),
-            "scene-c".to_string()
-        ]
-    );
-
-    let features = va::features::FeaturePipeline::builder()
-        .extractor(va::features::SceneStatsExtractor)
-        .extractor(va::features::TranscriptStatsExtractor)
-        .build()
-        .extract(&dataset)
-        .unwrap();
-    assert!(features
-        .iter()
-        .any(|feature| feature.name == "scene.duration_seconds"));
-    assert!(features
-        .iter()
-        .any(|feature| feature.name == "transcript.word_count"));
 }

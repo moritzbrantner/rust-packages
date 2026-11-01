@@ -9,20 +9,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "320119579fcad9c21884f5c4861d16174d0e06250625266f50fe6898340abefa"
 
 [[package]]
-name = "ahash"
-version = "0.8.12"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5a15f179cd60c4584b8a8c596927aadc462e27f2ca70c04e0071964a73ba7a75"
-dependencies = [
- "cfg-if",
- "getrandom 0.3.4",
- "once_cell",
- "serde",
- "version_check",
- "zerocopy",
-]
-
-[[package]]
 name = "aho-corasick"
 version = "1.1.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -39,12 +25,6 @@ checksum = "e5a7d05ea6aea7e9e64d25b9156ba2fee3fdd659e34e41063cd2fc7cd020d7f4"
 dependencies = [
  "cc",
 ]
-
-[[package]]
-name = "allocator-api2"
-version = "0.2.21"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "683d7910e743518b0e34f1186f92494becacb047c7b6bf616c96772180fef923"
 
 [[package]]
 name = "android_system_properties"
@@ -112,12 +92,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "anyhow"
-version = "1.0.104"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "330a5ed07fa54e4702c9d6c4174f74427fc0ef6e214bbd677ae50a5099946470"
-
-[[package]]
 name = "approx"
 version = "0.5.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -134,30 +108,9 @@ checksum = "f2032f911046de80f0a198e0901378627c33f59ea0ac00e363d481118bd70a53"
 
 [[package]]
 name = "base64"
-version = "0.13.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9e1b586273c5702936fe7b7d6896644d8be71e6314cfe09d3167c95f712589e8"
-
-[[package]]
-name = "base64"
 version = "0.23.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ac07cdecf99051d9a5238b80f35af32cdeba5b336e55d957b318b50137e18da5"
-
-[[package]]
-name = "bit-set"
-version = "0.8.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "08807e080ed7f9d5433fa9b275196cfc35414f66a0c79d864dc51a0d825231a3"
-dependencies = [
- "bit-vec",
-]
-
-[[package]]
-name = "bit-vec"
-version = "0.8.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5e764a1d40d510daf35e07be9eb06e75770908c27d411ee6c92109c9840eaaf7"
 
 [[package]]
 name = "bitflags"
@@ -175,15 +128,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "block-buffer"
-version = "0.12.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d2f6c7dbe95a6ed67ad9f18e57daf93a2f034c524b99fd2b76d18fdfeb6660aa"
-dependencies = [
- "hybrid-array",
-]
-
-[[package]]
 name = "bumpalo"
 version = "3.20.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -194,26 +138,6 @@ name = "bytemuck"
 version = "1.25.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "95832e849adfb21180ccb6826a99da14e5d266ae5c2e668e1602cf234f153797"
-dependencies = [
- "bytemuck_derive",
-]
-
-[[package]]
-name = "bytemuck_derive"
-version = "1.12.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6a1f896587b6f2c069c73d2f0913e2d590c3990285cd2f0b6aa02b786b4c679c"
-dependencies = [
- "proc-macro2",
- "quote",
- "syn 3.0.9",
-]
-
-[[package]]
-name = "byteorder"
-version = "1.5.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1fd0f2584146f6f2ef48085050886acf353beff7305ebd1ae69500e27c67f64b"
 
 [[package]]
 name = "byteorder-lite"
@@ -228,92 +152,10 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "fc652a48c352aef3ea3aed32080501cf3ef6ed5da78602a020c991775b0aff04"
 
 [[package]]
-name = "candle-core"
-version = "0.11.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d11c8be87cfbaef9ebb62fb3f850d1fc8e00cc1d11d393fdbe55a4d5c2cdb325"
-dependencies = [
- "byteorder",
- "candle-kernels",
- "cudarc",
- "float8",
- "gemm",
- "half",
- "libc",
- "libm",
- "memmap2",
- "num-traits",
- "num_cpus",
- "parking_lot",
- "rand",
- "rand_distr",
- "rayon",
- "safetensors",
- "thiserror 2.0.21",
- "tokenizers",
- "yoke",
- "zerocopy",
- "zip",
-]
-
-[[package]]
-name = "candle-kernels"
-version = "0.11.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8dc057aec95c3b1a0e595227cd039c1436da596f79ccc9e025ba17d070315851"
-dependencies = [
- "cudaforge",
-]
-
-[[package]]
-name = "candle-nn"
-version = "0.11.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "437fabe77547c2447c7bdf3cc946e19db29a2832440176b419f77c80b0a9a05e"
-dependencies = [
- "candle-core",
- "half",
- "libc",
- "num-traits",
- "rayon",
- "safetensors",
- "serde",
- "thiserror 2.0.21",
-]
-
-[[package]]
-name = "candle-transformers"
-version = "0.11.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2b1e1abeac23d7df4f94e8a3852b3dbb661d332e37c3bef479507bac867187b2"
-dependencies = [
- "byteorder",
- "candle-core",
- "candle-nn",
- "fancy-regex 0.19.2",
- "num-traits",
- "rand",
- "rayon",
- "serde",
- "serde_json",
- "serde_plain",
- "tracing",
-]
-
-[[package]]
 name = "cast"
 version = "0.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "37b2a672a2cb129a2e41c10b1224bb368f9f37a2b16b612598138befd7b37eb5"
-
-[[package]]
-name = "castaway"
-version = "0.2.4"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "dec551ab6e7578819132c713a93c022a05d60159dc86e7a7050223577484c55a"
-dependencies = [
- "rustversion",
-]
 
 [[package]]
 name = "cc"
@@ -330,12 +172,6 @@ name = "cfg-if"
 version = "1.0.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "4e7648175b45a9a48536d676f68d918270699102aa8dab5496df06904c914600"
-
-[[package]]
-name = "cfg_aliases"
-version = "0.2.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f079e83a288787bcd14a6aea84cee5c87a67c5a3e660c30f557a3d24761b3527"
 
 [[package]]
 name = "chrono"
@@ -423,21 +259,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1d07550c9036bf2ae0c684c4297d503f838287c83c53686d05370d0e139ae570"
 
 [[package]]
-name = "compact_str"
-version = "0.9.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9dfdd1c2274d9aa354115b09dc9a901d6c5576818cdf70d14cae2bdb47df00ab"
-dependencies = [
- "castaway",
- "cfg-if",
- "itoa",
- "rustversion",
- "ryu",
- "serde",
- "static_assertions",
-]
-
-[[package]]
 name = "console"
 version = "0.16.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -448,12 +269,6 @@ dependencies = [
  "unicode-width",
  "windows-sys 0.61.2",
 ]
-
-[[package]]
-name = "const-oid"
-version = "0.10.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a6ef517f0926dd24a1582492c791b6a4818a4d94e789a334894aa15b0d12f55c"
 
 [[package]]
 name = "cookie"
@@ -500,15 +315,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "cpufeatures"
-version = "0.3.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5ca28b0ae3115b884660db4118d803791fd6756b6e88f39c0f3f7859060d7566"
-dependencies = [
- "libc",
-]
-
-[[package]]
 name = "crc32fast"
 version = "1.5.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -529,7 +335,7 @@ dependencies = [
  "ciborium",
  "clap",
  "criterion-plot",
- "itertools 0.13.0",
+ "itertools",
  "num-traits",
  "oorandom",
  "page_size",
@@ -549,7 +355,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d8d80a2f4f5b554395e47b5d8305bc3d27813bacb73493eb1001e8f76dae29ea"
 dependencies = [
  "cast",
- "itertools 0.13.0",
+ "itertools",
 ]
 
 [[package]]
@@ -594,99 +400,25 @@ dependencies = [
 ]
 
 [[package]]
-name = "crypto-common"
-version = "0.2.2"
+name = "csv"
+version = "1.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ce6e4c961d6cd6c9a86db418387425e8bdeaf05b3c8bc1411e6dca4c252f1453"
+checksum = "52cd9d68cf7efc6ddfaaee42e7288d3a99d613d4b50f76ce9827ae0c6e14f938"
 dependencies = [
- "hybrid-array",
+ "csv-core",
+ "itoa",
+ "ryu",
+ "serde_core",
 ]
 
 [[package]]
-name = "cudaforge"
-version = "0.1.6"
+name = "csv-core"
+version = "0.1.13"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8d475ff95b9e4096878f47fe0ca5dbad0e23849a79fc225305ea06c2f25771cd"
+checksum = "704a3c26996a80471189265814dbc2c257598b96b8a7feae2d31ace646bb9782"
 dependencies = [
- "anyhow",
- "fs2",
- "glob",
- "num_cpus",
- "rayon",
- "serde",
- "serde_json",
- "sha2 0.10.9",
- "thiserror 2.0.21",
- "walkdir",
- "which",
+ "memchr",
 ]
-
-[[package]]
-name = "cudarc"
-version = "0.19.10"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7359bf1de037ddada72729c3acec9b040f3468400c6e9e740b01ba0cd2e89562"
-dependencies = [
- "float8",
- "half",
- "libloading",
-]
-
-[[package]]
-name = "daachorse"
-version = "3.0.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5614204febbc33cc07a2806aa6440b904ac012b68eecc37f4493ea4a76455a3d"
-
-[[package]]
-name = "darling"
-version = "0.20.11"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "fc7f46116c46ff9ab3eb1597a45688b6715c6e628b5c133e288e709a29bcb4ee"
-dependencies = [
- "darling_core",
- "darling_macro",
-]
-
-[[package]]
-name = "darling_core"
-version = "0.20.11"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0d00b9596d185e565c2207a0b01f8bd1a135483d02d9b7b0a54b11da8d53412e"
-dependencies = [
- "fnv",
- "ident_case",
- "proc-macro2",
- "quote",
- "strsim",
- "syn 2.0.119",
-]
-
-[[package]]
-name = "darling_macro"
-version = "0.20.11"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "fc34b93ccb385b40dc71c6fceac4b2ad23662c7eeb248cf10d529b7e055b6ead"
-dependencies = [
- "darling_core",
- "quote",
- "syn 2.0.119",
-]
-
-[[package]]
-name = "dary_heap"
-version = "0.3.9"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8b1e3a325bc115f096c8b77bbf027a7c2592230e70be2d985be950d3d5e60ebe"
-dependencies = [
- "serde",
-]
-
-[[package]]
-name = "defer"
-version = "0.2.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "930c7171c8df9fb1782bdf9b918ed9ed2d33d1d22300abb754f9085bc48bf8e8"
 
 [[package]]
 name = "deranged"
@@ -695,55 +427,13 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9e9de72ce2ad1f90dc62fa25f0f430ef85eb4b0d8fa0be4f30373bc40a21d28e"
 
 [[package]]
-name = "derive_builder"
-version = "0.20.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "507dfb09ea8b7fa618fcf76e953f4f5e192547945816d5358edffe39f6f94947"
-dependencies = [
- "derive_builder_macro",
-]
-
-[[package]]
-name = "derive_builder_core"
-version = "0.20.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2d5bcf7b024d6835cfb3d473887cd966994907effbe9227e8c8219824d06c4e8"
-dependencies = [
- "darling",
- "proc-macro2",
- "quote",
- "syn 2.0.119",
-]
-
-[[package]]
-name = "derive_builder_macro"
-version = "0.20.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ab63b0e2bf4d5928aff72e83a7dace85d7bba5fe12dcc3c5a572d78caffd3f3c"
-dependencies = [
- "derive_builder_core",
- "syn 2.0.119",
-]
-
-[[package]]
 name = "digest"
 version = "0.10.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9ed9a281f7bc9b7576e61468ba615a66a5c8cfdff42420a70aa82701a3b1e292"
 dependencies = [
- "block-buffer 0.10.4",
- "crypto-common 0.1.7",
-]
-
-[[package]]
-name = "digest"
-version = "0.11.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f1dd6dbb5841937940781866fa1281a1ff7bd3bf827091440879f9994983d5c2"
-dependencies = [
- "block-buffer 0.12.1",
- "const-oid",
- "crypto-common 0.2.2",
+ "block-buffer",
+ "crypto-common",
 ]
 
 [[package]]
@@ -788,22 +478,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "dyn-stack"
-version = "0.13.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1c4713e43e2886ba72b8271aa66c93d722116acf7a75555cce11dcde84388fe8"
-dependencies = [
- "bytemuck",
- "dyn-stack-macros",
-]
-
-[[package]]
-name = "dyn-stack-macros"
-version = "0.1.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e1d926b4d407d372f141f93bb444696142c29d32962ccbd3531117cf3aa0bfa9"
-
-[[package]]
 name = "either"
 version = "1.19.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -814,59 +488,6 @@ name = "encode_unicode"
 version = "1.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "34aa73646ffb006b8f5147f3dc182bd4bcb190227ce861fc4a4844bf8e3cb2c0"
-
-[[package]]
-name = "enum-as-inner"
-version = "0.6.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a1e6a265c649f3f5979b601d26f1d05ada116434c87741c9493cb56218f76cbc"
-dependencies = [
- "heck",
- "proc-macro2",
- "quote",
- "syn 2.0.119",
-]
-
-[[package]]
-name = "env_home"
-version = "0.1.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c7f84e12ccf0a7ddc17a6c41c93326024c42920d7ee630d04950e6926645c0fe"
-
-[[package]]
-name = "equator"
-version = "0.2.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c35da53b5a021d2484a7cc49b2ac7f2d840f8236a286f84202369bd338d761ea"
-dependencies = [
- "equator-macro 0.2.1",
-]
-
-[[package]]
-name = "equator"
-version = "0.6.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "02da895aab06bbebefb6b2595f6d637b18c9ff629b4cd840965bb3164e4194b0"
-dependencies = [
- "equator-macro 0.6.0",
-]
-
-[[package]]
-name = "equator-macro"
-version = "0.2.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3bf679796c0322556351f287a51b49e48f7c4986e727b5dd78c972d30e2e16cc"
-dependencies = [
- "proc-macro2",
- "quote",
- "syn 2.0.119",
-]
-
-[[package]]
-name = "equator-macro"
-version = "0.6.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2b14b339eb76d07f052cdbad76ca7c1310e56173a138095d3bf42a23c06ef5d8"
 
 [[package]]
 name = "equivalent"
@@ -881,51 +502,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "39cab71617ae0d63f51a36d69f866391735b51691dbda63cf6f96d042b63efeb"
 dependencies = [
  "libc",
- "windows-sys 0.52.0",
-]
-
-[[package]]
-name = "esaxx-rs"
-version = "0.1.10"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d817e038c30374a4bcb22f94d0a8a0e216958d4c3dcde369b1439fec4bdda6e6"
-
-[[package]]
-name = "faer"
-version = "0.24.4"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5ab6df3dd147fe8d702a288b95bcd8fcc499ab572fc80da6828f60cd4d524d67"
-dependencies = [
- "bytemuck",
- "dyn-stack",
- "equator 0.6.0",
- "faer-traits",
- "gemm",
- "generativity",
- "libm",
- "nano-gemm",
- "num-complex",
- "num-traits",
- "private-gemm-x86",
- "pulp",
- "reborrow",
-]
-
-[[package]]
-name = "faer-traits"
-version = "0.24.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b87d23ed7ab1f26c0cba0e5b9e061a796fbb7dc170fa8bee6970055a1308bb0f"
-dependencies = [
- "bytemuck",
- "dyn-stack",
- "generativity",
- "libm",
- "num-complex",
- "num-traits",
- "pulp",
- "qd",
- "reborrow",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]
@@ -939,28 +516,6 @@ name = "fallible-streaming-iterator"
 version = "0.1.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7360491ce676a36bf9bb3c56c1aa791658183a54d2744120f27285738d90465a"
-
-[[package]]
-name = "fancy-regex"
-version = "0.17.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "72cf461f865c862bb7dc573f643dd6a2b6842f7c30b07882b56bd148cc2761b8"
-dependencies = [
- "bit-set",
- "regex-automata",
- "regex-syntax",
-]
-
-[[package]]
-name = "fancy-regex"
-version = "0.19.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d301f5bf187b3c295fce6468d3875037a0bccc5f6b151c63cac2f85babf21912"
-dependencies = [
- "bit-set",
- "regex-automata",
- "regex-syntax",
-]
 
 [[package]]
 name = "fastrand"
@@ -995,24 +550,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "float8"
-version = "0.7.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c2d1f04709a8ac06e8e8042875a3c466cc4832d3c1a18dbcb9dba3c6e83046bc"
-dependencies = [
- "half",
- "num-traits",
- "rand",
- "rand_distr",
-]
-
-[[package]]
-name = "fnv"
-version = "1.0.7"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3f9eec918d3f24069decb9af1554cad7c880e2da24a9afd88aca000531ab82c1"
-
-[[package]]
 name = "foldhash"
 version = "0.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1025,16 +562,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "cb4cb245038516f5f85277875cdaa4f7d2c9a0fa0468de06ed190163b1581fcf"
 dependencies = [
  "percent-encoding",
-]
-
-[[package]]
-name = "fs2"
-version = "0.4.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9564fc758e15025b46aa6643b1b77d047d1a56a1aea6e01002ac0c7026876213"
-dependencies = [
- "libc",
- "winapi",
 ]
 
 [[package]]
@@ -1060,131 +587,6 @@ dependencies = [
  "pin-project-lite",
  "slab",
 ]
-
-[[package]]
-name = "gemm"
-version = "0.19.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "aa0673db364b12263d103b68337a68fbecc541d6f6b61ba72fe438654709eacb"
-dependencies = [
- "dyn-stack",
- "gemm-c32",
- "gemm-c64",
- "gemm-common",
- "gemm-f16",
- "gemm-f32",
- "gemm-f64",
- "num-complex",
- "num-traits",
- "paste",
- "raw-cpuid",
- "seq-macro",
-]
-
-[[package]]
-name = "gemm-c32"
-version = "0.19.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "086936dbdcb99e37aad81d320f98f670e53c1e55a98bee70573e83f95beb128c"
-dependencies = [
- "dyn-stack",
- "gemm-common",
- "num-complex",
- "num-traits",
- "paste",
- "raw-cpuid",
- "seq-macro",
-]
-
-[[package]]
-name = "gemm-c64"
-version = "0.19.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "20c8aeeeec425959bda4d9827664029ba1501a90a0d1e6228e48bef741db3a3f"
-dependencies = [
- "dyn-stack",
- "gemm-common",
- "num-complex",
- "num-traits",
- "paste",
- "raw-cpuid",
- "seq-macro",
-]
-
-[[package]]
-name = "gemm-common"
-version = "0.19.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "88027625910cc9b1085aaaa1c4bc46bb3a36aad323452b33c25b5e4e7c8e2a3e"
-dependencies = [
- "bytemuck",
- "dyn-stack",
- "half",
- "libm",
- "num-complex",
- "num-traits",
- "once_cell",
- "paste",
- "pulp",
- "raw-cpuid",
- "rayon",
- "seq-macro",
- "sysctl",
-]
-
-[[package]]
-name = "gemm-f16"
-version = "0.19.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e3df7a55202e6cd6739d82ae3399c8e0c7e1402859b30e4cb780e61525d9486e"
-dependencies = [
- "dyn-stack",
- "gemm-common",
- "gemm-f32",
- "half",
- "num-complex",
- "num-traits",
- "paste",
- "raw-cpuid",
- "rayon",
- "seq-macro",
-]
-
-[[package]]
-name = "gemm-f32"
-version = "0.19.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "02e0b8c9da1fbec6e3e3ab2ce6bc259ef18eb5f6f0d3e4edf54b75f9fd41a81c"
-dependencies = [
- "dyn-stack",
- "gemm-common",
- "num-complex",
- "num-traits",
- "paste",
- "raw-cpuid",
- "seq-macro",
-]
-
-[[package]]
-name = "gemm-f64"
-version = "0.19.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "056131e8f2a521bfab322f804ccd652520c79700d81209e9d9275bbdecaadc6a"
-dependencies = [
- "dyn-stack",
- "gemm-common",
- "num-complex",
- "num-traits",
- "paste",
- "raw-cpuid",
- "seq-macro",
-]
-
-[[package]]
-name = "generativity"
-version = "1.2.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d2c81fb5260e37854d09d5c87183309fd8c555b75289427884b25660bc87a85e"
 
 [[package]]
 name = "generic-array"
@@ -1214,11 +616,9 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "899def5c37c4fd7b2664648c28120ecec138e4d395b459e5ca34f9cce2dd77fd"
 dependencies = [
  "cfg-if",
- "js-sys",
  "libc",
  "r-efi 5.3.0",
  "wasip2",
- "wasm-bindgen",
 ]
 
 [[package]]
@@ -1228,10 +628,8 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "300e883d756b2e4ec94e02791f39b04b522276138852cfc41d9fb7e904106099"
 dependencies = [
  "cfg-if",
- "js-sys",
  "libc",
  "r-efi 6.0.0",
- "wasm-bindgen",
 ]
 
 [[package]]
@@ -1259,37 +657,14 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "37bfe73dc8ec21f54d181e5a60554327ec3f1c600c455a75ccbfc65d2106a6c4"
 
 [[package]]
-name = "glob"
-version = "0.3.4"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e4eba85ea1d0a966a983acd07deee566e67395d2d96b6fb39e62b5a833f1eb0b"
-
-[[package]]
 name = "half"
 version = "2.7.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "6ea2d84b969582b4b1864a92dc5d27cd2b77b622a8d79306834f1be5ba20d84b"
 dependencies = [
- "bytemuck",
  "cfg-if",
  "crunchy",
- "num-traits",
- "rand",
- "rand_distr",
  "zerocopy",
-]
-
-[[package]]
-name = "hashbrown"
-version = "0.16.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "841d1cc9bed7f9236f321df977030373f4a4163ae1a7dbfe1a51a2c1a51d9100"
-dependencies = [
- "allocator-api2",
- "equivalent",
- "foldhash",
- "serde",
- "serde_core",
 ]
 
 [[package]]
@@ -1307,7 +682,7 @@ version = "0.12.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a596f1b20ed2cc5ecac41a164aaebc7258057060f06c0cf7a2ba3991ee7990fb"
 dependencies = [
- "hashbrown 0.17.1",
+ "hashbrown",
 ]
 
 [[package]]
@@ -1315,12 +690,6 @@ name = "heck"
 version = "0.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "2304e00983f87ffb38b55b444b5e3b60a884b5d30c0fca7d82fe33449bbe55ea"
-
-[[package]]
-name = "hermit-abi"
-version = "0.5.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e17592d60ebacc7d5e169f4663c5f84f9161cc90328abcfe8456f41e4dfcb284"
 
 [[package]]
 name = "hf-hub"
@@ -1336,7 +705,7 @@ dependencies = [
  "rand",
  "serde",
  "serde_json",
- "thiserror 2.0.21",
+ "thiserror",
  "ureq",
  "windows-sys 0.61.2",
 ]
@@ -1356,15 +725,6 @@ name = "httparse"
 version = "1.10.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "6dbf3de79e51f3d586ab4cb9d5c3e2c14aa28ed23d180cf89b4df0454a69cc87"
-
-[[package]]
-name = "hybrid-array"
-version = "0.4.15"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "27f864f10dfb56725ce5ce5472bc52252c8f93a4ab86327122cebf62c5f59a17"
-dependencies = [
- "typenum",
-]
 
 [[package]]
 name = "iana-time-zone"
@@ -1474,12 +834,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "ident_case"
-version = "1.0.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b9e0384b61958566e926dc50660321d12159025e767c18e043daf26b70104c39"
-
-[[package]]
 name = "idna"
 version = "1.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1533,7 +887,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "cc4e190f5d26ca7051642629da2c52fc03bde85a03197c99408dcd291734c855"
 dependencies = [
  "equivalent",
- "hashbrown 0.17.1",
+ "hashbrown",
 ]
 
 [[package]]
@@ -1550,17 +904,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "interpol"
-version = "0.2.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "eb58032ba748f4010d15912a1855a8a0b1ba9eaad3395b0c171c09b3b356ae50"
-dependencies = [
- "proc-macro2",
- "quote",
- "syn 1.0.109",
-]
-
-[[package]]
 name = "is_terminal_polyfill"
 version = "1.70.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1571,15 +914,6 @@ name = "itertools"
 version = "0.13.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "413ee7dfc52ee1a4949ceeb7dbc8a33f2d6c088194d9f922fb8318faf1f01186"
-dependencies = [
- "either",
-]
-
-[[package]]
-name = "itertools"
-version = "0.14.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2b192c782037fadd9cfa75548310488aabdbf3d2da73885b31bd0abd03351285"
 dependencies = [
  "either",
 ]
@@ -1616,12 +950,6 @@ dependencies = [
  "cfg-if",
  "windows-link",
 ]
-
-[[package]]
-name = "libm"
-version = "0.2.16"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b6d2cec3eae94f9f509c767b45932f1ada8350c4bdb85af2fcab4a3c14807981"
 
 [[package]]
 name = "libredox"
@@ -1662,35 +990,10 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "4744e383959f0db86ede514b809b1c53251889093803c05267acc7d4e7030d70"
 
 [[package]]
-name = "lock_api"
-version = "0.4.14"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "224399e74b87b5f3557511d98dff8b14089b3dadafcab6bb93eab67d3aace965"
-dependencies = [
- "scopeguard",
-]
-
-[[package]]
 name = "log"
 version = "0.4.34"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f9f8bd3e56ce4dfc153cf470fffbfa98c7620958b312ca5c3a4b8d5181fd13c6"
-
-[[package]]
-name = "macro_rules_attribute"
-version = "0.2.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b3ae8f6d608c795738406608304d30a2dfbdc8e58e44f7ba43236da5208ded3c"
-dependencies = [
- "macro_rules_attribute-proc_macro",
- "pastey",
-]
-
-[[package]]
-name = "macro_rules_attribute-proc_macro"
-version = "0.2.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "fc04a4c58212d57930a24bf47d3fa87485264a3a054e9c10e042eb373573ad3c"
 
 [[package]]
 name = "matrixmultiply"
@@ -1707,22 +1010,6 @@ name = "memchr"
 version = "2.8.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "cf8baf1c55e62ffcace7a9f06f4bd9cd3f0c4beb022d3b367256b91b87513d98"
-
-[[package]]
-name = "memmap2"
-version = "0.9.12"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6b0ca1155a9ecc25aa12e8313a119f32edf0255fea2f44839c4ac0a12b2ac157"
-dependencies = [
- "libc",
- "stable_deref_trait",
-]
-
-[[package]]
-name = "minimal-lexical"
-version = "0.2.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "68354c5c6bd36d73ff3feceb05efa59b6acb7626617f4962be322a825e61f79a"
 
 [[package]]
 name = "miniz_oxide"
@@ -1791,6 +1078,8 @@ dependencies = [
 [[package]]
 name = "moenarch-audio-contracts"
 version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "578562b77a0815b1653a3413d52aea623707b640d27aad38019667028056f65e"
 dependencies = [
  "moenarch-media-core",
 ]
@@ -1803,7 +1092,7 @@ dependencies = [
  "moenarch-tensor-data",
  "serde",
  "serde_json",
- "thiserror 2.0.21",
+ "thiserror",
 ]
 
 [[package]]
@@ -1891,7 +1180,7 @@ dependencies = [
  "serde",
  "serde_json",
  "tempfile",
- "thiserror 2.0.21",
+ "thiserror",
 ]
 
 [[package]]
@@ -1920,243 +1209,6 @@ version = "0.1.0"
 dependencies = [
  "js-sys",
  "moenarch-comfyui-models",
- "moenarch-runtime-core",
- "serde",
- "serde-wasm-bindgen",
- "serde_json",
- "wasm-bindgen",
-]
-
-[[package]]
-name = "moenarch-data-inversion-core"
-version = "0.1.0"
-dependencies = [
- "moenarch-media-core",
- "moenarch-runtime-core",
- "serde",
- "serde_json",
-]
-
-[[package]]
-name = "moenarch-data-inversion-core-cli"
-version = "0.1.0"
-dependencies = [
- "clap",
- "moenarch-data-inversion-core",
- "moenarch-runtime-core",
- "serde_json",
-]
-
-[[package]]
-name = "moenarch-data-inversion-core-server"
-version = "0.1.0"
-dependencies = [
- "clap",
- "moenarch-data-inversion-core",
- "moenarch-runtime-core",
- "serde_json",
-]
-
-[[package]]
-name = "moenarch-data-inversion-core-wasm"
-version = "0.1.0"
-dependencies = [
- "js-sys",
- "moenarch-data-inversion-core",
- "moenarch-runtime-core",
- "serde",
- "serde-wasm-bindgen",
- "serde_json",
- "wasm-bindgen",
-]
-
-[[package]]
-name = "moenarch-dense-data"
-version = "0.1.0"
-dependencies = [
- "criterion",
- "moenarch-math-linear",
- "moenarch-math-statistics",
- "moenarch-media-core",
- "moenarch-numbers-core",
- "moenarch-runtime-core",
- "serde",
- "serde_json",
-]
-
-[[package]]
-name = "moenarch-dense-data-cli"
-version = "0.1.0"
-dependencies = [
- "clap",
- "moenarch-dense-data",
- "moenarch-runtime-core",
- "serde_json",
-]
-
-[[package]]
-name = "moenarch-dense-data-server"
-version = "0.1.0"
-dependencies = [
- "clap",
- "moenarch-dense-data",
- "moenarch-runtime-core",
- "serde_json",
-]
-
-[[package]]
-name = "moenarch-dense-data-wasm"
-version = "0.1.0"
-dependencies = [
- "js-sys",
- "moenarch-dense-data",
- "moenarch-runtime-core",
- "serde",
- "serde-wasm-bindgen",
- "serde_json",
- "wasm-bindgen",
-]
-
-[[package]]
-name = "moenarch-graph-analysis-core"
-version = "0.1.0"
-dependencies = [
- "moenarch-media-core",
- "moenarch-runtime-core",
- "serde",
- "serde_json",
-]
-
-[[package]]
-name = "moenarch-graph-analysis-core-cli"
-version = "0.1.0"
-dependencies = [
- "clap",
- "moenarch-graph-analysis-core",
- "moenarch-runtime-core",
- "serde_json",
-]
-
-[[package]]
-name = "moenarch-graph-analysis-core-server"
-version = "0.1.0"
-dependencies = [
- "clap",
- "moenarch-graph-analysis-core",
- "moenarch-runtime-core",
- "serde_json",
-]
-
-[[package]]
-name = "moenarch-graph-analysis-core-wasm"
-version = "0.1.0"
-dependencies = [
- "js-sys",
- "moenarch-graph-analysis-core",
- "moenarch-runtime-core",
- "serde",
- "serde-wasm-bindgen",
- "serde_json",
- "wasm-bindgen",
-]
-
-[[package]]
-name = "moenarch-image-analysis-captioning"
-version = "0.1.0"
-dependencies = [
- "moenarch-image-analysis-core",
- "moenarch-image-analysis-detection",
- "moenarch-image-analysis-ocr",
- "moenarch-image-analysis-processing",
- "moenarch-image-analysis-segmentation",
- "moenarch-image-analysis-synthesis",
- "moenarch-model-runtime",
- "moenarch-runtime-core",
- "moenarch-runtime-onnx",
- "moenarch-video-analysis-core",
- "serde",
- "serde_json",
- "tempfile",
- "tokenizers",
-]
-
-[[package]]
-name = "moenarch-image-analysis-captioning-cli"
-version = "0.1.0"
-dependencies = [
- "clap",
- "moenarch-image-analysis-captioning",
- "moenarch-runtime-core",
- "serde_json",
-]
-
-[[package]]
-name = "moenarch-image-analysis-captioning-server"
-version = "0.1.0"
-dependencies = [
- "clap",
- "moenarch-image-analysis-captioning",
- "moenarch-runtime-core",
- "serde_json",
-]
-
-[[package]]
-name = "moenarch-image-analysis-captioning-wasm"
-version = "0.1.0"
-dependencies = [
- "js-sys",
- "moenarch-image-analysis-captioning",
- "moenarch-runtime-core",
- "serde",
- "serde-wasm-bindgen",
- "serde_json",
- "wasm-bindgen",
-]
-
-[[package]]
-name = "moenarch-image-analysis-classification"
-version = "0.1.0"
-dependencies = [
- "moenarch-image-analysis-core",
- "moenarch-image-analysis-detection",
- "moenarch-image-analysis-ocr",
- "moenarch-image-analysis-processing",
- "moenarch-image-analysis-segmentation",
- "moenarch-image-analysis-synthesis",
- "moenarch-model-runtime",
- "moenarch-runtime-core",
- "moenarch-runtime-onnx",
- "moenarch-video-analysis-core",
- "serde",
- "serde_json",
-]
-
-[[package]]
-name = "moenarch-image-analysis-classification-cli"
-version = "0.1.0"
-dependencies = [
- "clap",
- "moenarch-image-analysis-classification",
- "moenarch-runtime-core",
- "serde_json",
-]
-
-[[package]]
-name = "moenarch-image-analysis-classification-server"
-version = "0.1.0"
-dependencies = [
- "clap",
- "moenarch-image-analysis-classification",
- "moenarch-runtime-core",
- "serde_json",
-]
-
-[[package]]
-name = "moenarch-image-analysis-classification-wasm"
-version = "0.1.0"
-dependencies = [
- "js-sys",
- "moenarch-image-analysis-classification",
  "moenarch-runtime-core",
  "serde",
  "serde-wasm-bindgen",
@@ -2212,52 +1264,22 @@ dependencies = [
 [[package]]
 name = "moenarch-image-analysis-core"
 version = "0.1.0"
+source = "git+https://github.com/moritzbrantner/visual-analysis?rev=da0460f916ec724a728c805d2206cf7eddec3553#da0460f916ec724a728c805d2206cf7eddec3553"
 dependencies = [
  "moenarch-runtime-core",
  "moenarch-tensor-data",
  "moenarch-video-analysis-core",
  "serde",
  "serde_json",
-]
-
-[[package]]
-name = "moenarch-image-analysis-core-cli"
-version = "0.1.0"
-dependencies = [
- "clap",
- "moenarch-image-analysis-core",
- "moenarch-runtime-core",
- "serde_json",
-]
-
-[[package]]
-name = "moenarch-image-analysis-core-server"
-version = "0.1.0"
-dependencies = [
- "clap",
- "moenarch-image-analysis-core",
- "moenarch-runtime-core",
- "serde_json",
-]
-
-[[package]]
-name = "moenarch-image-analysis-core-wasm"
-version = "0.1.0"
-dependencies = [
- "js-sys",
- "moenarch-image-analysis-core",
- "moenarch-runtime-core",
- "serde",
- "serde-wasm-bindgen",
- "serde_json",
- "wasm-bindgen",
 ]
 
 [[package]]
 name = "moenarch-image-analysis-detection"
 version = "0.1.0"
+source = "git+https://github.com/moritzbrantner/visual-analysis?rev=da0460f916ec724a728c805d2206cf7eddec3553#da0460f916ec724a728c805d2206cf7eddec3553"
 dependencies = [
  "moenarch-image-analysis-core",
+ "moenarch-image-analysis-io",
  "moenarch-image-analysis-processing",
  "moenarch-image-analysis-segmentation",
  "moenarch-model-runtime",
@@ -2267,98 +1289,12 @@ dependencies = [
  "moenarch-vision-core",
  "serde",
  "serde_json",
-]
-
-[[package]]
-name = "moenarch-image-analysis-detection-cli"
-version = "0.1.0"
-dependencies = [
- "clap",
- "moenarch-image-analysis-detection",
- "moenarch-runtime-core",
- "serde_json",
-]
-
-[[package]]
-name = "moenarch-image-analysis-detection-server"
-version = "0.1.0"
-dependencies = [
- "clap",
- "moenarch-image-analysis-detection",
- "moenarch-runtime-core",
- "serde_json",
-]
-
-[[package]]
-name = "moenarch-image-analysis-detection-wasm"
-version = "0.1.0"
-dependencies = [
- "js-sys",
- "moenarch-image-analysis-detection",
- "moenarch-runtime-core",
- "serde",
- "serde-wasm-bindgen",
- "serde_json",
- "wasm-bindgen",
-]
-
-[[package]]
-name = "moenarch-image-analysis-embeddings"
-version = "0.1.0"
-dependencies = [
- "moenarch-image-analysis-core",
- "moenarch-image-analysis-detection",
- "moenarch-image-analysis-ocr",
- "moenarch-image-analysis-processing",
- "moenarch-image-analysis-segmentation",
- "moenarch-image-analysis-synthesis",
- "moenarch-math-geometry-2d",
- "moenarch-model-runtime",
- "moenarch-runtime-core",
- "moenarch-runtime-onnx",
- "moenarch-video-analysis-core",
- "moenarch-vision-core",
- "serde",
- "serde_json",
- "tempfile",
-]
-
-[[package]]
-name = "moenarch-image-analysis-embeddings-cli"
-version = "0.1.0"
-dependencies = [
- "clap",
- "moenarch-image-analysis-embeddings",
- "moenarch-runtime-core",
- "serde_json",
-]
-
-[[package]]
-name = "moenarch-image-analysis-embeddings-server"
-version = "0.1.0"
-dependencies = [
- "clap",
- "moenarch-image-analysis-embeddings",
- "moenarch-runtime-core",
- "serde_json",
-]
-
-[[package]]
-name = "moenarch-image-analysis-embeddings-wasm"
-version = "0.1.0"
-dependencies = [
- "js-sys",
- "moenarch-image-analysis-embeddings",
- "moenarch-runtime-core",
- "serde",
- "serde-wasm-bindgen",
- "serde_json",
- "wasm-bindgen",
 ]
 
 [[package]]
 name = "moenarch-image-analysis-io"
 version = "0.1.0"
+source = "git+https://github.com/moritzbrantner/visual-analysis?rev=da0460f916ec724a728c805d2206cf7eddec3553#da0460f916ec724a728c805d2206cf7eddec3553"
 dependencies = [
  "image",
  "moenarch-image-analysis-core",
@@ -2366,98 +1302,13 @@ dependencies = [
  "moenarch-video-analysis-core",
  "serde",
  "serde_json",
- "tempfile",
-]
-
-[[package]]
-name = "moenarch-image-analysis-io-cli"
-version = "0.1.0"
-dependencies = [
- "clap",
- "moenarch-image-analysis-io",
- "moenarch-runtime-core",
- "serde_json",
-]
-
-[[package]]
-name = "moenarch-image-analysis-io-server"
-version = "0.1.0"
-dependencies = [
- "clap",
- "moenarch-image-analysis-io",
- "moenarch-runtime-core",
- "serde_json",
-]
-
-[[package]]
-name = "moenarch-image-analysis-io-wasm"
-version = "0.1.0"
-dependencies = [
- "js-sys",
- "moenarch-image-analysis-io",
- "moenarch-runtime-core",
- "serde",
- "serde-wasm-bindgen",
- "serde_json",
- "wasm-bindgen",
-]
-
-[[package]]
-name = "moenarch-image-analysis-ocr"
-version = "0.1.0"
-dependencies = [
- "moenarch-image-analysis-core",
- "moenarch-image-analysis-io",
- "moenarch-image-analysis-processing",
- "moenarch-model-runtime",
- "moenarch-runtime-core",
- "moenarch-runtime-onnx",
- "moenarch-text-core",
- "moenarch-video-analysis-core",
- "serde",
- "serde_json",
- "tempfile",
- "tokenizers",
-]
-
-[[package]]
-name = "moenarch-image-analysis-ocr-cli"
-version = "0.1.0"
-dependencies = [
- "clap",
- "moenarch-image-analysis-ocr",
- "moenarch-runtime-core",
- "serde_json",
-]
-
-[[package]]
-name = "moenarch-image-analysis-ocr-server"
-version = "0.1.0"
-dependencies = [
- "clap",
- "moenarch-image-analysis-ocr",
- "moenarch-runtime-core",
- "serde_json",
-]
-
-[[package]]
-name = "moenarch-image-analysis-ocr-wasm"
-version = "0.1.0"
-dependencies = [
- "js-sys",
- "moenarch-image-analysis-ocr",
- "moenarch-runtime-core",
- "serde",
- "serde-wasm-bindgen",
- "serde_json",
- "wasm-bindgen",
 ]
 
 [[package]]
 name = "moenarch-image-analysis-processing"
 version = "0.1.0"
+source = "git+https://github.com/moritzbrantner/visual-analysis?rev=da0460f916ec724a728c805d2206cf7eddec3553#da0460f916ec724a728c805d2206cf7eddec3553"
 dependencies = [
- "criterion",
  "image",
  "moenarch-image-analysis-core",
  "moenarch-math-geometry-2d",
@@ -2469,41 +1320,9 @@ dependencies = [
 ]
 
 [[package]]
-name = "moenarch-image-analysis-processing-cli"
-version = "0.1.0"
-dependencies = [
- "clap",
- "moenarch-image-analysis-processing",
- "moenarch-runtime-core",
- "serde_json",
-]
-
-[[package]]
-name = "moenarch-image-analysis-processing-server"
-version = "0.1.0"
-dependencies = [
- "clap",
- "moenarch-image-analysis-processing",
- "moenarch-runtime-core",
- "serde_json",
-]
-
-[[package]]
-name = "moenarch-image-analysis-processing-wasm"
-version = "0.1.0"
-dependencies = [
- "js-sys",
- "moenarch-image-analysis-processing",
- "moenarch-runtime-core",
- "serde",
- "serde-wasm-bindgen",
- "serde_json",
- "wasm-bindgen",
-]
-
-[[package]]
 name = "moenarch-image-analysis-segmentation"
 version = "0.1.0"
+source = "git+https://github.com/moritzbrantner/visual-analysis?rev=da0460f916ec724a728c805d2206cf7eddec3553#da0460f916ec724a728c805d2206cf7eddec3553"
 dependencies = [
  "moenarch-image-analysis-core",
  "moenarch-model-runtime",
@@ -2514,269 +1333,50 @@ dependencies = [
 ]
 
 [[package]]
-name = "moenarch-image-analysis-segmentation-cli"
-version = "0.1.0"
-dependencies = [
- "clap",
- "moenarch-image-analysis-segmentation",
- "moenarch-runtime-core",
- "serde_json",
-]
-
-[[package]]
-name = "moenarch-image-analysis-segmentation-server"
-version = "0.1.0"
-dependencies = [
- "clap",
- "moenarch-image-analysis-segmentation",
- "moenarch-runtime-core",
- "serde_json",
-]
-
-[[package]]
-name = "moenarch-image-analysis-segmentation-wasm"
-version = "0.1.0"
-dependencies = [
- "js-sys",
- "moenarch-image-analysis-segmentation",
- "moenarch-runtime-core",
- "serde",
- "serde-wasm-bindgen",
- "serde_json",
- "wasm-bindgen",
-]
-
-[[package]]
-name = "moenarch-image-analysis-synthesis"
-version = "0.1.0"
-dependencies = [
- "moenarch-data-inversion-core",
- "moenarch-image-analysis-core",
- "moenarch-runtime-core",
- "moenarch-video-analysis-core",
- "serde",
- "serde_json",
-]
-
-[[package]]
-name = "moenarch-image-analysis-synthesis-cli"
-version = "0.1.0"
-dependencies = [
- "clap",
- "moenarch-image-analysis-synthesis",
- "moenarch-runtime-core",
- "serde_json",
-]
-
-[[package]]
-name = "moenarch-image-analysis-synthesis-server"
-version = "0.1.0"
-dependencies = [
- "clap",
- "moenarch-image-analysis-synthesis",
- "moenarch-runtime-core",
- "serde_json",
-]
-
-[[package]]
-name = "moenarch-image-analysis-synthesis-wasm"
-version = "0.1.0"
-dependencies = [
- "js-sys",
- "moenarch-image-analysis-synthesis",
- "moenarch-runtime-core",
- "serde",
- "serde-wasm-bindgen",
- "serde_json",
- "wasm-bindgen",
-]
-
-[[package]]
 name = "moenarch-jobs-core"
-version = "0.1.1"
+version = "0.1.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b197d9c2b606635898dc59bf6b3c9081ee728c4180e0c5cebfaac408f46aa865"
 dependencies = [
  "chrono",
  "moenarch-runtime-core",
  "serde",
  "serde_json",
- "sha2 0.11.1",
-]
-
-[[package]]
-name = "moenarch-jobs-core-cli"
-version = "0.1.0"
-dependencies = [
- "clap",
- "moenarch-jobs-core",
- "moenarch-runtime-core",
- "serde_json",
-]
-
-[[package]]
-name = "moenarch-jobs-core-server"
-version = "0.1.0"
-dependencies = [
- "clap",
- "moenarch-jobs-core",
- "moenarch-runtime-core",
- "serde_json",
-]
-
-[[package]]
-name = "moenarch-jobs-core-wasm"
-version = "0.1.0"
-dependencies = [
- "js-sys",
- "moenarch-jobs-core",
- "moenarch-runtime-core",
- "serde",
- "serde-wasm-bindgen",
- "serde_json",
- "wasm-bindgen",
+ "sha2",
 ]
 
 [[package]]
 name = "moenarch-math-geometry-2d"
-version = "0.1.0"
+version = "0.1.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a0ff066f6d921f8eed639cda9a3bc5417da987720ac66babda4591eac3db25b7"
 dependencies = [
- "criterion",
  "moenarch-media-core",
  "moenarch-runtime-core",
  "serde",
  "serde_json",
-]
-
-[[package]]
-name = "moenarch-math-geometry-2d-cli"
-version = "0.1.0"
-dependencies = [
- "clap",
- "moenarch-math-geometry-2d",
- "moenarch-runtime-core",
- "serde_json",
-]
-
-[[package]]
-name = "moenarch-math-geometry-2d-server"
-version = "0.1.0"
-dependencies = [
- "clap",
- "moenarch-math-geometry-2d",
- "moenarch-runtime-core",
- "serde_json",
-]
-
-[[package]]
-name = "moenarch-math-geometry-2d-wasm"
-version = "0.1.0"
-dependencies = [
- "js-sys",
- "moenarch-math-geometry-2d",
- "moenarch-runtime-core",
- "serde",
- "serde-wasm-bindgen",
- "serde_json",
- "wasm-bindgen",
 ]
 
 [[package]]
 name = "moenarch-math-linear"
-version = "0.1.0"
+version = "0.1.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "4b5f3869f538efc98fec1faa771cfc140ff2d5de9030ec8bebfa065b6bbb7659"
 dependencies = [
- "criterion",
- "faer",
  "moenarch-media-core",
  "moenarch-runtime-core",
  "moenarch-tensor-data",
  "moenarch-vector-analysis-core",
- "nalgebra",
  "serde",
  "serde_json",
-]
-
-[[package]]
-name = "moenarch-math-linear-cli"
-version = "0.1.0"
-dependencies = [
- "clap",
- "moenarch-math-linear",
- "moenarch-runtime-core",
- "serde_json",
-]
-
-[[package]]
-name = "moenarch-math-linear-server"
-version = "0.1.0"
-dependencies = [
- "clap",
- "moenarch-math-linear",
- "moenarch-runtime-core",
- "serde_json",
-]
-
-[[package]]
-name = "moenarch-math-linear-wasm"
-version = "0.1.0"
-dependencies = [
- "js-sys",
- "moenarch-math-linear",
- "moenarch-runtime-core",
- "serde",
- "serde-wasm-bindgen",
- "serde_json",
- "wasm-bindgen",
-]
-
-[[package]]
-name = "moenarch-math-signal-core"
-version = "0.1.0"
-dependencies = [
- "criterion",
- "moenarch-media-core",
- "moenarch-numbers-core",
- "moenarch-runtime-core",
- "serde",
- "serde_json",
-]
-
-[[package]]
-name = "moenarch-math-signal-core-cli"
-version = "0.1.0"
-dependencies = [
- "clap",
- "moenarch-math-signal-core",
- "moenarch-runtime-core",
- "serde_json",
-]
-
-[[package]]
-name = "moenarch-math-signal-core-server"
-version = "0.1.0"
-dependencies = [
- "clap",
- "moenarch-math-signal-core",
- "moenarch-runtime-core",
- "serde_json",
-]
-
-[[package]]
-name = "moenarch-math-signal-core-wasm"
-version = "0.1.0"
-dependencies = [
- "js-sys",
- "moenarch-math-signal-core",
- "moenarch-runtime-core",
- "serde",
- "serde-wasm-bindgen",
- "serde_json",
- "wasm-bindgen",
 ]
 
 [[package]]
 name = "moenarch-math-sparse-data"
-version = "0.1.0"
+version = "0.1.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ee51ba648e2bbf68781d00e4b52b95d53a8b315b71ab443ba049408ce73d12ab"
 dependencies = [
- "criterion",
  "moenarch-math-linear",
  "moenarch-media-core",
  "moenarch-numbers-core",
@@ -2784,99 +1384,19 @@ dependencies = [
  "moenarch-vector-analysis-core",
  "serde",
  "serde_json",
-]
-
-[[package]]
-name = "moenarch-math-sparse-data-cli"
-version = "0.1.0"
-dependencies = [
- "clap",
- "moenarch-math-sparse-data",
- "moenarch-runtime-core",
- "serde_json",
-]
-
-[[package]]
-name = "moenarch-math-sparse-data-server"
-version = "0.1.0"
-dependencies = [
- "clap",
- "moenarch-math-sparse-data",
- "moenarch-runtime-core",
- "serde_json",
-]
-
-[[package]]
-name = "moenarch-math-sparse-data-wasm"
-version = "0.1.0"
-dependencies = [
- "js-sys",
- "moenarch-math-sparse-data",
- "moenarch-runtime-core",
- "serde",
- "serde-wasm-bindgen",
- "serde_json",
- "wasm-bindgen",
-]
-
-[[package]]
-name = "moenarch-math-statistics"
-version = "0.1.0"
-dependencies = [
- "criterion",
- "moenarch-math-linear",
- "moenarch-media-core",
- "moenarch-numbers-core",
- "moenarch-runtime-core",
- "serde",
- "serde_json",
-]
-
-[[package]]
-name = "moenarch-math-statistics-cli"
-version = "0.1.0"
-dependencies = [
- "clap",
- "moenarch-math-statistics",
- "moenarch-runtime-core",
- "serde_json",
-]
-
-[[package]]
-name = "moenarch-math-statistics-server"
-version = "0.1.0"
-dependencies = [
- "clap",
- "moenarch-math-statistics",
- "moenarch-runtime-core",
- "serde_json",
-]
-
-[[package]]
-name = "moenarch-math-statistics-wasm"
-version = "0.1.0"
-dependencies = [
- "js-sys",
- "moenarch-math-statistics",
- "moenarch-runtime-core",
- "serde",
- "serde-wasm-bindgen",
- "serde_json",
- "wasm-bindgen",
 ]
 
 [[package]]
 name = "moenarch-media-core"
 version = "0.1.0"
-dependencies = [
- "serde",
- "serde_json",
- "thiserror 2.0.21",
-]
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9f350ffff17cc08783d9fef753e1533c35c2372f9acce357870d58ed794c0585"
 
 [[package]]
 name = "moenarch-model-runtime"
-version = "0.1.0"
+version = "0.1.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "325c2c0d9afa3894108d6b2d34b2f6b2f37756601703eec8c95d245d955e2943"
 dependencies = [
  "chrono",
  "hf-hub",
@@ -2884,47 +1404,14 @@ dependencies = [
  "moenarch-runtime-core",
  "serde",
  "serde_json",
- "tempfile",
-]
-
-[[package]]
-name = "moenarch-model-runtime-cli"
-version = "0.1.0"
-dependencies = [
- "clap",
- "moenarch-model-runtime",
- "moenarch-runtime-core",
- "serde_json",
-]
-
-[[package]]
-name = "moenarch-model-runtime-server"
-version = "0.1.0"
-dependencies = [
- "clap",
- "moenarch-model-runtime",
- "moenarch-runtime-core",
- "serde_json",
-]
-
-[[package]]
-name = "moenarch-model-runtime-wasm"
-version = "0.1.0"
-dependencies = [
- "js-sys",
- "moenarch-model-runtime",
- "moenarch-runtime-core",
- "serde",
- "serde-wasm-bindgen",
- "serde_json",
- "wasm-bindgen",
 ]
 
 [[package]]
 name = "moenarch-numbers-core"
-version = "0.1.0"
+version = "0.1.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c633ffed2e3a7f3d5bf77c0abc55c32685135c882eb431adca3076448da198a3"
 dependencies = [
- "criterion",
  "moenarch-media-core",
  "moenarch-runtime-core",
  "serde",
@@ -2932,41 +1419,10 @@ dependencies = [
 ]
 
 [[package]]
-name = "moenarch-numbers-core-cli"
-version = "0.1.0"
-dependencies = [
- "clap",
- "moenarch-numbers-core",
- "moenarch-runtime-core",
- "serde_json",
-]
-
-[[package]]
-name = "moenarch-numbers-core-server"
-version = "0.1.0"
-dependencies = [
- "clap",
- "moenarch-numbers-core",
- "moenarch-runtime-core",
- "serde_json",
-]
-
-[[package]]
-name = "moenarch-numbers-core-wasm"
-version = "0.1.0"
-dependencies = [
- "js-sys",
- "moenarch-numbers-core",
- "moenarch-runtime-core",
- "serde",
- "serde-wasm-bindgen",
- "serde_json",
- "wasm-bindgen",
-]
-
-[[package]]
 name = "moenarch-runtime-core"
-version = "0.2.0"
+version = "0.2.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "dc237d2007ca2cde1668cf92f5da46fe3d40dd6c8b575bf4938f8daecc931daf"
 dependencies = [
  "serde",
  "serde_json",
@@ -2974,17 +1430,30 @@ dependencies = [
 
 [[package]]
 name = "moenarch-runtime-onnx"
-version = "0.1.0"
+version = "0.1.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "0703aa686314074f579d41cf4c4fbca081dd4e44537a0eea7c4c4acfe661b60f"
 dependencies = [
  "ndarray",
  "ort",
  "serde",
- "thiserror 2.0.21",
+ "thiserror",
+]
+
+[[package]]
+name = "moenarch-semantic-core"
+version = "0.1.0"
+source = "git+https://github.com/moritzbrantner/moenarch-foundation?rev=b7533cd02269124deece75b76477ca55a853cd77#b7533cd02269124deece75b76477ca55a853cd77"
+dependencies = [
+ "serde",
+ "sha2",
 ]
 
 [[package]]
 name = "moenarch-tensor-data"
-version = "0.1.0"
+version = "0.1.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e427dc74aa15980c5de41730256b2a2a4d48c012ea00353fed70294a4bd8cf3e"
 dependencies = [
  "moenarch-media-core",
  "moenarch-runtime-core",
@@ -2993,143 +1462,11 @@ dependencies = [
 ]
 
 [[package]]
-name = "moenarch-tensor-data-cli"
-version = "0.1.0"
-dependencies = [
- "clap",
- "moenarch-runtime-core",
- "moenarch-tensor-data",
- "serde_json",
-]
-
-[[package]]
-name = "moenarch-tensor-data-server"
-version = "0.1.0"
-dependencies = [
- "clap",
- "moenarch-runtime-core",
- "moenarch-tensor-data",
- "serde_json",
-]
-
-[[package]]
-name = "moenarch-tensor-data-wasm"
-version = "0.1.0"
-dependencies = [
- "js-sys",
- "moenarch-runtime-core",
- "moenarch-tensor-data",
- "serde",
- "serde-wasm-bindgen",
- "serde_json",
- "wasm-bindgen",
-]
-
-[[package]]
-name = "moenarch-text-analysis"
-version = "0.1.0"
-dependencies = [
- "criterion",
- "moenarch-model-runtime",
- "moenarch-runtime-core",
- "moenarch-text-classification",
- "moenarch-text-core",
- "moenarch-text-embeddings",
- "moenarch-text-index",
- "moenarch-text-lexical",
- "moenarch-text-linguistics",
- "moenarch-text-retrieval",
- "moenarch-text-transcripts",
- "serde",
- "serde_json",
-]
-
-[[package]]
-name = "moenarch-text-analysis-cli"
-version = "0.1.0"
-dependencies = [
- "clap",
- "moenarch-runtime-core",
- "moenarch-text-analysis",
- "serde_json",
-]
-
-[[package]]
-name = "moenarch-text-analysis-server"
-version = "0.1.0"
-dependencies = [
- "clap",
- "moenarch-runtime-core",
- "moenarch-text-analysis",
- "moenarch-text-model-runtime",
- "serde_json",
-]
-
-[[package]]
-name = "moenarch-text-analysis-wasm"
-version = "0.1.0"
-dependencies = [
- "js-sys",
- "moenarch-runtime-core",
- "moenarch-text-analysis",
- "serde",
- "serde-wasm-bindgen",
- "serde_json",
- "wasm-bindgen",
-]
-
-[[package]]
-name = "moenarch-text-classification"
-version = "0.1.0"
-dependencies = [
- "moenarch-model-runtime",
- "moenarch-runtime-core",
- "moenarch-text-core",
- "moenarch-text-lexical",
- "moenarch-text-model-runtime",
- "serde",
- "serde_json",
- "tempfile",
-]
-
-[[package]]
-name = "moenarch-text-classification-cli"
-version = "0.1.0"
-dependencies = [
- "clap",
- "moenarch-runtime-core",
- "moenarch-text-classification",
- "serde_json",
-]
-
-[[package]]
-name = "moenarch-text-classification-server"
-version = "0.1.0"
-dependencies = [
- "clap",
- "moenarch-runtime-core",
- "moenarch-text-classification",
- "serde_json",
-]
-
-[[package]]
-name = "moenarch-text-classification-wasm"
-version = "0.1.0"
-dependencies = [
- "js-sys",
- "moenarch-runtime-core",
- "moenarch-text-classification",
- "serde",
- "serde-wasm-bindgen",
- "serde_json",
- "wasm-bindgen",
-]
-
-[[package]]
 name = "moenarch-text-core"
-version = "0.1.0"
+version = "0.1.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "71c5789282ef323dd8905e54abe6b7ebacdb9b49362f9b38284f5eb14b1c27a4"
 dependencies = [
- "criterion",
  "moenarch-jobs-core",
  "moenarch-media-core",
  "moenarch-runtime-core",
@@ -3140,526 +1477,29 @@ dependencies = [
 ]
 
 [[package]]
-name = "moenarch-text-core-cli"
-version = "0.1.0"
-dependencies = [
- "clap",
- "moenarch-runtime-core",
- "moenarch-text-core",
- "serde_json",
-]
-
-[[package]]
-name = "moenarch-text-core-server"
-version = "0.1.0"
-dependencies = [
- "clap",
- "moenarch-runtime-core",
- "moenarch-text-core",
- "serde_json",
-]
-
-[[package]]
-name = "moenarch-text-core-wasm"
-version = "0.1.0"
-dependencies = [
- "js-sys",
- "moenarch-runtime-core",
- "moenarch-text-core",
- "serde",
- "serde-wasm-bindgen",
- "serde_json",
- "wasm-bindgen",
-]
-
-[[package]]
-name = "moenarch-text-embeddings"
-version = "0.1.0"
-dependencies = [
- "candle-core",
- "candle-nn",
- "candle-transformers",
- "criterion",
- "moenarch-math-sparse-data",
- "moenarch-model-runtime",
- "moenarch-runtime-core",
- "moenarch-runtime-onnx",
- "moenarch-text-core",
- "moenarch-text-lexical",
- "moenarch-text-model-runtime",
- "moenarch-vector-analysis-core",
- "moenarch-vector-analysis-index",
- "serde",
- "serde_json",
- "tokenizers",
-]
-
-[[package]]
-name = "moenarch-text-embeddings-cli"
-version = "0.1.0"
-dependencies = [
- "clap",
- "moenarch-runtime-core",
- "moenarch-text-embeddings",
- "serde_json",
-]
-
-[[package]]
-name = "moenarch-text-embeddings-server"
-version = "0.1.0"
-dependencies = [
- "clap",
- "moenarch-runtime-core",
- "moenarch-text-embeddings",
- "moenarch-text-model-runtime",
- "serde_json",
-]
-
-[[package]]
-name = "moenarch-text-embeddings-wasm"
-version = "0.1.0"
-dependencies = [
- "js-sys",
- "moenarch-runtime-core",
- "moenarch-text-embeddings",
- "serde",
- "serde-wasm-bindgen",
- "serde_json",
- "wasm-bindgen",
-]
-
-[[package]]
-name = "moenarch-text-generation"
-version = "0.1.0"
-dependencies = [
- "moenarch-data-inversion-core",
- "moenarch-runtime-core",
- "moenarch-text-core",
- "serde",
- "serde_json",
-]
-
-[[package]]
-name = "moenarch-text-generation-cli"
-version = "0.1.0"
-dependencies = [
- "clap",
- "moenarch-runtime-core",
- "moenarch-text-generation",
- "serde_json",
-]
-
-[[package]]
-name = "moenarch-text-generation-linguistics"
-version = "0.1.0"
-dependencies = [
- "moenarch-data-inversion-core",
- "moenarch-runtime-core",
- "moenarch-text-core",
- "moenarch-text-generation",
- "moenarch-text-linguistics",
- "serde",
- "serde_json",
-]
-
-[[package]]
-name = "moenarch-text-generation-linguistics-cli"
-version = "0.1.0"
-dependencies = [
- "clap",
- "moenarch-runtime-core",
- "moenarch-text-generation-linguistics",
- "serde_json",
-]
-
-[[package]]
-name = "moenarch-text-generation-linguistics-server"
-version = "0.1.0"
-dependencies = [
- "clap",
- "moenarch-runtime-core",
- "moenarch-text-generation-linguistics",
- "serde_json",
-]
-
-[[package]]
-name = "moenarch-text-generation-linguistics-wasm"
-version = "0.1.0"
-dependencies = [
- "js-sys",
- "moenarch-runtime-core",
- "moenarch-text-generation-linguistics",
- "serde",
- "serde-wasm-bindgen",
- "serde_json",
- "wasm-bindgen",
-]
-
-[[package]]
-name = "moenarch-text-generation-server"
-version = "0.1.0"
-dependencies = [
- "clap",
- "moenarch-runtime-core",
- "moenarch-text-generation",
- "serde_json",
-]
-
-[[package]]
-name = "moenarch-text-generation-wasm"
-version = "0.1.0"
-dependencies = [
- "js-sys",
- "moenarch-runtime-core",
- "moenarch-text-generation",
- "serde",
- "serde-wasm-bindgen",
- "serde_json",
- "wasm-bindgen",
-]
-
-[[package]]
-name = "moenarch-text-index"
-version = "0.1.0"
-dependencies = [
- "moenarch-runtime-core",
- "moenarch-text-core",
- "moenarch-text-embeddings",
- "moenarch-text-lexical",
- "moenarch-vector-analysis-index",
- "rusqlite",
- "serde",
- "serde_json",
- "tempfile",
- "thiserror 2.0.21",
-]
-
-[[package]]
-name = "moenarch-text-index-cli"
-version = "0.1.0"
-dependencies = [
- "clap",
- "moenarch-runtime-core",
- "moenarch-text-index",
- "serde_json",
-]
-
-[[package]]
-name = "moenarch-text-index-server"
-version = "0.1.0"
-dependencies = [
- "moenarch-runtime-core",
- "moenarch-text-index",
-]
-
-[[package]]
-name = "moenarch-text-index-wasm"
-version = "0.1.0"
-dependencies = [
- "js-sys",
- "moenarch-runtime-core",
- "moenarch-text-index",
- "serde",
- "serde-wasm-bindgen",
- "serde_json",
- "wasm-bindgen",
-]
-
-[[package]]
 name = "moenarch-text-lexical"
-version = "0.1.0"
+version = "0.1.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "94fbe3d3fc6c8638420031bf6e8a0579e41436a55d4b07860c237f064420c18a"
 dependencies = [
- "criterion",
  "moenarch-math-sparse-data",
  "moenarch-runtime-core",
  "moenarch-text-core",
  "serde",
  "serde_json",
-]
-
-[[package]]
-name = "moenarch-text-lexical-cli"
-version = "0.1.0"
-dependencies = [
- "clap",
- "moenarch-runtime-core",
- "moenarch-text-lexical",
- "serde_json",
-]
-
-[[package]]
-name = "moenarch-text-lexical-server"
-version = "0.1.0"
-dependencies = [
- "clap",
- "moenarch-runtime-core",
- "moenarch-text-lexical",
- "serde_json",
-]
-
-[[package]]
-name = "moenarch-text-lexical-wasm"
-version = "0.1.0"
-dependencies = [
- "js-sys",
- "moenarch-runtime-core",
- "moenarch-text-lexical",
- "serde",
- "serde-wasm-bindgen",
- "serde_json",
- "wasm-bindgen",
-]
-
-[[package]]
-name = "moenarch-text-linguistics"
-version = "0.1.0"
-dependencies = [
- "candle-core",
- "candle-nn",
- "candle-transformers",
- "criterion",
- "moenarch-jobs-core",
- "moenarch-model-runtime",
- "moenarch-runtime-core",
- "moenarch-text-core",
- "moenarch-text-lexical",
- "moenarch-text-model-runtime",
- "moenarch-text-transcripts",
- "serde",
- "serde_json",
- "tempfile",
- "tokenizers",
-]
-
-[[package]]
-name = "moenarch-text-linguistics-cli"
-version = "0.1.0"
-dependencies = [
- "clap",
- "moenarch-runtime-core",
- "moenarch-text-linguistics",
- "serde_json",
-]
-
-[[package]]
-name = "moenarch-text-linguistics-server"
-version = "0.1.0"
-dependencies = [
- "clap",
- "moenarch-runtime-core",
- "moenarch-text-linguistics",
- "moenarch-text-model-runtime",
- "serde_json",
-]
-
-[[package]]
-name = "moenarch-text-linguistics-wasm"
-version = "0.1.0"
-dependencies = [
- "js-sys",
- "moenarch-runtime-core",
- "moenarch-text-linguistics",
- "serde",
- "serde-wasm-bindgen",
- "serde_json",
- "wasm-bindgen",
-]
-
-[[package]]
-name = "moenarch-text-model-runtime"
-version = "0.1.0"
-dependencies = [
- "candle-core",
- "candle-nn",
- "candle-transformers",
- "moenarch-jobs-core",
- "moenarch-media-core",
- "moenarch-model-runtime",
- "moenarch-runtime-core",
- "moenarch-runtime-onnx",
- "serde",
- "serde_json",
- "tokenizers",
-]
-
-[[package]]
-name = "moenarch-text-model-runtime-cli"
-version = "0.1.0"
-dependencies = [
- "clap",
- "moenarch-runtime-core",
- "moenarch-text-model-runtime",
- "serde_json",
-]
-
-[[package]]
-name = "moenarch-text-model-runtime-server"
-version = "0.1.0"
-dependencies = [
- "clap",
- "moenarch-runtime-core",
- "moenarch-text-model-runtime",
- "serde_json",
-]
-
-[[package]]
-name = "moenarch-text-model-runtime-wasm"
-version = "0.1.0"
-dependencies = [
- "js-sys",
- "moenarch-runtime-core",
- "moenarch-text-model-runtime",
- "serde",
- "serde-wasm-bindgen",
- "serde_json",
- "wasm-bindgen",
-]
-
-[[package]]
-name = "moenarch-text-question-answering"
-version = "0.1.0"
-dependencies = [
- "moenarch-media-core",
- "moenarch-model-runtime",
- "moenarch-runtime-core",
- "moenarch-runtime-onnx",
- "moenarch-text-embeddings",
- "moenarch-text-index",
- "moenarch-text-lexical",
- "moenarch-text-model-runtime",
- "moenarch-text-retrieval",
- "serde",
- "serde_json",
-]
-
-[[package]]
-name = "moenarch-text-question-answering-cli"
-version = "0.1.0"
-dependencies = [
- "clap",
- "moenarch-runtime-core",
- "moenarch-text-question-answering",
- "serde_json",
-]
-
-[[package]]
-name = "moenarch-text-question-answering-server"
-version = "0.1.0"
-dependencies = [
- "clap",
- "moenarch-runtime-core",
- "moenarch-text-question-answering",
- "serde_json",
-]
-
-[[package]]
-name = "moenarch-text-question-answering-wasm"
-version = "0.1.0"
-dependencies = [
- "js-sys",
- "moenarch-runtime-core",
- "moenarch-text-question-answering",
- "serde",
- "serde-wasm-bindgen",
- "serde_json",
- "wasm-bindgen",
-]
-
-[[package]]
-name = "moenarch-text-retrieval"
-version = "0.1.0"
-dependencies = [
- "criterion",
- "moenarch-runtime-core",
- "moenarch-text-core",
- "moenarch-text-embeddings",
- "moenarch-text-index",
- "moenarch-text-lexical",
- "moenarch-text-model-runtime",
- "moenarch-text-transcripts",
- "moenarch-vector-analysis-index",
- "serde",
- "serde_json",
- "tempfile",
- "thiserror 2.0.21",
-]
-
-[[package]]
-name = "moenarch-text-retrieval-cli"
-version = "0.1.0"
-dependencies = [
- "clap",
- "moenarch-runtime-core",
- "moenarch-text-retrieval",
- "serde_json",
-]
-
-[[package]]
-name = "moenarch-text-retrieval-server"
-version = "0.1.0"
-dependencies = [
- "clap",
- "moenarch-runtime-core",
- "moenarch-text-retrieval",
- "serde_json",
-]
-
-[[package]]
-name = "moenarch-text-retrieval-wasm"
-version = "0.1.0"
-dependencies = [
- "js-sys",
- "moenarch-runtime-core",
- "moenarch-text-retrieval",
- "serde",
- "serde-wasm-bindgen",
- "serde_json",
- "wasm-bindgen",
 ]
 
 [[package]]
 name = "moenarch-text-transcripts"
-version = "0.1.1"
+version = "0.1.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c988a2eaf97512d1ed334349347e80608e6101a5a32ccbb342f7154f1ae44d7a"
 dependencies = [
  "moenarch-runtime-core",
  "moenarch-text-core",
  "serde",
  "serde_json",
- "tempfile",
- "thiserror 2.0.21",
-]
-
-[[package]]
-name = "moenarch-text-transcripts-cli"
-version = "0.1.0"
-dependencies = [
- "clap",
- "moenarch-runtime-core",
- "moenarch-text-transcripts",
- "serde_json",
-]
-
-[[package]]
-name = "moenarch-text-transcripts-server"
-version = "0.1.0"
-dependencies = [
- "clap",
- "moenarch-runtime-core",
- "moenarch-text-transcripts",
- "serde_json",
-]
-
-[[package]]
-name = "moenarch-text-transcripts-wasm"
-version = "0.1.0"
-dependencies = [
- "js-sys",
- "moenarch-runtime-core",
- "moenarch-text-transcripts",
- "serde",
- "serde-wasm-bindgen",
- "serde_json",
- "wasm-bindgen",
+ "thiserror",
 ]
 
 [[package]]
@@ -3711,7 +1551,7 @@ dependencies = [
 name = "moenarch-three-d-processing-io"
 version = "0.1.0"
 dependencies = [
- "base64 0.23.1",
+ "base64",
  "moenarch-runtime-core",
  "moenarch-three-d-processing-core",
  "moenarch-three-d-processing-mesh",
@@ -3845,91 +1685,14 @@ dependencies = [
 
 [[package]]
 name = "moenarch-vector-analysis-core"
-version = "0.1.0"
+version = "0.1.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "de15a4cd8baa74e92cb2a262f7bebc44889402d8a480a73da59ce8e5e1b352f5"
 dependencies = [
- "criterion",
  "moenarch-media-core",
  "moenarch-runtime-core",
  "serde",
  "serde_json",
-]
-
-[[package]]
-name = "moenarch-vector-analysis-core-cli"
-version = "0.1.0"
-dependencies = [
- "clap",
- "moenarch-runtime-core",
- "moenarch-vector-analysis-core",
- "serde_json",
-]
-
-[[package]]
-name = "moenarch-vector-analysis-core-server"
-version = "0.1.0"
-dependencies = [
- "clap",
- "moenarch-runtime-core",
- "moenarch-vector-analysis-core",
- "serde_json",
-]
-
-[[package]]
-name = "moenarch-vector-analysis-core-wasm"
-version = "0.1.0"
-dependencies = [
- "js-sys",
- "moenarch-runtime-core",
- "moenarch-vector-analysis-core",
- "serde",
- "serde-wasm-bindgen",
- "serde_json",
- "wasm-bindgen",
-]
-
-[[package]]
-name = "moenarch-vector-analysis-index"
-version = "0.1.0"
-dependencies = [
- "criterion",
- "moenarch-media-core",
- "moenarch-runtime-core",
- "moenarch-vector-analysis-core",
- "serde",
- "serde_json",
-]
-
-[[package]]
-name = "moenarch-vector-analysis-index-cli"
-version = "0.1.0"
-dependencies = [
- "clap",
- "moenarch-runtime-core",
- "moenarch-vector-analysis-index",
- "serde_json",
-]
-
-[[package]]
-name = "moenarch-vector-analysis-index-server"
-version = "0.1.0"
-dependencies = [
- "clap",
- "moenarch-runtime-core",
- "moenarch-vector-analysis-index",
- "serde_json",
-]
-
-[[package]]
-name = "moenarch-vector-analysis-index-wasm"
-version = "0.1.0"
-dependencies = [
- "js-sys",
- "moenarch-runtime-core",
- "moenarch-vector-analysis-index",
- "serde",
- "serde-wasm-bindgen",
- "serde_json",
- "wasm-bindgen",
 ]
 
 [[package]]
@@ -3938,108 +1701,27 @@ version = "0.1.0"
 dependencies = [
  "clap",
  "moenarch-animation-core",
- "moenarch-audio-contracts",
  "moenarch-comfyui-data",
  "moenarch-comfyui-latents",
  "moenarch-comfyui-models",
- "moenarch-data-inversion-core",
- "moenarch-dense-data",
- "moenarch-graph-analysis-core",
- "moenarch-image-analysis-captioning",
- "moenarch-image-analysis-classification",
  "moenarch-image-analysis-comfyui",
- "moenarch-image-analysis-core",
- "moenarch-image-analysis-detection",
- "moenarch-image-analysis-embeddings",
- "moenarch-image-analysis-io",
- "moenarch-image-analysis-ocr",
- "moenarch-image-analysis-processing",
- "moenarch-image-analysis-segmentation",
- "moenarch-image-analysis-synthesis",
- "moenarch-jobs-core",
- "moenarch-math-geometry-2d",
- "moenarch-math-linear",
- "moenarch-math-signal-core",
- "moenarch-math-sparse-data",
- "moenarch-math-statistics",
- "moenarch-media-core",
- "moenarch-model-runtime",
- "moenarch-numbers-core",
  "moenarch-runtime-core",
- "moenarch-runtime-onnx",
  "moenarch-tensor-data",
- "moenarch-text-analysis",
- "moenarch-text-analysis-cli",
- "moenarch-text-analysis-server",
- "moenarch-text-classification",
- "moenarch-text-classification-cli",
- "moenarch-text-classification-server",
- "moenarch-text-core",
- "moenarch-text-core-cli",
- "moenarch-text-core-server",
- "moenarch-text-embeddings",
- "moenarch-text-embeddings-cli",
- "moenarch-text-embeddings-server",
- "moenarch-text-generation",
- "moenarch-text-generation-cli",
- "moenarch-text-generation-linguistics",
- "moenarch-text-generation-linguistics-cli",
- "moenarch-text-generation-linguistics-server",
- "moenarch-text-generation-server",
- "moenarch-text-index",
- "moenarch-text-index-cli",
- "moenarch-text-index-server",
- "moenarch-text-lexical",
- "moenarch-text-lexical-cli",
- "moenarch-text-lexical-server",
- "moenarch-text-linguistics",
- "moenarch-text-linguistics-cli",
- "moenarch-text-linguistics-server",
- "moenarch-text-model-runtime",
- "moenarch-text-model-runtime-cli",
- "moenarch-text-model-runtime-server",
- "moenarch-text-question-answering",
- "moenarch-text-question-answering-cli",
- "moenarch-text-question-answering-server",
- "moenarch-text-retrieval",
- "moenarch-text-retrieval-cli",
- "moenarch-text-retrieval-server",
- "moenarch-text-transcripts",
- "moenarch-text-transcripts-cli",
- "moenarch-text-transcripts-server",
  "moenarch-three-d-processing-core",
  "moenarch-three-d-processing-io",
  "moenarch-three-d-processing-mesh",
  "moenarch-three-d-scene-svg",
- "moenarch-vector-analysis-core",
- "moenarch-vector-analysis-index",
  "moenarch-video-analysis-core",
- "moenarch-video-analysis-data",
- "moenarch-video-analysis-dataset",
- "moenarch-video-analysis-detectors",
- "moenarch-video-analysis-editing",
- "moenarch-video-analysis-features",
- "moenarch-video-analysis-ffmpeg",
  "moenarch-video-analysis-gaussian-splatting",
- "moenarch-video-analysis-ingest",
  "moenarch-video-analysis-mvs",
- "moenarch-video-analysis-output",
  "moenarch-video-analysis-posture",
  "moenarch-video-analysis-posture-io",
  "moenarch-video-analysis-radiance-fields",
  "moenarch-video-analysis-radiance-io",
  "moenarch-video-analysis-radiance-pipeline",
- "moenarch-video-analysis-recognition",
  "moenarch-video-analysis-reconstruction",
- "moenarch-video-analysis-segmentation",
  "moenarch-video-analysis-sfm",
- "moenarch-video-analysis-split",
- "moenarch-video-analysis-storage",
- "moenarch-video-analysis-synthesis",
  "moenarch-video-analysis-test-support",
- "moenarch-video-analysis-tracking",
- "moenarch-video-analysis-transform",
- "moenarch-vision-core",
  "num-rational",
  "serde",
  "serde_json",
@@ -4064,6 +1746,7 @@ dependencies = [
  "moenarch-video-analysis-posture-io",
  "moenarch-video-analysis-recognition",
  "moenarch-video-analysis-split",
+ "scenedetect-core",
  "serde",
  "serde_json",
  "shlex 1.3.0",
@@ -4073,6 +1756,7 @@ dependencies = [
 [[package]]
 name = "moenarch-video-analysis-core"
 version = "0.1.3"
+source = "git+https://github.com/moritzbrantner/visual-analysis?rev=da0460f916ec724a728c805d2206cf7eddec3553#da0460f916ec724a728c805d2206cf7eddec3553"
 dependencies = [
  "moenarch-audio-contracts",
  "moenarch-math-geometry-2d",
@@ -4081,46 +1765,15 @@ dependencies = [
  "moenarch-text-core",
  "num-rational",
  "num-traits",
+ "scenedetect-core",
  "serde",
  "serde_json",
-]
-
-[[package]]
-name = "moenarch-video-analysis-core-cli"
-version = "0.1.0"
-dependencies = [
- "clap",
- "moenarch-runtime-core",
- "moenarch-video-analysis-core",
- "serde_json",
-]
-
-[[package]]
-name = "moenarch-video-analysis-core-server"
-version = "0.1.0"
-dependencies = [
- "clap",
- "moenarch-runtime-core",
- "moenarch-video-analysis-core",
- "serde_json",
-]
-
-[[package]]
-name = "moenarch-video-analysis-core-wasm"
-version = "0.1.0"
-dependencies = [
- "js-sys",
- "moenarch-runtime-core",
- "moenarch-video-analysis-core",
- "serde",
- "serde-wasm-bindgen",
- "serde_json",
- "wasm-bindgen",
 ]
 
 [[package]]
 name = "moenarch-video-analysis-data"
 version = "0.1.0"
+source = "git+https://github.com/moritzbrantner/visual-analysis?rev=da0460f916ec724a728c805d2206cf7eddec3553#da0460f916ec724a728c805d2206cf7eddec3553"
 dependencies = [
  "moenarch-numbers-core",
  "moenarch-runtime-core",
@@ -4129,269 +1782,39 @@ dependencies = [
 ]
 
 [[package]]
-name = "moenarch-video-analysis-data-cli"
-version = "0.1.0"
-dependencies = [
- "clap",
- "moenarch-runtime-core",
- "moenarch-video-analysis-data",
- "serde_json",
-]
-
-[[package]]
-name = "moenarch-video-analysis-data-server"
-version = "0.1.0"
-dependencies = [
- "clap",
- "moenarch-runtime-core",
- "moenarch-video-analysis-data",
- "serde_json",
-]
-
-[[package]]
-name = "moenarch-video-analysis-data-wasm"
-version = "0.1.0"
-dependencies = [
- "js-sys",
- "moenarch-runtime-core",
- "moenarch-video-analysis-data",
- "serde",
- "serde-wasm-bindgen",
- "serde_json",
- "wasm-bindgen",
-]
-
-[[package]]
 name = "moenarch-video-analysis-dataset"
 version = "0.1.0"
+source = "git+https://github.com/moritzbrantner/visual-analysis?rev=da0460f916ec724a728c805d2206cf7eddec3553#da0460f916ec724a728c805d2206cf7eddec3553"
 dependencies = [
  "moenarch-runtime-core",
- "moenarch-three-d-processing-core",
  "moenarch-video-analysis-core",
- "moenarch-video-analysis-posture",
- "num-rational",
  "serde",
  "serde_json",
-]
-
-[[package]]
-name = "moenarch-video-analysis-dataset-cli"
-version = "0.1.0"
-dependencies = [
- "clap",
- "moenarch-runtime-core",
- "moenarch-video-analysis-dataset",
- "serde_json",
-]
-
-[[package]]
-name = "moenarch-video-analysis-dataset-server"
-version = "0.1.0"
-dependencies = [
- "clap",
- "moenarch-runtime-core",
- "moenarch-video-analysis-dataset",
- "serde_json",
-]
-
-[[package]]
-name = "moenarch-video-analysis-dataset-wasm"
-version = "0.1.0"
-dependencies = [
- "js-sys",
- "moenarch-runtime-core",
- "moenarch-video-analysis-dataset",
- "serde",
- "serde-wasm-bindgen",
- "serde_json",
- "wasm-bindgen",
 ]
 
 [[package]]
 name = "moenarch-video-analysis-detectors"
 version = "0.1.0"
-dependencies = [
- "criterion",
- "moenarch-runtime-core",
- "moenarch-video-analysis-core",
- "moenarch-video-analysis-ffmpeg",
- "moenarch-video-analysis-ingest",
- "moenarch-video-analysis-test-support",
- "num-rational",
- "serde",
- "serde_json",
-]
-
-[[package]]
-name = "moenarch-video-analysis-detectors-cli"
-version = "0.1.0"
-dependencies = [
- "clap",
- "moenarch-runtime-core",
- "moenarch-video-analysis-detectors",
- "serde_json",
-]
-
-[[package]]
-name = "moenarch-video-analysis-detectors-server"
-version = "0.1.0"
-dependencies = [
- "clap",
- "moenarch-runtime-core",
- "moenarch-video-analysis-detectors",
- "serde_json",
-]
-
-[[package]]
-name = "moenarch-video-analysis-detectors-wasm"
-version = "0.1.0"
-dependencies = [
- "js-sys",
- "moenarch-runtime-core",
- "moenarch-video-analysis-detectors",
- "serde",
- "serde-wasm-bindgen",
- "serde_json",
- "wasm-bindgen",
-]
-
-[[package]]
-name = "moenarch-video-analysis-editing"
-version = "0.1.0"
-dependencies = [
- "criterion",
- "moenarch-math-geometry-2d",
- "moenarch-math-linear",
- "moenarch-runtime-core",
- "moenarch-video-analysis-core",
- "num-rational",
- "serde",
- "serde_json",
-]
-
-[[package]]
-name = "moenarch-video-analysis-editing-cli"
-version = "0.1.0"
-dependencies = [
- "clap",
- "moenarch-runtime-core",
- "moenarch-video-analysis-editing",
- "serde_json",
-]
-
-[[package]]
-name = "moenarch-video-analysis-editing-server"
-version = "0.1.0"
-dependencies = [
- "clap",
- "moenarch-runtime-core",
- "moenarch-video-analysis-editing",
- "serde_json",
-]
-
-[[package]]
-name = "moenarch-video-analysis-editing-wasm"
-version = "0.1.0"
-dependencies = [
- "js-sys",
- "moenarch-runtime-core",
- "moenarch-video-analysis-editing",
- "serde",
- "serde-wasm-bindgen",
- "serde_json",
- "wasm-bindgen",
-]
-
-[[package]]
-name = "moenarch-video-analysis-features"
-version = "0.1.0"
+source = "git+https://github.com/moritzbrantner/visual-analysis?rev=da0460f916ec724a728c805d2206cf7eddec3553#da0460f916ec724a728c805d2206cf7eddec3553"
 dependencies = [
  "moenarch-runtime-core",
  "moenarch-video-analysis-core",
- "moenarch-video-analysis-dataset",
- "moenarch-video-analysis-transform",
- "num-rational",
+ "scenedetect-core",
  "serde",
  "serde_json",
-]
-
-[[package]]
-name = "moenarch-video-analysis-features-cli"
-version = "0.1.0"
-dependencies = [
- "clap",
- "moenarch-runtime-core",
- "moenarch-video-analysis-features",
- "serde_json",
-]
-
-[[package]]
-name = "moenarch-video-analysis-features-server"
-version = "0.1.0"
-dependencies = [
- "clap",
- "moenarch-runtime-core",
- "moenarch-video-analysis-features",
- "serde_json",
-]
-
-[[package]]
-name = "moenarch-video-analysis-features-wasm"
-version = "0.1.0"
-dependencies = [
- "js-sys",
- "moenarch-runtime-core",
- "moenarch-video-analysis-features",
- "serde",
- "serde-wasm-bindgen",
- "serde_json",
- "wasm-bindgen",
 ]
 
 [[package]]
 name = "moenarch-video-analysis-ffmpeg"
 version = "0.1.1"
+source = "git+https://github.com/moritzbrantner/visual-analysis?rev=da0460f916ec724a728c805d2206cf7eddec3553#da0460f916ec724a728c805d2206cf7eddec3553"
 dependencies = [
  "moenarch-runtime-core",
  "moenarch-video-analysis-core",
  "moenarch-video-analysis-ingest",
  "num-rational",
  "serde_json",
- "tempfile",
- "thiserror 2.0.21",
-]
-
-[[package]]
-name = "moenarch-video-analysis-ffmpeg-cli"
-version = "0.1.0"
-dependencies = [
- "clap",
- "moenarch-runtime-core",
- "moenarch-video-analysis-ffmpeg",
- "serde_json",
-]
-
-[[package]]
-name = "moenarch-video-analysis-ffmpeg-server"
-version = "0.1.0"
-dependencies = [
- "clap",
- "moenarch-runtime-core",
- "moenarch-video-analysis-ffmpeg",
- "serde_json",
-]
-
-[[package]]
-name = "moenarch-video-analysis-ffmpeg-wasm"
-version = "0.1.0"
-dependencies = [
- "js-sys",
- "moenarch-runtime-core",
- "moenarch-video-analysis-ffmpeg",
- "serde",
- "serde-wasm-bindgen",
- "serde_json",
- "wasm-bindgen",
+ "thiserror",
 ]
 
 [[package]]
@@ -4441,44 +1864,13 @@ dependencies = [
 [[package]]
 name = "moenarch-video-analysis-ingest"
 version = "0.1.0"
+source = "git+https://github.com/moritzbrantner/visual-analysis?rev=da0460f916ec724a728c805d2206cf7eddec3553#da0460f916ec724a728c805d2206cf7eddec3553"
 dependencies = [
  "moenarch-runtime-core",
  "moenarch-video-analysis-core",
+ "moenarch-video-analysis-detectors",
  "num-rational",
  "serde_json",
-]
-
-[[package]]
-name = "moenarch-video-analysis-ingest-cli"
-version = "0.1.0"
-dependencies = [
- "clap",
- "moenarch-runtime-core",
- "moenarch-video-analysis-ingest",
- "serde_json",
-]
-
-[[package]]
-name = "moenarch-video-analysis-ingest-server"
-version = "0.1.0"
-dependencies = [
- "clap",
- "moenarch-runtime-core",
- "moenarch-video-analysis-ingest",
- "serde_json",
-]
-
-[[package]]
-name = "moenarch-video-analysis-ingest-wasm"
-version = "0.1.0"
-dependencies = [
- "js-sys",
- "moenarch-runtime-core",
- "moenarch-video-analysis-ingest",
- "serde",
- "serde-wasm-bindgen",
- "serde_json",
- "wasm-bindgen",
 ]
 
 [[package]]
@@ -4532,45 +1924,12 @@ dependencies = [
 [[package]]
 name = "moenarch-video-analysis-output"
 version = "0.1.0"
+source = "git+https://github.com/moritzbrantner/visual-analysis?rev=da0460f916ec724a728c805d2206cf7eddec3553#da0460f916ec724a728c805d2206cf7eddec3553"
 dependencies = [
  "moenarch-runtime-core",
  "moenarch-video-analysis-core",
- "num-rational",
  "serde",
  "serde_json",
-]
-
-[[package]]
-name = "moenarch-video-analysis-output-cli"
-version = "0.1.0"
-dependencies = [
- "clap",
- "moenarch-runtime-core",
- "moenarch-video-analysis-output",
- "serde_json",
-]
-
-[[package]]
-name = "moenarch-video-analysis-output-server"
-version = "0.1.0"
-dependencies = [
- "clap",
- "moenarch-runtime-core",
- "moenarch-video-analysis-output",
- "serde_json",
-]
-
-[[package]]
-name = "moenarch-video-analysis-output-wasm"
-version = "0.1.0"
-dependencies = [
- "js-sys",
- "moenarch-runtime-core",
- "moenarch-video-analysis-output",
- "serde",
- "serde-wasm-bindgen",
- "serde_json",
- "wasm-bindgen",
 ]
 
 [[package]]
@@ -4605,7 +1964,7 @@ dependencies = [
 name = "moenarch-video-analysis-posture-io"
 version = "0.1.0"
 dependencies = [
- "base64 0.23.1",
+ "base64",
  "moenarch-runtime-core",
  "moenarch-three-d-processing-core",
  "moenarch-video-analysis-core",
@@ -4726,7 +2085,7 @@ dependencies = [
  "serde",
  "serde_json",
  "tempfile",
- "thiserror 2.0.21",
+ "thiserror",
 ]
 
 [[package]]
@@ -4774,7 +2133,7 @@ dependencies = [
  "moenarch-video-analysis-reconstruction",
  "serde_json",
  "tempfile",
- "thiserror 2.0.21",
+ "thiserror",
 ]
 
 [[package]]
@@ -4813,53 +2172,19 @@ dependencies = [
 [[package]]
 name = "moenarch-video-analysis-recognition"
 version = "0.1.0"
+source = "git+https://github.com/moritzbrantner/visual-analysis?rev=da0460f916ec724a728c805d2206cf7eddec3553#da0460f916ec724a728c805d2206cf7eddec3553"
 dependencies = [
- "base64 0.23.1",
+ "base64",
  "moenarch-image-analysis-core",
  "moenarch-image-analysis-detection",
  "moenarch-model-runtime",
  "moenarch-runtime-core",
  "moenarch-runtime-onnx",
- "moenarch-three-d-processing-core",
+ "moenarch-semantic-core",
  "moenarch-video-analysis-core",
- "moenarch-video-analysis-posture",
  "moenarch-vision-core",
- "num-rational",
  "serde",
  "serde_json",
-]
-
-[[package]]
-name = "moenarch-video-analysis-recognition-cli"
-version = "0.1.0"
-dependencies = [
- "clap",
- "moenarch-runtime-core",
- "moenarch-video-analysis-recognition",
- "serde_json",
-]
-
-[[package]]
-name = "moenarch-video-analysis-recognition-server"
-version = "0.1.0"
-dependencies = [
- "clap",
- "moenarch-runtime-core",
- "moenarch-video-analysis-recognition",
- "serde_json",
-]
-
-[[package]]
-name = "moenarch-video-analysis-recognition-wasm"
-version = "0.1.0"
-dependencies = [
- "js-sys",
- "moenarch-runtime-core",
- "moenarch-video-analysis-recognition",
- "serde",
- "serde-wasm-bindgen",
- "serde_json",
- "wasm-bindgen",
 ]
 
 [[package]]
@@ -4899,54 +2224,6 @@ dependencies = [
  "js-sys",
  "moenarch-runtime-core",
  "moenarch-video-analysis-reconstruction",
- "serde",
- "serde-wasm-bindgen",
- "serde_json",
- "wasm-bindgen",
-]
-
-[[package]]
-name = "moenarch-video-analysis-segmentation"
-version = "0.1.0"
-dependencies = [
- "moenarch-image-analysis-segmentation",
- "moenarch-model-runtime",
- "moenarch-runtime-core",
- "moenarch-video-analysis-core",
- "moenarch-video-analysis-ffmpeg",
- "moenarch-video-analysis-ingest",
- "moenarch-video-analysis-recognition",
- "serde",
- "serde_json",
-]
-
-[[package]]
-name = "moenarch-video-analysis-segmentation-cli"
-version = "0.1.0"
-dependencies = [
- "clap",
- "moenarch-runtime-core",
- "moenarch-video-analysis-segmentation",
- "serde_json",
-]
-
-[[package]]
-name = "moenarch-video-analysis-segmentation-server"
-version = "0.1.0"
-dependencies = [
- "clap",
- "moenarch-runtime-core",
- "moenarch-video-analysis-segmentation",
- "serde_json",
-]
-
-[[package]]
-name = "moenarch-video-analysis-segmentation-wasm"
-version = "0.1.0"
-dependencies = [
- "js-sys",
- "moenarch-runtime-core",
- "moenarch-video-analysis-segmentation",
  "serde",
  "serde-wasm-bindgen",
  "serde_json",
@@ -5003,140 +2280,12 @@ dependencies = [
 [[package]]
 name = "moenarch-video-analysis-split"
 version = "0.1.0"
+source = "git+https://github.com/moritzbrantner/visual-analysis?rev=da0460f916ec724a728c805d2206cf7eddec3553#da0460f916ec724a728c805d2206cf7eddec3553"
 dependencies = [
  "moenarch-runtime-core",
  "moenarch-video-analysis-core",
- "moenarch-video-analysis-ffmpeg",
- "num-rational",
  "serde",
  "serde_json",
- "tempfile",
-]
-
-[[package]]
-name = "moenarch-video-analysis-split-cli"
-version = "0.1.0"
-dependencies = [
- "clap",
- "moenarch-runtime-core",
- "moenarch-video-analysis-split",
- "serde_json",
-]
-
-[[package]]
-name = "moenarch-video-analysis-split-server"
-version = "0.1.0"
-dependencies = [
- "clap",
- "moenarch-runtime-core",
- "moenarch-video-analysis-split",
- "serde_json",
-]
-
-[[package]]
-name = "moenarch-video-analysis-split-wasm"
-version = "0.1.0"
-dependencies = [
- "js-sys",
- "moenarch-runtime-core",
- "moenarch-video-analysis-split",
- "serde",
- "serde-wasm-bindgen",
- "serde_json",
- "wasm-bindgen",
-]
-
-[[package]]
-name = "moenarch-video-analysis-storage"
-version = "0.1.0"
-dependencies = [
- "moenarch-media-core",
- "moenarch-runtime-core",
- "moenarch-video-analysis-core",
- "moenarch-video-analysis-dataset",
- "num-rational",
- "serde",
- "serde_json",
- "tempfile",
- "thiserror 2.0.21",
-]
-
-[[package]]
-name = "moenarch-video-analysis-storage-cli"
-version = "0.1.0"
-dependencies = [
- "clap",
- "moenarch-runtime-core",
- "moenarch-video-analysis-storage",
- "serde_json",
-]
-
-[[package]]
-name = "moenarch-video-analysis-storage-server"
-version = "0.1.0"
-dependencies = [
- "clap",
- "moenarch-runtime-core",
- "moenarch-video-analysis-storage",
- "serde_json",
-]
-
-[[package]]
-name = "moenarch-video-analysis-storage-wasm"
-version = "0.1.0"
-dependencies = [
- "js-sys",
- "moenarch-runtime-core",
- "moenarch-video-analysis-storage",
- "serde",
- "serde-wasm-bindgen",
- "serde_json",
- "wasm-bindgen",
-]
-
-[[package]]
-name = "moenarch-video-analysis-synthesis"
-version = "0.1.0"
-dependencies = [
- "moenarch-data-inversion-core",
- "moenarch-runtime-core",
- "moenarch-video-analysis-core",
- "num-rational",
- "serde",
- "serde_json",
-]
-
-[[package]]
-name = "moenarch-video-analysis-synthesis-cli"
-version = "0.1.0"
-dependencies = [
- "clap",
- "moenarch-runtime-core",
- "moenarch-video-analysis-synthesis",
- "serde_json",
-]
-
-[[package]]
-name = "moenarch-video-analysis-synthesis-server"
-version = "0.1.0"
-dependencies = [
- "clap",
- "moenarch-runtime-core",
- "moenarch-video-analysis-synthesis",
- "serde_json",
-]
-
-[[package]]
-name = "moenarch-video-analysis-synthesis-wasm"
-version = "0.1.0"
-dependencies = [
- "js-sys",
- "moenarch-runtime-core",
- "moenarch-video-analysis-synthesis",
- "serde",
- "serde-wasm-bindgen",
- "serde_json",
- "wasm-bindgen",
 ]
 
 [[package]]
@@ -5153,98 +2302,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "moenarch-video-analysis-tracking"
-version = "0.1.0"
-dependencies = [
- "criterion",
- "moenarch-math-geometry-2d",
- "moenarch-runtime-core",
- "moenarch-video-analysis-core",
- "moenarch-vision-core",
- "num-rational",
- "serde",
- "serde_json",
-]
-
-[[package]]
-name = "moenarch-video-analysis-tracking-cli"
-version = "0.1.0"
-dependencies = [
- "clap",
- "moenarch-runtime-core",
- "moenarch-video-analysis-tracking",
- "serde_json",
-]
-
-[[package]]
-name = "moenarch-video-analysis-tracking-server"
-version = "0.1.0"
-dependencies = [
- "clap",
- "moenarch-runtime-core",
- "moenarch-video-analysis-tracking",
- "serde_json",
-]
-
-[[package]]
-name = "moenarch-video-analysis-tracking-wasm"
-version = "0.1.0"
-dependencies = [
- "js-sys",
- "moenarch-runtime-core",
- "moenarch-video-analysis-tracking",
- "serde",
- "serde-wasm-bindgen",
- "serde_json",
- "wasm-bindgen",
-]
-
-[[package]]
-name = "moenarch-video-analysis-transform"
-version = "0.1.0"
-dependencies = [
- "moenarch-runtime-core",
- "moenarch-video-analysis-core",
- "moenarch-video-analysis-dataset",
- "num-rational",
- "serde",
- "serde_json",
-]
-
-[[package]]
-name = "moenarch-video-analysis-transform-cli"
-version = "0.1.0"
-dependencies = [
- "clap",
- "moenarch-runtime-core",
- "moenarch-video-analysis-transform",
- "serde_json",
-]
-
-[[package]]
-name = "moenarch-video-analysis-transform-server"
-version = "0.1.0"
-dependencies = [
- "clap",
- "moenarch-runtime-core",
- "moenarch-video-analysis-transform",
- "serde_json",
-]
-
-[[package]]
-name = "moenarch-video-analysis-transform-wasm"
-version = "0.1.0"
-dependencies = [
- "js-sys",
- "moenarch-runtime-core",
- "moenarch-video-analysis-transform",
- "serde",
- "serde-wasm-bindgen",
- "serde_json",
- "wasm-bindgen",
-]
-
-[[package]]
 name = "moenarch-video-analysis-use-cases"
 version = "0.1.0"
 dependencies = [
@@ -5257,6 +2314,7 @@ dependencies = [
  "moenarch-image-analysis-detection",
  "moenarch-image-analysis-io",
  "moenarch-model-runtime",
+ "moenarch-text-core",
  "moenarch-text-lexical",
  "moenarch-text-transcripts",
  "moenarch-video-analysis-core",
@@ -5276,66 +2334,12 @@ dependencies = [
 [[package]]
 name = "moenarch-vision-core"
 version = "0.1.0"
+source = "git+https://github.com/moritzbrantner/visual-analysis?rev=da0460f916ec724a728c805d2206cf7eddec3553#da0460f916ec724a728c805d2206cf7eddec3553"
 dependencies = [
  "moenarch-math-geometry-2d",
  "moenarch-runtime-core",
  "serde",
  "serde_json",
-]
-
-[[package]]
-name = "moenarch-vision-core-cli"
-version = "0.1.0"
-dependencies = [
- "clap",
- "moenarch-runtime-core",
- "moenarch-vision-core",
- "serde_json",
-]
-
-[[package]]
-name = "moenarch-vision-core-server"
-version = "0.1.0"
-dependencies = [
- "clap",
- "moenarch-runtime-core",
- "moenarch-vision-core",
- "serde_json",
-]
-
-[[package]]
-name = "moenarch-vision-core-wasm"
-version = "0.1.0"
-dependencies = [
- "js-sys",
- "moenarch-runtime-core",
- "moenarch-vision-core",
- "serde",
- "serde-wasm-bindgen",
- "serde_json",
- "wasm-bindgen",
-]
-
-[[package]]
-name = "monostate"
-version = "0.1.18"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3341a273f6c9d5bef1908f17b7267bbab0e95c9bf69a0d4dcf8e9e1b2c76ef67"
-dependencies = [
- "monostate-impl",
- "serde",
- "serde_core",
-]
-
-[[package]]
-name = "monostate-impl"
-version = "0.1.18"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e4db6d5580af57bf992f59068d4ea26fd518574ff48d7639b255a36f9de6e7e9"
-dependencies = [
- "proc-macro2",
- "quote",
- "syn 2.0.119",
 ]
 
 [[package]]
@@ -5368,76 +2372,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "nano-gemm"
-version = "0.2.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9e04345dc84b498ff89fe0d38543d1f170da9e43a2c2bcee73a0f9069f72d081"
-dependencies = [
- "equator 0.2.2",
- "nano-gemm-c32",
- "nano-gemm-c64",
- "nano-gemm-codegen",
- "nano-gemm-core",
- "nano-gemm-f32",
- "nano-gemm-f64",
- "num-complex",
-]
-
-[[package]]
-name = "nano-gemm-c32"
-version = "0.2.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0775b1e2520e64deee8fc78b7732e3091fb7585017c0b0f9f4b451757bbbc562"
-dependencies = [
- "nano-gemm-codegen",
- "nano-gemm-core",
- "num-complex",
-]
-
-[[package]]
-name = "nano-gemm-c64"
-version = "0.2.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9af49a20d58816e6b5ee65f64142e50edb5eba152678d4bb7377fcbf63f8437a"
-dependencies = [
- "nano-gemm-codegen",
- "nano-gemm-core",
- "num-complex",
-]
-
-[[package]]
-name = "nano-gemm-codegen"
-version = "0.2.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6cc8d495c791627779477a2cf5df60049f5b165342610eb0d76bee5ff5c5d74c"
-
-[[package]]
-name = "nano-gemm-core"
-version = "0.2.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d998dfa644de87a0f8660e5ea511d7cb5c33b5a2d9847b7af57a2565105089f0"
-
-[[package]]
-name = "nano-gemm-f32"
-version = "0.2.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "879d962e79bc8952e4ad21ca4845a21132540ed3f5e01184b2ff7f720e666523"
-dependencies = [
- "nano-gemm-codegen",
- "nano-gemm-core",
-]
-
-[[package]]
-name = "nano-gemm-f64"
-version = "0.2.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b9a513473dce7dc00c7e7c318481ca4494034e76997218d8dad51bd9f007a815"
-dependencies = [
- "nano-gemm-codegen",
- "nano-gemm-core",
-]
-
-[[package]]
 name = "ndarray"
 version = "0.17.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -5450,28 +2384,6 @@ dependencies = [
  "portable-atomic",
  "portable-atomic-util",
  "rawpointer",
-]
-
-[[package]]
-name = "nix"
-version = "0.31.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "cf20d2fde8ff38632c426f1165ed7436270b44f199fc55284c38276f9db47c3d"
-dependencies = [
- "bitflags",
- "cfg-if",
- "cfg_aliases",
- "libc",
-]
-
-[[package]]
-name = "nom"
-version = "7.1.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d273983c5a657a70a3e8f2a01329822f3b8c8172b73826411a55751e404a0a4a"
-dependencies = [
- "memchr",
- "minimal-lexical",
 ]
 
 [[package]]
@@ -5490,7 +2402,6 @@ version = "0.4.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "73f88a1307638156682bada9d7604135552957b7818057dcef22705b4d509495"
 dependencies = [
- "bytemuck",
  "num-traits",
 ]
 
@@ -5527,17 +2438,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "071dfc062690e90b734c0b2273ce72ad0ffa95f0c74596bc250dcfd960262841"
 dependencies = [
  "autocfg",
- "libm",
-]
-
-[[package]]
-name = "num_cpus"
-version = "1.17.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "91df4bbde75afed763b708b7eee1e8e7651e02d97f6d5dd763e89367e957b23b"
-dependencies = [
- "hermit-abi",
- "libc",
 ]
 
 [[package]]
@@ -5566,9 +2466,9 @@ checksum = "04744f49eae99ab78e0d5c0b603ab218f515ea8cfe5a456d7629ad883a3b6e7d"
 
 [[package]]
 name = "ort"
-version = "2.0.0-rc.15"
+version = "2.0.0-rc.12"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "37c87aa7a90b7ff3e0fe36cccd475df8d67f15f07f4d6c370c4b38464232813c"
+checksum = "d7de3af33d24a745ffb8fab904b13478438d1cd52868e6f17735ef6e1f8bf133"
 dependencies = [
  "libloading",
  "ndarray",
@@ -5579,9 +2479,9 @@ dependencies = [
 
 [[package]]
 name = "ort-sys"
-version = "2.0.0-rc.15"
+version = "2.0.0-rc.12"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8d22b0417f1838db5a3ac0b3f98dfe39f6fb73624aa0a27c6bbb5040b9c7db2b"
+checksum = "d7b497d21a8b6fbb4b5a544f8fadb77e801a09ae0add9e411d31c6f89e3c1e90"
 
 [[package]]
 name = "page_size"
@@ -5592,41 +2492,6 @@ dependencies = [
  "libc",
  "winapi",
 ]
-
-[[package]]
-name = "parking_lot"
-version = "0.12.5"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "93857453250e3077bd71ff98b6a65ea6621a19bb0f559a85248955ac12c45a1a"
-dependencies = [
- "lock_api",
- "parking_lot_core",
-]
-
-[[package]]
-name = "parking_lot_core"
-version = "0.9.12"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2621685985a2ebf1c516881c026032ac7deafcda1a2c9b7850dc81e3dfcb64c1"
-dependencies = [
- "cfg-if",
- "libc",
- "redox_syscall",
- "smallvec",
- "windows-link",
-]
-
-[[package]]
-name = "paste"
-version = "1.0.15"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "57c0d7b74b563b49d38dae00a0c37d4d6de9b432382b2892f0574ddcae73fd0a"
-
-[[package]]
-name = "pastey"
-version = "0.2.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2ee67f1008b1ba2321834326597b8e186293b049a023cdef258527550b9935b4"
 
 [[package]]
 name = "percent-encoding"
@@ -5727,18 +2592,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "private-gemm-x86"
-version = "0.1.22"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "bba0a7831d1297712e7e7b33759b0c837941e79196dd05df506d5f36f7f78619"
-dependencies = [
- "defer",
- "interpol",
- "num_cpus",
- "raw-cpuid",
-]
-
-[[package]]
 name = "proc-macro2"
 version = "1.0.107"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -5748,45 +2601,10 @@ dependencies = [
 ]
 
 [[package]]
-name = "pulp"
-version = "0.22.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "046aa45b989642ec2e4717c8e72d677b13edd831a4d3b6cf37d9a3e54912496a"
-dependencies = [
- "bytemuck",
- "cfg-if",
- "libm",
- "num-complex",
- "paste",
- "pulp-wasm-simd-flag",
- "raw-cpuid",
- "reborrow",
- "version_check",
-]
-
-[[package]]
-name = "pulp-wasm-simd-flag"
-version = "0.1.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1d8f70e07b9c3962945a74e59ca1c511bba65b6419468acc217c457d93f3c740"
-
-[[package]]
 name = "pxfm"
 version = "0.1.30"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d55d956fa96f5ec02be2e13af0e20391a5aa83d6a074e3ad368959d0fab299ea"
-
-[[package]]
-name = "qd"
-version = "0.8.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "15f1304a5aecdcfe9ee72fbba90aa37b3aa067a69d14cb7f3d9deada0be7c07c"
-dependencies = [
- "bytemuck",
- "libm",
- "num-traits",
- "pulp",
-]
 
 [[package]]
 name = "quick-error"
@@ -5845,25 +2663,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "rand_distr"
-version = "0.5.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6a8615d50dcf34fa31f7ab52692afec947c4dd0ab803cc87cb3b0b4570ff7463"
-dependencies = [
- "num-traits",
- "rand",
-]
-
-[[package]]
-name = "raw-cpuid"
-version = "11.6.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "498cd0dc59d73224351ee52a95fee0f1a617a2eae0e7d9d720cc622c73a54186"
-dependencies = [
- "bitflags",
-]
-
-[[package]]
 name = "rawpointer"
 version = "0.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -5880,17 +2679,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "rayon-cond"
-version = "0.4.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2964d0cf57a3e7a06e8183d14a8b527195c706b7983549cd5462d5aa3747438f"
-dependencies = [
- "either",
- "itertools 0.14.0",
- "rayon",
-]
-
-[[package]]
 name = "rayon-core"
 version = "1.13.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -5901,28 +2689,13 @@ dependencies = [
 ]
 
 [[package]]
-name = "reborrow"
-version = "0.5.5"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "03251193000f4bd3b042892be858ee50e8b3719f2b08e5833ac4353724632430"
-
-[[package]]
-name = "redox_syscall"
-version = "0.5.18"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ed2bf2547551a7053d6fdfafda3f938979645c44812fbfcda098faae3f1a362d"
-dependencies = [
- "bitflags",
-]
-
-[[package]]
 name = "redox_users"
 version = "0.5.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "60dc65c0ff1a7ae1294b0c67b9f14baf70b644404010370171787bfac1038fc0"
 dependencies = [
  "libredox",
- "thiserror 2.0.21",
+ "thiserror",
 ]
 
 [[package]]
@@ -5974,7 +2747,7 @@ version = "0.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "353b74f9810d5b085b6c42c9d86a5f0fdb795553235cdd48753b32e3809d18a7"
 dependencies = [
- "thiserror 2.0.21",
+ "thiserror",
 ]
 
 [[package]]
@@ -6002,7 +2775,7 @@ dependencies = [
  "errno",
  "libc",
  "linux-raw-sys",
- "windows-sys 0.52.0",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]
@@ -6062,19 +2835,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "safetensors"
-version = "0.8.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "79b079b829cb27a1c3c374341345ed2e8b2c0c839034522cee576c140bd7f846"
-dependencies = [
- "hashbrown 0.16.1",
- "libc",
- "serde",
- "serde_json",
- "tempfile",
-]
-
-[[package]]
 name = "same-file"
 version = "1.0.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -6084,16 +2844,16 @@ dependencies = [
 ]
 
 [[package]]
-name = "scopeguard"
-version = "1.2.0"
+name = "scenedetect-core"
+version = "0.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "94143f37725109f92c262ed2cf5e59bce7498c01bcc1502d7b9afe439a4e9f49"
-
-[[package]]
-name = "seq-macro"
-version = "0.3.6"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1bc711410fbe7399f390ca1c3b60ad0f53f80e95c5eb935e52268a0e2cd49acc"
+checksum = "5e92ebbd763f8eadf6a582593ce06d4e0b4f53d8773e6f481a03347edc8812c6"
+dependencies = [
+ "csv",
+ "serde",
+ "serde_json",
+ "thiserror",
+]
 
 [[package]]
 name = "serde"
@@ -6150,34 +2910,14 @@ dependencies = [
 ]
 
 [[package]]
-name = "serde_plain"
-version = "1.0.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9ce1fc6db65a611022b23a0dec6975d63fb80a302cb3388835ff02c097258d50"
-dependencies = [
- "serde",
-]
-
-[[package]]
 name = "sha2"
 version = "0.10.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a7507d819769d01a365ab707794a4084392c824f54a7a6a7862f8c3d0892b283"
 dependencies = [
  "cfg-if",
- "cpufeatures 0.2.17",
- "digest 0.10.7",
-]
-
-[[package]]
-name = "sha2"
-version = "0.11.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "47d7069beb7d6ac7b9acd1039986e73443f24234f41074da099d6f994ac9ad19"
-dependencies = [
- "cfg-if",
- "cpufeatures 0.3.1",
- "digest 0.11.3",
+ "cpufeatures",
+ "digest",
 ]
 
 [[package]]
@@ -6223,18 +2963,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d0d5d4b1981b8bbbb7aed204cae5726d683d5d6ac7e74ec54122ea28f315e7c8"
 
 [[package]]
-name = "spm_precompiled"
-version = "0.1.4"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5851699c4033c63636f7ea4cf7b7c1f1bf06d0cc03cfb42e711de5a5c46cf326"
-dependencies = [
- "base64 0.13.1",
- "nom",
- "serde",
- "unicode-segmentation",
-]
-
-[[package]]
 name = "sqlite-wasm-rs"
 version = "0.6.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -6251,12 +2979,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "6ce2be8dc25455e1f91df71bfa12ad37d7af1092ae736f3a6cd0e37bc7810596"
 
 [[package]]
-name = "static_assertions"
-version = "1.1.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a2eb9349b6444b326872e140eb1cf5e7c522154d69e7a0ffb0fb81c06b37543f"
-
-[[package]]
 name = "strsim"
 version = "0.11.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -6267,17 +2989,6 @@ name = "subtle"
 version = "2.6.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "13c2bddecc57b384dee18652358fb23172facb8a2c51ccc10d74c157bdea3292"
-
-[[package]]
-name = "syn"
-version = "1.0.109"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "72b64191b275b66ffe2469e8af2c1cfe3bafa67b529ead792a6d0160888b4237"
-dependencies = [
- "proc-macro2",
- "quote",
- "unicode-ident",
-]
 
 [[package]]
 name = "syn"
@@ -6313,20 +3024,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "sysctl"
-version = "0.6.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "01198a2debb237c62b6826ec7081082d951f46dbb64b0e8c7649a452230d1dfc"
-dependencies = [
- "bitflags",
- "byteorder",
- "enum-as-inner",
- "libc",
- "thiserror 1.0.69",
- "walkdir",
-]
-
-[[package]]
 name = "tempfile"
 version = "3.27.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -6336,16 +3033,7 @@ dependencies = [
  "getrandom 0.4.3",
  "once_cell",
  "rustix",
- "windows-sys 0.52.0",
-]
-
-[[package]]
-name = "thiserror"
-version = "1.0.69"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b6aaf5339b578ea85b50e080feb250a3e8ae8cfcdff9a461c9ec2904bc923f52"
-dependencies = [
- "thiserror-impl 1.0.69",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]
@@ -6354,18 +3042,7 @@ version = "2.0.21"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "09e52cb86a36cede5cb101bf8908837b3e4c6e5e59fe7fd85c23fb56200d189e"
 dependencies = [
- "thiserror-impl 2.0.21",
-]
-
-[[package]]
-name = "thiserror-impl"
-version = "1.0.69"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4fee6c4efc90059e10f81e6d42c60a18f76588c3d74cb83a0b242a2b6c7504c1"
-dependencies = [
- "proc-macro2",
- "quote",
- "syn 2.0.119",
+ "thiserror-impl",
 ]
 
 [[package]]
@@ -6436,58 +3113,13 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "fd3ca314f692efd6c868f8408f53fe444634a845f96c028b97d35f6a1f79f0ee"
 
 [[package]]
-name = "tokenizers"
-version = "0.23.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7afbf6e88718afcc138bad01d6ccc3051dbbc3b2ce9793d8b8a3aeb610969cfc"
-dependencies = [
- "ahash",
- "compact_str",
- "daachorse",
- "dary_heap",
- "derive_builder",
- "esaxx-rs",
- "fancy-regex 0.17.0",
- "getrandom 0.3.4",
- "itertools 0.14.0",
- "log",
- "macro_rules_attribute",
- "monostate",
- "paste",
- "rand",
- "rayon",
- "rayon-cond",
- "regex",
- "regex-syntax",
- "serde",
- "serde_json",
- "spm_precompiled",
- "thiserror 2.0.21",
- "unicode-normalization-alignments",
- "unicode-segmentation",
- "unicode_categories",
-]
-
-[[package]]
 name = "tracing"
 version = "0.1.44"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "63e71662fa4b2a2c3a26f570f037eb95bb1f85397f3cd8076caed2f026a6d100"
 dependencies = [
  "pin-project-lite",
- "tracing-attributes",
  "tracing-core",
-]
-
-[[package]]
-name = "tracing-attributes"
-version = "0.1.31"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7490cfa5ec963746568740651ac6781f701c9c5ea257c58e057f3ba8cf69e8da"
-dependencies = [
- "proc-macro2",
- "quote",
- "syn 2.0.119",
 ]
 
 [[package]]
@@ -6498,12 +3130,6 @@ checksum = "db97caf9d906fbde555dd62fa95ddba9eecfd14cb388e4f491a66d74cd5fb79a"
 dependencies = [
  "once_cell",
 ]
-
-[[package]]
-name = "typed-path"
-version = "0.13.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9ce898823d8cd0f028662d2f349694b1af0a5cc9be83f1d213a00d3147445e1e"
 
 [[package]]
 name = "typenum"
@@ -6527,15 +3153,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "unicode-normalization-alignments"
-version = "0.1.12"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "43f613e4fa046e69818dd287fdc4bc78175ff20331479dab6e1b0f98d57062de"
-dependencies = [
- "smallvec",
-]
-
-[[package]]
 name = "unicode-segmentation"
 version = "1.13.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -6546,12 +3163,6 @@ name = "unicode-width"
 version = "0.2.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b4ac048d71ede7ee76d585517add45da530660ef4390e49b098733c6e897f254"
-
-[[package]]
-name = "unicode_categories"
-version = "0.1.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "39ec24b3121d976906ece63c9daad25b85969647682eee313cb5779fdd69e14e"
 
 [[package]]
 name = "unit-prefix"
@@ -6571,7 +3182,7 @@ version = "3.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "cde93ff05758a36a851a398a772b0b79a82fbe3c186a46f2696baaeaf84c966b"
 dependencies = [
- "base64 0.23.1",
+ "base64",
  "cookie_store",
  "flate2",
  "log",
@@ -6591,7 +3202,7 @@ version = "0.6.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "841583fc36089d7d59419568ae157f43a5a03a2e5a81ba87c77d1596ef46e922"
 dependencies = [
- "base64 0.23.1",
+ "base64",
  "http",
  "httparse",
  "log",
@@ -6739,18 +3350,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "which"
-version = "7.0.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "24d643ce3fd3e5b54854602a080f34fb10ab75e0b813ee32d00ca2b44fa74762"
-dependencies = [
- "either",
- "env_home",
- "rustix",
- "winsafe",
-]
-
-[[package]]
 name = "wide"
 version = "1.7.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -6782,7 +3381,7 @@ version = "0.1.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c2a7b1c03c876122aa43f3020e6c3c3ee5c05081c9a00739faf7503aeba10d22"
 dependencies = [
- "windows-sys 0.52.0",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]
@@ -6933,12 +3532,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "589f6da84c646204747d1270a2a5661ea66ed1cced2631d546fdfb155959f9ec"
 
 [[package]]
-name = "winsafe"
-version = "0.0.19"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d135d17ab770252ad95e9a872d365cf3090e3be864a34ab46f48555993efc904"
-
-[[package]]
 name = "wit-bindgen"
 version = "0.57.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -7051,21 +3644,6 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn 3.0.9",
-]
-
-[[package]]
-name = "zip"
-version = "9.2.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3f5b58784007ff6e5f280ec82c8596686a3b9b5dd5836c63288d4479f84728b9"
-dependencies = [
- "crc32fast",
- "getrandom 0.4.3",
- "indexmap",
- "memchr",
- "nix",
- "typed-path",
- "windows-sys 0.61.2",
 ]
 
 [[package]]
