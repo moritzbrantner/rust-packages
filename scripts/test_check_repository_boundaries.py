@@ -91,29 +91,6 @@ def baseline_entry(
 
 
 class RepositoryBoundaryCheckTests(unittest.TestCase):
-    def test_text_transcripts_has_no_audio_or_visual_execution_dependencies(self) -> None:
-        metadata = cargo_metadata()
-        package = next(
-            package
-            for package in metadata["packages"]
-            if package["name"] == "moenarch-text-transcripts"
-        )
-        forbidden = {
-            "moenarch-audio-analysis-core",
-            "moenarch-audio-analysis-io",
-            "moenarch-audio-analysis-transcription",
-            "moenarch-video-analysis-core",
-            "moenarch-video-analysis-ffmpeg",
-            "moenarch-video-analysis-ingest",
-            "hound",
-        }
-        actual = {
-            dependency["name"]
-            for dependency in package["dependencies"]
-            if dependency.get("kind") != "dev"
-        }
-        self.assertEqual(actual & forbidden, set())
-
     def validate(
         self, packages: list[dict], records: list[dict], violations: list[dict]
     ) -> tuple[str, list[dict], list[list[str]]]:
@@ -136,9 +113,7 @@ class RepositoryBoundaryCheckTests(unittest.TestCase):
             text=True,
         )
         self.assertEqual(completed.returncode, 0, completed.stderr)
-        self.assertIn("5 reviewed violations", completed.stdout)
-        self.assertIn("3 normal", completed.stdout)
-        self.assertIn("2 dev", completed.stdout)
+        self.assertIn("0 reviewed violations", completed.stdout)
         self.assertNotIn("BASELINED CYCLE", completed.stdout)
 
     def test_live_authority_provenance_is_validated_by_boundary_consumer(self) -> None:

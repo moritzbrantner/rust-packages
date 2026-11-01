@@ -59,7 +59,7 @@ adapter parity, deterministic default surfaces, generated artifact hygiene, and
 release checklist wording; it does not publish crates.
 
 ```bash
-cargo test --test contract_ownership --test dependency_layers --test foundation_surface_audit --test package_structure --test package_interop_pipeline
+cargo test --test contract_ownership --test dependency_layers --test package_structure
 bun run snapshot:check
 bun run hygiene:generated
 cargo fmt --check
@@ -75,101 +75,14 @@ tagging:
 cargo package --locked -p <crate-name>
 ```
 
-Recommended publish order:
-
-1. Wave 1 foundations: `video-analysis-core`, `jobs-core`, `model-runtime`,
-   `image-analysis-core`, `text-core`,
-   `vector-analysis-core`, `three-d-processing-core`, `data-inversion-core`,
-   `numbers-core`, `tensor-data`, `math-linear`, `math-statistics`,
-   `dense-data`, `video-analysis-ingest`
-2. Wave 2 pure-Rust leaf crates on top of the foundations
-3. Wave 3 external/runtime crates
-4. Wave 4 `video-analysis` and `video-analysis-cli`
-
-For the Model Runtime Spine release slice, prepare and publish the smallest
-runtime/model foundation before the full Wave 1 foundation release. This slice
-is for package consumers that need stable runtime DTOs, job/artifact contracts,
-model bundle lifecycle behavior, and opt-in ONNX Runtime readiness. Publication
-is agent-driven only after the exact release issue, manifest, and verification
-commands pass.
-
-Run the release Rust gates plus the opt-in ONNX spine smoke:
-
-```bash
-cargo test --workspace --all-targets
-cargo clippy --workspace --all-targets -- -D warnings
-cargo doc --workspace --no-deps
-bash scripts/check_model_external_tools.sh onnx
-cargo test --no-default-features --test model_runtime_spine_onnx --features external-tests -- --ignored
-```
-
-If the ONNX Runtime dynamic library is not discoverable, first run
-`bash scripts/setup_model_external_tools.sh onnx` or set `ORT_DYLIB_PATH` to a
-local ONNX Runtime shared library.
-
-Dry-run and publish the spine crates in dependency order. Because Cargo package
-verification resolves registry dependencies, dry-run each dependent crate after
-its prerequisite version has been published to crates.io.
-
-```bash
-cargo package --locked -p moenarch-runtime-core
-cargo publish -p moenarch-runtime-core
-
-cargo package --locked -p moenarch-jobs-core
-cargo publish -p moenarch-jobs-core
-
-cargo package --locked -p moenarch-video-analysis-core
-cargo publish -p moenarch-video-analysis-core
-
-cargo package --locked -p moenarch-runtime-onnx
-cargo publish -p moenarch-runtime-onnx
-
-cargo package --locked -p moenarch-model-runtime
-cargo publish -p moenarch-model-runtime
-```
-
-`model-runtime` owns model specs, bundle materialization, manifests, and
-diagnostics. It does not own task inference semantics; task crates own
-preprocessing, decoding, labels, spans, boxes, captions, embeddings, and other
-domain-specific model behavior. `runtime-onnx` is part of this slice only as a
-domain-neutral low-level runtime with explicit `onnxruntime` feature support.
-The ONNX spine smoke downloads
-`onnx-internal-testing/tiny-random-BertModel-ONNX` and opens
-`onnx/model.onnx` from the materialized bundle.
-
-For a numerics and dense-data release slice, publish and dry-run packages in
-this order so crates.io can resolve each internal dependency from the registry:
-
-1. Confirm `video-analysis-core` is already available at the required version,
-   or publish it first.
-2. Publish `tensor-data`.
-3. Publish `vector-analysis-core`.
-4. Publish `numbers-core`.
-5. Publish `math-linear`.
-6. Publish `math-statistics`.
-7. Publish `dense-data`.
-
-For a text-only release wave, publish and dry-run packages in this order so
-crates.io can resolve each internal dependency from the registry:
-
-1. Prerequisites: `video-analysis-core`, `numbers-core`, `math-signal-core`,
-   `tensor-data`, `data-inversion-core`, `jobs-core`,
-   `vector-analysis-core`, `math-sparse-data`, `model-runtime`,
-   `vector-analysis-index`, `video-analysis-ingest`
-2. Text foundations: `text-core`, `text-lexical`, `text-model-runtime`
-3. Text feature crates: `text-embeddings`, `text-transcripts`,
-   `text-linguistics`, `text-retrieval`, `text-analysis`,
-   `text-classification`, `text-generation`, `text-generation-linguistics`,
-   `text-question-answering`
-4. Text adapters: publish each `crates/text/*-cli` and
-   `crates/text/*-server` crate after its paired library crate is published
-
-Audio crates are released from [`audio-analysis`](https://github.com/moritzbrantner/audio-analysis).
+Foundation, NLP, visual and audio crates are released from their owning
+repositories (`moenarch-foundation`, `nlp-stack`, `visual-analysis`,
+`audio-analysis`). Publish ComfyUI crates in dependency order:
+`comfyui-data`, `comfyui-models`, `comfyui-latents`, then
+`image-analysis-comfyui`, each followed by its `-cli` and `-server` adapters.
 
 Do not publish:
 
-- `runtime-artifacts`
-- `runtime-jobs`
 - `video-analysis-test-support`
 - `video-analysis-use-cases`
 
@@ -179,8 +92,5 @@ Do not publish:
 - Do not introduce new warnings in publishable crates.
 - Keep external-tool coverage opt-in and non-blocking for normal contributor
   workflows.
-- Runtime surface DTOs live in `moritzbrantner-runtime-core` and are
-  re-exported from `video-analysis-core::runtime` for compatibility.
-- Generic jobs, result envelopes, and artifact storage live in `jobs-core`.
-- Model-specific downloads, bundle manifests, and model artifact metadata live
-  in `model-runtime`.
+- Runtime surface DTOs, jobs and model bundles are owned by
+  `moenarch-foundation` (`runtime-core`, `jobs-core`, `model-runtime`).

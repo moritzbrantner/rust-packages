@@ -58,66 +58,13 @@ roots only when needed.
 
 | Bundle | Setup | Check / Run |
 | --- | --- | --- |
-| ONNX model smoke | `bash scripts/setup_model_external_tools.sh onnx` | `bash scripts/check_model_external_tools.sh onnx` then `scripts/check_onnx_external_smoke.sh` |
-| Video scene benchmark smoke | `scripts/setup_video_scene_benchmarks.sh bbc` | `scripts/setup_video_scene_benchmarks.sh verify` then the bounded BBC evaluator command in `VIDEO_SCENE_DETECTION_PARITY.md` |
 | Radiance / Nerfstudio smoke | `bash scripts/setup_radiance_external_tools.sh` | `scripts/check_e2e_external_tools.sh` or the dedicated radiance check required by the touched workflow |
 
 Missing tools should skip only when the corresponding ignored test documents a
 skip policy. If a `RUN_*` or equivalent opt-in environment variable is set,
 missing setup should be treated as a failure by that smoke.
 
-## Text Models
-
-Default text tests do not download model files or require native runtimes. Opt-in text model tests are ignored and feature-gated:
-
-```bash
-scripts/sync_model_bundles.sh
-cargo test -p moenarch-text-model-runtime --features external-tests -- --ignored
-cargo test -p moenarch-text-linguistics --features external-tests -- --ignored
-cargo test -p moenarch-text-embeddings --features external-tests -- --ignored
-```
-
-The text tests reuse `.model-runtime` for tokenizer, Candle, and ONNX files.
-The local ONNX defaults
-for extractive QA, image classification, and image captioning are materialized
-through `moritzbrantner-model-runtime`:
-
-- `onnx-community/roberta-base-squad2-ONNX`
-- `Xenova/vit-base-patch16-224`
-- `Xenova/vit-gpt2-image-captioning`
-- `Xenova/trocr-base-printed`
-
-Live download/inference checks stay ignored and feature-gated:
-
-```bash
-cargo test -p moenarch-text-question-answering --features external-tests -- --ignored
-cargo test -p moenarch-image-analysis-classification --features external-tests -- --ignored
-cargo test -p moenarch-image-analysis-captioning --features external-tests -- --ignored
-cargo test -p moenarch-image-analysis-ocr --features external-tests --test external_onnx_smoke -- --ignored
-```
-
-The native ONNX smoke suite can be run explicitly with:
-
-```bash
-scripts/check_onnx_external_smoke.sh
-```
-
-The helper auto-discovers the ONNX Runtime shared library from
-`.external-test-tools/model-python-venv`, canonicalizes it to an absolute path,
-and exports `ORT_DYLIB_PATH` before running native ONNX tests. If
-`ORT_DYLIB_PATH` is set manually, use an absolute path. Relative paths can be
-resolved from the test binary directory and may hang during ORT dynamic loading.
-
-This helper prints the expected `.model-runtime/<bundle>/main/manifest.json`
-paths before running the ignored classification, captioning, detection,
-embedding, OCR, and text QA/runtime-helper commands. It is opt-in only and is not
-called by `bun run test`, `scripts/check-fast.sh`, or default CI. Missing
-bundles should skip or fail only according to the ignored test's own semantics;
-default tests do not download or execute live models.
-
-The OCR smoke expects the printed TrOCR ONNX manifest at
-`.model-runtime/trocr-base-printed-onnx/main/manifest.json` and reads
-`tests/fixtures/ocr/trocr-hello.png`.
+## Workflow And ComfyUI Smokes
 
 The multimodal workflow smoke tests still include optional command adapters
 under `scripts/`, but image/video workflows now prefer Rust-side adapters when

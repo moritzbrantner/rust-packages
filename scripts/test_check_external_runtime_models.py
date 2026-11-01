@@ -208,9 +208,6 @@ test another_smoke ... ok
         self.assertEqual(radiance_fields["status"], "excluded")
         self.assertIn("--gpu", radiance_fields["blockers"][0])
 
-        runtime_onnx = by_package["moritzbrantner-runtime-onnx"]
-        self.assertEqual(runtime_onnx["status"], "missing-coverage")
-
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)

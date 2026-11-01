@@ -29,16 +29,10 @@ baseline with external-tool checks. Benchmark checks belong to `bun run bench`,
 Publishing remains manual. Do not add release automation unless a task
 explicitly asks for it.
 
-## PySceneDetect 0.7 Parity
+## Scene Detection
 
-Use [VIDEO_SCENE_DETECTION_PARITY.md](VIDEO_SCENE_DETECTION_PARITY.md) as the
-source of truth. The current stable parity target remains PySceneDetect
-`0.6.7.1`; `0.7` work is additive. Prioritize:
-
-- timestamp and VFR metadata,
-- CLI spelling compatibility,
-- scene-list output exporters,
-- image extraction as a separate later surface.
+PySceneDetect parity work lives in
+[`scenedetect-rs`](https://github.com/moritzbrantner/scenedetect-rs).
 
 ## Native WhisperX Replacement
 

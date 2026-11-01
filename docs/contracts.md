@@ -77,12 +77,8 @@ the operation DTOs are stable.
 ## Service Schema Interoperability
 
 Cross-language services consume versioned JSON Schema artifacts and explicit
-adapters, not Rust source or sibling checkout paths. The media-intelligence
-boundary, including its shared file/HTTP/queue envelope, ownership rules,
-fixtures, and validation smoke, is documented in
-[`MEDIA_INTELLIGENCE_INTEROPERABILITY.md`](MEDIA_INTELLIGENCE_INTEROPERABILITY.md).
-Python business records remain owned by `mi_contracts`; the interoperability
-envelope does not move those records into runtime contracts.
+adapters, not Rust source or sibling checkout paths. The media-intelligence operation envelope (schemas, fixtures and smoke) left
+this repository with `text-core`; its last copy here is at commit `6c7f9098`.
 
 ## Shared Runtime Ownership
 

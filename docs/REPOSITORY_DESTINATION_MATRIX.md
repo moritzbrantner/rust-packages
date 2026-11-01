@@ -8,11 +8,8 @@ Source: `docs/repository-split/package-ownership.json` at `d032ad2890c1df3c6a5b9
 
 | Target repository | Cargo packages |
 | --- | ---: |
-| `moritzbrantner/moenarch-foundation` | 60 |
-| `moritzbrantner/nlp-stack` | 52 |
 | `moritzbrantner/rust-packages` | 20 |
 | `moritzbrantner/spatial-analysis` | 56 |
-| `moritzbrantner/visual-analysis` | 108 |
 
 ## Package destinations
 
@@ -26,79 +23,8 @@ Source: `docs/repository-split/package-ownership.json` at `d032ad2890c1df3c6a5b9
 | bun | `@moritzbrantner/comfyui-latents-wasm` | npm wrapper | `moenarch-comfyui-latents` | `moenarch-comfyui-latents` | `moritzbrantner/rust-packages` | compatibility | separate npm/WASM release plan required |
 | bun | `@moritzbrantner/comfyui-models-app` | app | `moenarch-comfyui-models` | `moenarch-comfyui-models` | `moritzbrantner/rust-packages` | compatibility | separate npm/WASM release plan required |
 | bun | `@moritzbrantner/comfyui-models-wasm` | npm wrapper | `moenarch-comfyui-models` | `moenarch-comfyui-models` | `moritzbrantner/rust-packages` | compatibility | separate npm/WASM release plan required |
-| bun | `@moritzbrantner/data-inversion-core-app` | app | `moenarch-data-inversion-core` | `moenarch-data-inversion-core` | `moritzbrantner/moenarch-foundation` | foundation | separate npm/WASM release plan required |
-| bun | `@moritzbrantner/data-inversion-core-wasm` | npm wrapper | `moenarch-data-inversion-core` | `moenarch-data-inversion-core` | `moritzbrantner/moenarch-foundation` | foundation | separate npm/WASM release plan required |
-| bun | `@moritzbrantner/dense-data-app` | app | `moenarch-dense-data` | `moenarch-dense-data` | `moritzbrantner/moenarch-foundation` | foundation | separate npm/WASM release plan required |
-| bun | `@moritzbrantner/dense-data-wasm` | npm wrapper | `moenarch-dense-data` | `moenarch-dense-data` | `moritzbrantner/moenarch-foundation` | foundation | separate npm/WASM release plan required |
-| bun | `@moritzbrantner/graph-analysis-core-app` | app | `moenarch-graph-analysis-core` | `moenarch-graph-analysis-core` | `moritzbrantner/moenarch-foundation` | foundation | separate npm/WASM release plan required |
-| bun | `@moritzbrantner/graph-analysis-core-wasm` | npm wrapper | `moenarch-graph-analysis-core` | `moenarch-graph-analysis-core` | `moritzbrantner/moenarch-foundation` | foundation | separate npm/WASM release plan required |
-| bun | `@moritzbrantner/image-analysis-captioning-app` | app | `moenarch-image-analysis-captioning` | `moenarch-image-analysis-captioning` | `moritzbrantner/visual-analysis` | visual | separate npm/WASM release plan required |
-| bun | `@moritzbrantner/image-analysis-captioning-wasm` | npm wrapper | `moenarch-image-analysis-captioning` | `moenarch-image-analysis-captioning` | `moritzbrantner/visual-analysis` | visual | separate npm/WASM release plan required |
-| bun | `@moritzbrantner/image-analysis-classification-app` | app | `moenarch-image-analysis-classification` | `moenarch-image-analysis-classification` | `moritzbrantner/visual-analysis` | visual | separate npm/WASM release plan required |
-| bun | `@moritzbrantner/image-analysis-classification-wasm` | npm wrapper | `moenarch-image-analysis-classification` | `moenarch-image-analysis-classification` | `moritzbrantner/visual-analysis` | visual | separate npm/WASM release plan required |
 | bun | `@moritzbrantner/image-analysis-comfyui-app` | app | `moenarch-image-analysis-comfyui` | `moenarch-image-analysis-comfyui` | `moritzbrantner/rust-packages` | compatibility | separate npm/WASM release plan required |
 | bun | `@moritzbrantner/image-analysis-comfyui-wasm` | npm wrapper | `moenarch-image-analysis-comfyui` | `moenarch-image-analysis-comfyui` | `moritzbrantner/rust-packages` | compatibility | separate npm/WASM release plan required |
-| bun | `@moritzbrantner/image-analysis-core-app` | app | `moenarch-image-analysis-core` | `moenarch-image-analysis-core` | `moritzbrantner/visual-analysis` | visual | separate npm/WASM release plan required |
-| bun | `@moritzbrantner/image-analysis-core-wasm` | npm wrapper | `moenarch-image-analysis-core` | `moenarch-image-analysis-core` | `moritzbrantner/visual-analysis` | visual | separate npm/WASM release plan required |
-| bun | `@moritzbrantner/image-analysis-detection-app` | app | `moenarch-image-analysis-detection` | `moenarch-image-analysis-detection` | `moritzbrantner/visual-analysis` | visual | separate npm/WASM release plan required |
-| bun | `@moritzbrantner/image-analysis-detection-wasm` | npm wrapper | `moenarch-image-analysis-detection` | `moenarch-image-analysis-detection` | `moritzbrantner/visual-analysis` | visual | separate npm/WASM release plan required |
-| bun | `@moritzbrantner/image-analysis-embeddings-app` | app | `moenarch-image-analysis-embeddings` | `moenarch-image-analysis-embeddings` | `moritzbrantner/visual-analysis` | visual | separate npm/WASM release plan required |
-| bun | `@moritzbrantner/image-analysis-embeddings-wasm` | npm wrapper | `moenarch-image-analysis-embeddings` | `moenarch-image-analysis-embeddings` | `moritzbrantner/visual-analysis` | visual | separate npm/WASM release plan required |
-| bun | `@moritzbrantner/image-analysis-io-app` | app | `moenarch-image-analysis-io` | `moenarch-image-analysis-io` | `moritzbrantner/visual-analysis` | visual | separate npm/WASM release plan required |
-| bun | `@moritzbrantner/image-analysis-io-wasm` | npm wrapper | `moenarch-image-analysis-io` | `moenarch-image-analysis-io` | `moritzbrantner/visual-analysis` | visual | separate npm/WASM release plan required |
-| bun | `@moritzbrantner/image-analysis-ocr-app` | app | `moenarch-image-analysis-ocr` | `moenarch-image-analysis-ocr` | `moritzbrantner/visual-analysis` | visual | separate npm/WASM release plan required |
-| bun | `@moritzbrantner/image-analysis-ocr-wasm` | npm wrapper | `moenarch-image-analysis-ocr` | `moenarch-image-analysis-ocr` | `moritzbrantner/visual-analysis` | visual | separate npm/WASM release plan required |
-| bun | `@moritzbrantner/image-analysis-processing-app` | app | `moenarch-image-analysis-processing` | `moenarch-image-analysis-processing` | `moritzbrantner/visual-analysis` | visual | separate npm/WASM release plan required |
-| bun | `@moritzbrantner/image-analysis-processing-wasm` | npm wrapper | `moenarch-image-analysis-processing` | `moenarch-image-analysis-processing` | `moritzbrantner/visual-analysis` | visual | separate npm/WASM release plan required |
-| bun | `@moritzbrantner/image-analysis-segmentation-app` | app | `moenarch-image-analysis-segmentation` | `moenarch-image-analysis-segmentation` | `moritzbrantner/visual-analysis` | visual | separate npm/WASM release plan required |
-| bun | `@moritzbrantner/image-analysis-segmentation-wasm` | npm wrapper | `moenarch-image-analysis-segmentation` | `moenarch-image-analysis-segmentation` | `moritzbrantner/visual-analysis` | visual | separate npm/WASM release plan required |
-| bun | `@moritzbrantner/image-analysis-synthesis-app` | app | `moenarch-image-analysis-synthesis` | `moenarch-image-analysis-synthesis` | `moritzbrantner/visual-analysis` | visual | separate npm/WASM release plan required |
-| bun | `@moritzbrantner/image-analysis-synthesis-wasm` | npm wrapper | `moenarch-image-analysis-synthesis` | `moenarch-image-analysis-synthesis` | `moritzbrantner/visual-analysis` | visual | separate npm/WASM release plan required |
-| bun | `@moritzbrantner/jobs-core-app` | app | `moenarch-jobs-core` | `moenarch-jobs-core` | `moritzbrantner/moenarch-foundation` | foundation | separate npm/WASM release plan required |
-| bun | `@moritzbrantner/jobs-core-wasm` | npm wrapper | `moenarch-jobs-core` | `moenarch-jobs-core` | `moritzbrantner/moenarch-foundation` | foundation | separate npm/WASM release plan required |
-| bun | `@moritzbrantner/math-geometry-2d-app` | app | `moenarch-math-geometry-2d` | `moenarch-math-geometry-2d` | `moritzbrantner/moenarch-foundation` | foundation | separate npm/WASM release plan required |
-| bun | `@moritzbrantner/math-geometry-2d-wasm` | npm wrapper | `moenarch-math-geometry-2d` | `moenarch-math-geometry-2d` | `moritzbrantner/moenarch-foundation` | foundation | separate npm/WASM release plan required |
-| bun | `@moritzbrantner/math-linear-app` | app | `moenarch-math-linear` | `moenarch-math-linear` | `moritzbrantner/moenarch-foundation` | foundation | separate npm/WASM release plan required |
-| bun | `@moritzbrantner/math-linear-wasm` | npm wrapper | `moenarch-math-linear` | `moenarch-math-linear` | `moritzbrantner/moenarch-foundation` | foundation | separate npm/WASM release plan required |
-| bun | `@moritzbrantner/math-signal-core-app` | app | `moenarch-math-signal-core` | `moenarch-math-signal-core` | `moritzbrantner/moenarch-foundation` | foundation | separate npm/WASM release plan required |
-| bun | `@moritzbrantner/math-signal-core-wasm` | npm wrapper | `moenarch-math-signal-core` | `moenarch-math-signal-core` | `moritzbrantner/moenarch-foundation` | foundation | separate npm/WASM release plan required |
-| bun | `@moritzbrantner/math-sparse-data-app` | app | `moenarch-math-sparse-data` | `moenarch-math-sparse-data` | `moritzbrantner/moenarch-foundation` | foundation | separate npm/WASM release plan required |
-| bun | `@moritzbrantner/math-sparse-data-wasm` | npm wrapper | `moenarch-math-sparse-data` | `moenarch-math-sparse-data` | `moritzbrantner/moenarch-foundation` | foundation | separate npm/WASM release plan required |
-| bun | `@moritzbrantner/math-statistics-app` | app | `moenarch-math-statistics` | `moenarch-math-statistics` | `moritzbrantner/moenarch-foundation` | foundation | separate npm/WASM release plan required |
-| bun | `@moritzbrantner/math-statistics-wasm` | npm wrapper | `moenarch-math-statistics` | `moenarch-math-statistics` | `moritzbrantner/moenarch-foundation` | foundation | separate npm/WASM release plan required |
-| bun | `@moritzbrantner/model-runtime-app` | app | `moenarch-model-runtime` | `moenarch-model-runtime` | `moritzbrantner/moenarch-foundation` | foundation | separate npm/WASM release plan required |
-| bun | `@moritzbrantner/model-runtime-wasm` | npm wrapper | `moenarch-model-runtime` | `moenarch-model-runtime` | `moritzbrantner/moenarch-foundation` | foundation | separate npm/WASM release plan required |
-| bun | `@moritzbrantner/numbers-core-app` | app | `moenarch-numbers-core` | `moenarch-numbers-core` | `moritzbrantner/moenarch-foundation` | foundation | separate npm/WASM release plan required |
-| bun | `@moritzbrantner/numbers-core-wasm` | npm wrapper | `moenarch-numbers-core` | `moenarch-numbers-core` | `moritzbrantner/moenarch-foundation` | foundation | separate npm/WASM release plan required |
-| bun | `@moritzbrantner/tensor-data-app` | app | `moenarch-tensor-data` | `moenarch-tensor-data` | `moritzbrantner/moenarch-foundation` | foundation | separate npm/WASM release plan required |
-| bun | `@moritzbrantner/tensor-data-wasm` | npm wrapper | `moenarch-tensor-data` | `moenarch-tensor-data` | `moritzbrantner/moenarch-foundation` | foundation | separate npm/WASM release plan required |
-| bun | `@moritzbrantner/text-analysis-app` | app | `moenarch-text-analysis` | `moenarch-text-analysis` | `moritzbrantner/nlp-stack` | nlp | separate npm/WASM release plan required |
-| bun | `@moritzbrantner/text-analysis-wasm` | npm wrapper | `moenarch-text-analysis` | `moenarch-text-analysis` | `moritzbrantner/nlp-stack` | nlp | separate npm/WASM release plan required |
-| bun | `@moritzbrantner/text-benchmarks` | test support | `moenarch-text-benchmarks` | — | `moritzbrantner/nlp-stack` | nlp | separate npm/WASM release plan required |
-| bun | `@moritzbrantner/text-classification-app` | app | `moenarch-text-classification` | `moenarch-text-classification` | `moritzbrantner/nlp-stack` | nlp | separate npm/WASM release plan required |
-| bun | `@moritzbrantner/text-classification-wasm` | npm wrapper | `moenarch-text-classification` | `moenarch-text-classification` | `moritzbrantner/nlp-stack` | nlp | separate npm/WASM release plan required |
-| bun | `@moritzbrantner/text-core-app` | app | `moenarch-text-core` | `moenarch-text-core` | `moritzbrantner/nlp-stack` | nlp | separate npm/WASM release plan required |
-| bun | `@moritzbrantner/text-core-wasm` | npm wrapper | `moenarch-text-core` | `moenarch-text-core` | `moritzbrantner/nlp-stack` | nlp | separate npm/WASM release plan required |
-| bun | `@moritzbrantner/text-embeddings-app` | app | `moenarch-text-embeddings` | `moenarch-text-embeddings` | `moritzbrantner/nlp-stack` | nlp | separate npm/WASM release plan required |
-| bun | `@moritzbrantner/text-embeddings-wasm` | npm wrapper | `moenarch-text-embeddings` | `moenarch-text-embeddings` | `moritzbrantner/nlp-stack` | nlp | separate npm/WASM release plan required |
-| bun | `@moritzbrantner/text-generation-app` | app | `moenarch-text-generation` | `moenarch-text-generation` | `moritzbrantner/nlp-stack` | nlp | separate npm/WASM release plan required |
-| bun | `@moritzbrantner/text-generation-linguistics-app` | app | `moenarch-text-generation-linguistics` | `moenarch-text-generation-linguistics` | `moritzbrantner/nlp-stack` | nlp | separate npm/WASM release plan required |
-| bun | `@moritzbrantner/text-generation-linguistics-wasm` | npm wrapper | `moenarch-text-generation-linguistics` | `moenarch-text-generation-linguistics` | `moritzbrantner/nlp-stack` | nlp | separate npm/WASM release plan required |
-| bun | `@moritzbrantner/text-generation-wasm` | npm wrapper | `moenarch-text-generation` | `moenarch-text-generation` | `moritzbrantner/nlp-stack` | nlp | separate npm/WASM release plan required |
-| bun | `@moritzbrantner/text-index-app` | app | `moenarch-text-index` | `moenarch-text-index` | `moritzbrantner/nlp-stack` | nlp | separate npm/WASM release plan required |
-| bun | `@moritzbrantner/text-index-wasm` | npm wrapper | `moenarch-text-index` | `moenarch-text-index` | `moritzbrantner/nlp-stack` | nlp | separate npm/WASM release plan required |
-| bun | `@moritzbrantner/text-lexical-app` | app | `moenarch-text-lexical` | `moenarch-text-lexical` | `moritzbrantner/nlp-stack` | nlp | separate npm/WASM release plan required |
-| bun | `@moritzbrantner/text-lexical-wasm` | npm wrapper | `moenarch-text-lexical` | `moenarch-text-lexical` | `moritzbrantner/nlp-stack` | nlp | separate npm/WASM release plan required |
-| bun | `@moritzbrantner/text-linguistics-app` | app | `moenarch-text-linguistics` | `moenarch-text-linguistics` | `moritzbrantner/nlp-stack` | nlp | separate npm/WASM release plan required |
-| bun | `@moritzbrantner/text-linguistics-wasm` | npm wrapper | `moenarch-text-linguistics` | `moenarch-text-linguistics` | `moritzbrantner/nlp-stack` | nlp | separate npm/WASM release plan required |
-| bun | `@moritzbrantner/text-model-runtime-app` | app | `moenarch-text-model-runtime` | `moenarch-text-model-runtime` | `moritzbrantner/nlp-stack` | nlp | separate npm/WASM release plan required |
-| bun | `@moritzbrantner/text-model-runtime-wasm` | npm wrapper | `moenarch-text-model-runtime` | `moenarch-text-model-runtime` | `moritzbrantner/nlp-stack` | nlp | separate npm/WASM release plan required |
-| bun | `@moritzbrantner/text-question-answering-app` | app | `moenarch-text-question-answering` | `moenarch-text-question-answering` | `moritzbrantner/nlp-stack` | nlp | separate npm/WASM release plan required |
-| bun | `@moritzbrantner/text-question-answering-wasm` | npm wrapper | `moenarch-text-question-answering` | `moenarch-text-question-answering` | `moritzbrantner/nlp-stack` | nlp | separate npm/WASM release plan required |
-| bun | `@moritzbrantner/text-retrieval-app` | app | `moenarch-text-retrieval` | `moenarch-text-retrieval` | `moritzbrantner/nlp-stack` | nlp | separate npm/WASM release plan required |
-| bun | `@moritzbrantner/text-retrieval-wasm` | npm wrapper | `moenarch-text-retrieval` | `moenarch-text-retrieval` | `moritzbrantner/nlp-stack` | nlp | separate npm/WASM release plan required |
-| bun | `@moritzbrantner/text-transcripts-app` | app | `moenarch-text-transcripts` | `moenarch-text-transcripts` | `moritzbrantner/nlp-stack` | nlp | separate npm/WASM release plan required |
-| bun | `@moritzbrantner/text-transcripts-wasm` | npm wrapper | `moenarch-text-transcripts` | `moenarch-text-transcripts` | `moritzbrantner/nlp-stack` | nlp | separate npm/WASM release plan required |
 | bun | `@moritzbrantner/three-d-processing-core-app` | app | `moenarch-three-d-processing-core` | `moenarch-three-d-processing-core` | `moritzbrantner/spatial-analysis` | spatial | separate npm/WASM release plan required |
 | bun | `@moritzbrantner/three-d-processing-core-wasm` | npm wrapper | `moenarch-three-d-processing-core` | `moenarch-three-d-processing-core` | `moritzbrantner/spatial-analysis` | spatial | separate npm/WASM release plan required |
 | bun | `@moritzbrantner/three-d-processing-io-app` | app | `moenarch-three-d-processing-io` | `moenarch-three-d-processing-io` | `moritzbrantner/spatial-analysis` | spatial | separate npm/WASM release plan required |
@@ -107,32 +33,10 @@ Source: `docs/repository-split/package-ownership.json` at `d032ad2890c1df3c6a5b9
 | bun | `@moritzbrantner/three-d-processing-mesh-wasm` | npm wrapper | `moenarch-three-d-processing-mesh` | `moenarch-three-d-processing-mesh` | `moritzbrantner/spatial-analysis` | spatial | separate npm/WASM release plan required |
 | bun | `@moritzbrantner/three-d-scene-svg-app` | app | `moenarch-three-d-scene-svg` | `moenarch-three-d-scene-svg` | `moritzbrantner/spatial-analysis` | spatial | separate npm/WASM release plan required |
 | bun | `@moritzbrantner/three-d-scene-svg-wasm` | npm wrapper | `moenarch-three-d-scene-svg` | `moenarch-three-d-scene-svg` | `moritzbrantner/spatial-analysis` | spatial | separate npm/WASM release plan required |
-| bun | `@moritzbrantner/vector-analysis-core-app` | app | `moenarch-vector-analysis-core` | `moenarch-vector-analysis-core` | `moritzbrantner/moenarch-foundation` | foundation | separate npm/WASM release plan required |
-| bun | `@moritzbrantner/vector-analysis-core-wasm` | npm wrapper | `moenarch-vector-analysis-core` | `moenarch-vector-analysis-core` | `moritzbrantner/moenarch-foundation` | foundation | separate npm/WASM release plan required |
-| bun | `@moritzbrantner/vector-analysis-index-app` | app | `moenarch-vector-analysis-index` | `moenarch-vector-analysis-index` | `moritzbrantner/moenarch-foundation` | foundation | separate npm/WASM release plan required |
-| bun | `@moritzbrantner/vector-analysis-index-wasm` | npm wrapper | `moenarch-vector-analysis-index` | `moenarch-vector-analysis-index` | `moritzbrantner/moenarch-foundation` | foundation | separate npm/WASM release plan required |
-| bun | `@moritzbrantner/video-analysis-core-app` | app | `moenarch-video-analysis-core` | `moenarch-video-analysis-core` | `moritzbrantner/visual-analysis` | visual | separate npm/WASM release plan required |
-| bun | `@moritzbrantner/video-analysis-core-wasm` | npm wrapper | `moenarch-video-analysis-core` | `moenarch-video-analysis-core` | `moritzbrantner/visual-analysis` | visual | separate npm/WASM release plan required |
-| bun | `@moritzbrantner/video-analysis-data-app` | app | `moenarch-video-analysis-data` | `moenarch-video-analysis-data` | `moritzbrantner/visual-analysis` | visual | separate npm/WASM release plan required |
-| bun | `@moritzbrantner/video-analysis-data-wasm` | npm wrapper | `moenarch-video-analysis-data` | `moenarch-video-analysis-data` | `moritzbrantner/visual-analysis` | visual | separate npm/WASM release plan required |
-| bun | `@moritzbrantner/video-analysis-dataset-app` | app | `moenarch-video-analysis-dataset` | `moenarch-video-analysis-dataset` | `moritzbrantner/visual-analysis` | visual | separate npm/WASM release plan required |
-| bun | `@moritzbrantner/video-analysis-dataset-wasm` | npm wrapper | `moenarch-video-analysis-dataset` | `moenarch-video-analysis-dataset` | `moritzbrantner/visual-analysis` | visual | separate npm/WASM release plan required |
-| bun | `@moritzbrantner/video-analysis-detectors-app` | app | `moenarch-video-analysis-detectors` | `moenarch-video-analysis-detectors` | `moritzbrantner/visual-analysis` | visual | separate npm/WASM release plan required |
-| bun | `@moritzbrantner/video-analysis-detectors-wasm` | npm wrapper | `moenarch-video-analysis-detectors` | `moenarch-video-analysis-detectors` | `moritzbrantner/visual-analysis` | visual | separate npm/WASM release plan required |
-| bun | `@moritzbrantner/video-analysis-editing-app` | app | `moenarch-video-analysis-editing` | `moenarch-video-analysis-editing` | `moritzbrantner/visual-analysis` | visual | separate npm/WASM release plan required |
-| bun | `@moritzbrantner/video-analysis-editing-wasm` | npm wrapper | `moenarch-video-analysis-editing` | `moenarch-video-analysis-editing` | `moritzbrantner/visual-analysis` | visual | separate npm/WASM release plan required |
-| bun | `@moritzbrantner/video-analysis-features-app` | app | `moenarch-video-analysis-features` | `moenarch-video-analysis-features` | `moritzbrantner/visual-analysis` | visual | separate npm/WASM release plan required |
-| bun | `@moritzbrantner/video-analysis-features-wasm` | npm wrapper | `moenarch-video-analysis-features` | `moenarch-video-analysis-features` | `moritzbrantner/visual-analysis` | visual | separate npm/WASM release plan required |
-| bun | `@moritzbrantner/video-analysis-ffmpeg-app` | app | `moenarch-video-analysis-ffmpeg` | `moenarch-video-analysis-ffmpeg` | `moritzbrantner/visual-analysis` | visual | separate npm/WASM release plan required |
-| bun | `@moritzbrantner/video-analysis-ffmpeg-wasm` | npm wrapper | `moenarch-video-analysis-ffmpeg` | `moenarch-video-analysis-ffmpeg` | `moritzbrantner/visual-analysis` | visual | separate npm/WASM release plan required |
 | bun | `@moritzbrantner/video-analysis-gaussian-splatting-app` | app | `moenarch-video-analysis-gaussian-splatting` | `moenarch-video-analysis-gaussian-splatting` | `moritzbrantner/spatial-analysis` | spatial | separate npm/WASM release plan required |
 | bun | `@moritzbrantner/video-analysis-gaussian-splatting-wasm` | npm wrapper | `moenarch-video-analysis-gaussian-splatting` | `moenarch-video-analysis-gaussian-splatting` | `moritzbrantner/spatial-analysis` | spatial | separate npm/WASM release plan required |
-| bun | `@moritzbrantner/video-analysis-ingest-app` | app | `moenarch-video-analysis-ingest` | `moenarch-video-analysis-ingest` | `moritzbrantner/visual-analysis` | visual | separate npm/WASM release plan required |
-| bun | `@moritzbrantner/video-analysis-ingest-wasm` | npm wrapper | `moenarch-video-analysis-ingest` | `moenarch-video-analysis-ingest` | `moritzbrantner/visual-analysis` | visual | separate npm/WASM release plan required |
 | bun | `@moritzbrantner/video-analysis-mvs-app` | app | `moenarch-video-analysis-mvs` | `moenarch-video-analysis-mvs` | `moritzbrantner/spatial-analysis` | spatial | separate npm/WASM release plan required |
 | bun | `@moritzbrantner/video-analysis-mvs-wasm` | npm wrapper | `moenarch-video-analysis-mvs` | `moenarch-video-analysis-mvs` | `moritzbrantner/spatial-analysis` | spatial | separate npm/WASM release plan required |
-| bun | `@moritzbrantner/video-analysis-output-app` | app | `moenarch-video-analysis-output` | `moenarch-video-analysis-output` | `moritzbrantner/visual-analysis` | visual | separate npm/WASM release plan required |
-| bun | `@moritzbrantner/video-analysis-output-wasm` | npm wrapper | `moenarch-video-analysis-output` | `moenarch-video-analysis-output` | `moritzbrantner/visual-analysis` | visual | separate npm/WASM release plan required |
 | bun | `@moritzbrantner/video-analysis-posture-app` | app | `moenarch-video-analysis-posture` | `moenarch-video-analysis-posture` | `moritzbrantner/spatial-analysis` | spatial | separate npm/WASM release plan required |
 | bun | `@moritzbrantner/video-analysis-posture-io-app` | app | `moenarch-video-analysis-posture-io` | `moenarch-video-analysis-posture-io` | `moritzbrantner/spatial-analysis` | spatial | separate npm/WASM release plan required |
 | bun | `@moritzbrantner/video-analysis-posture-io-wasm` | npm wrapper | `moenarch-video-analysis-posture-io` | `moenarch-video-analysis-posture-io` | `moritzbrantner/spatial-analysis` | spatial | separate npm/WASM release plan required |
@@ -143,28 +47,12 @@ Source: `docs/repository-split/package-ownership.json` at `d032ad2890c1df3c6a5b9
 | bun | `@moritzbrantner/video-analysis-radiance-io-wasm` | npm wrapper | `moenarch-video-analysis-radiance-io` | `moenarch-video-analysis-radiance-io` | `moritzbrantner/spatial-analysis` | spatial | separate npm/WASM release plan required |
 | bun | `@moritzbrantner/video-analysis-radiance-pipeline-app` | app | `moenarch-video-analysis-radiance-pipeline` | `moenarch-video-analysis-radiance-pipeline` | `moritzbrantner/spatial-analysis` | spatial | separate npm/WASM release plan required |
 | bun | `@moritzbrantner/video-analysis-radiance-pipeline-wasm` | npm wrapper | `moenarch-video-analysis-radiance-pipeline` | `moenarch-video-analysis-radiance-pipeline` | `moritzbrantner/spatial-analysis` | spatial | separate npm/WASM release plan required |
-| bun | `@moritzbrantner/video-analysis-recognition-app` | app | `moenarch-video-analysis-recognition` | `moenarch-video-analysis-recognition` | `moritzbrantner/visual-analysis` | visual | separate npm/WASM release plan required |
-| bun | `@moritzbrantner/video-analysis-recognition-wasm` | npm wrapper | `moenarch-video-analysis-recognition` | `moenarch-video-analysis-recognition` | `moritzbrantner/visual-analysis` | visual | separate npm/WASM release plan required |
 | bun | `@moritzbrantner/video-analysis-reconstruction-app` | app | `moenarch-video-analysis-reconstruction` | `moenarch-video-analysis-reconstruction` | `moritzbrantner/spatial-analysis` | spatial | separate npm/WASM release plan required |
 | bun | `@moritzbrantner/video-analysis-reconstruction-wasm` | npm wrapper | `moenarch-video-analysis-reconstruction` | `moenarch-video-analysis-reconstruction` | `moritzbrantner/spatial-analysis` | spatial | separate npm/WASM release plan required |
-| bun | `@moritzbrantner/video-analysis-segmentation-app` | app | `moenarch-video-analysis-segmentation` | `moenarch-video-analysis-segmentation` | `moritzbrantner/visual-analysis` | visual | separate npm/WASM release plan required |
-| bun | `@moritzbrantner/video-analysis-segmentation-wasm` | npm wrapper | `moenarch-video-analysis-segmentation` | `moenarch-video-analysis-segmentation` | `moritzbrantner/visual-analysis` | visual | separate npm/WASM release plan required |
 | bun | `@moritzbrantner/video-analysis-sfm-app` | app | `moenarch-video-analysis-sfm` | `moenarch-video-analysis-sfm` | `moritzbrantner/spatial-analysis` | spatial | separate npm/WASM release plan required |
 | bun | `@moritzbrantner/video-analysis-sfm-wasm` | npm wrapper | `moenarch-video-analysis-sfm` | `moenarch-video-analysis-sfm` | `moritzbrantner/spatial-analysis` | spatial | separate npm/WASM release plan required |
-| bun | `@moritzbrantner/video-analysis-split-app` | app | `moenarch-video-analysis-split` | `moenarch-video-analysis-split` | `moritzbrantner/visual-analysis` | visual | separate npm/WASM release plan required |
-| bun | `@moritzbrantner/video-analysis-split-wasm` | npm wrapper | `moenarch-video-analysis-split` | `moenarch-video-analysis-split` | `moritzbrantner/visual-analysis` | visual | separate npm/WASM release plan required |
-| bun | `@moritzbrantner/video-analysis-storage-app` | app | `moenarch-video-analysis-storage` | `moenarch-video-analysis-storage` | `moritzbrantner/visual-analysis` | visual | separate npm/WASM release plan required |
-| bun | `@moritzbrantner/video-analysis-storage-wasm` | npm wrapper | `moenarch-video-analysis-storage` | `moenarch-video-analysis-storage` | `moritzbrantner/visual-analysis` | visual | separate npm/WASM release plan required |
-| bun | `@moritzbrantner/video-analysis-synthesis-app` | app | `moenarch-video-analysis-synthesis` | `moenarch-video-analysis-synthesis` | `moritzbrantner/visual-analysis` | visual | separate npm/WASM release plan required |
-| bun | `@moritzbrantner/video-analysis-synthesis-wasm` | npm wrapper | `moenarch-video-analysis-synthesis` | `moenarch-video-analysis-synthesis` | `moritzbrantner/visual-analysis` | visual | separate npm/WASM release plan required |
-| bun | `@moritzbrantner/video-analysis-tracking-app` | app | `moenarch-video-analysis-tracking` | `moenarch-video-analysis-tracking` | `moritzbrantner/visual-analysis` | visual | separate npm/WASM release plan required |
-| bun | `@moritzbrantner/video-analysis-tracking-wasm` | npm wrapper | `moenarch-video-analysis-tracking` | `moenarch-video-analysis-tracking` | `moritzbrantner/visual-analysis` | visual | separate npm/WASM release plan required |
-| bun | `@moritzbrantner/video-analysis-transform-app` | app | `moenarch-video-analysis-transform` | `moenarch-video-analysis-transform` | `moritzbrantner/visual-analysis` | visual | separate npm/WASM release plan required |
-| bun | `@moritzbrantner/video-analysis-transform-wasm` | npm wrapper | `moenarch-video-analysis-transform` | `moenarch-video-analysis-transform` | `moritzbrantner/visual-analysis` | visual | separate npm/WASM release plan required |
 | bun | `@moritzbrantner/video-analysis-ui` | facade | `moenarch-video-analysis-ui` | — | `moritzbrantner/rust-packages` | compatibility | separate npm/WASM release plan required |
 | bun | `@moritzbrantner/video-analysis-web` | prototype | `moenarch-video-analysis-web` | — | `moritzbrantner/rust-packages` | compatibility | separate npm/WASM release plan required |
-| bun | `@moritzbrantner/vision-core-app` | app | `moenarch-vision-core` | `moenarch-vision-core` | `moritzbrantner/visual-analysis` | visual | separate npm/WASM release plan required |
-| bun | `@moritzbrantner/vision-core-wasm` | npm wrapper | `moenarch-vision-core` | `moenarch-vision-core` | `moritzbrantner/visual-analysis` | visual | separate npm/WASM release plan required |
 | cargo | `moenarch-animation-core` | library | `moenarch-animation-core` | — | `moritzbrantner/spatial-analysis` | spatial | crates.io |
 | cargo | `moenarch-animation-core-cli` | CLI | `moenarch-animation-core` | `moenarch-animation-core` | `moritzbrantner/spatial-analysis` | spatial | crates.io |
 | cargo | `moenarch-animation-core-server` | server | `moenarch-animation-core` | `moenarch-animation-core` | `moritzbrantner/spatial-analysis` | spatial | crates.io |
@@ -181,152 +69,10 @@ Source: `docs/repository-split/package-ownership.json` at `d032ad2890c1df3c6a5b9
 | cargo | `moenarch-comfyui-models-cli` | CLI | `moenarch-comfyui-models` | `moenarch-comfyui-models` | `moritzbrantner/rust-packages` | compatibility | crates.io |
 | cargo | `moenarch-comfyui-models-server` | server | `moenarch-comfyui-models` | `moenarch-comfyui-models` | `moritzbrantner/rust-packages` | compatibility | crates.io |
 | cargo | `moenarch-comfyui-models-wasm` | WASM | `moenarch-comfyui-models` | `moenarch-comfyui-models` | `moritzbrantner/rust-packages` | compatibility | crates.io |
-| cargo | `moenarch-data-inversion-core` | library | `moenarch-data-inversion-core` | — | `moritzbrantner/moenarch-foundation` | foundation | crates.io |
-| cargo | `moenarch-data-inversion-core-cli` | CLI | `moenarch-data-inversion-core` | `moenarch-data-inversion-core` | `moritzbrantner/moenarch-foundation` | foundation | crates.io |
-| cargo | `moenarch-data-inversion-core-server` | server | `moenarch-data-inversion-core` | `moenarch-data-inversion-core` | `moritzbrantner/moenarch-foundation` | foundation | crates.io |
-| cargo | `moenarch-data-inversion-core-wasm` | WASM | `moenarch-data-inversion-core` | `moenarch-data-inversion-core` | `moritzbrantner/moenarch-foundation` | foundation | crates.io |
-| cargo | `moenarch-dense-data` | library | `moenarch-dense-data` | — | `moritzbrantner/moenarch-foundation` | foundation | crates.io |
-| cargo | `moenarch-dense-data-cli` | CLI | `moenarch-dense-data` | `moenarch-dense-data` | `moritzbrantner/moenarch-foundation` | foundation | crates.io |
-| cargo | `moenarch-dense-data-server` | server | `moenarch-dense-data` | `moenarch-dense-data` | `moritzbrantner/moenarch-foundation` | foundation | crates.io |
-| cargo | `moenarch-dense-data-wasm` | WASM | `moenarch-dense-data` | `moenarch-dense-data` | `moritzbrantner/moenarch-foundation` | foundation | crates.io |
-| cargo | `moenarch-graph-analysis-core` | library | `moenarch-graph-analysis-core` | — | `moritzbrantner/moenarch-foundation` | foundation | crates.io |
-| cargo | `moenarch-graph-analysis-core-cli` | CLI | `moenarch-graph-analysis-core` | `moenarch-graph-analysis-core` | `moritzbrantner/moenarch-foundation` | foundation | crates.io |
-| cargo | `moenarch-graph-analysis-core-server` | server | `moenarch-graph-analysis-core` | `moenarch-graph-analysis-core` | `moritzbrantner/moenarch-foundation` | foundation | crates.io |
-| cargo | `moenarch-graph-analysis-core-wasm` | WASM | `moenarch-graph-analysis-core` | `moenarch-graph-analysis-core` | `moritzbrantner/moenarch-foundation` | foundation | crates.io |
-| cargo | `moenarch-image-analysis-captioning` | library | `moenarch-image-analysis-captioning` | — | `moritzbrantner/visual-analysis` | visual | crates.io |
-| cargo | `moenarch-image-analysis-captioning-cli` | CLI | `moenarch-image-analysis-captioning` | `moenarch-image-analysis-captioning` | `moritzbrantner/visual-analysis` | visual | crates.io |
-| cargo | `moenarch-image-analysis-captioning-server` | server | `moenarch-image-analysis-captioning` | `moenarch-image-analysis-captioning` | `moritzbrantner/visual-analysis` | visual | crates.io |
-| cargo | `moenarch-image-analysis-captioning-wasm` | WASM | `moenarch-image-analysis-captioning` | `moenarch-image-analysis-captioning` | `moritzbrantner/visual-analysis` | visual | crates.io |
-| cargo | `moenarch-image-analysis-classification` | library | `moenarch-image-analysis-classification` | — | `moritzbrantner/visual-analysis` | visual | crates.io |
-| cargo | `moenarch-image-analysis-classification-cli` | CLI | `moenarch-image-analysis-classification` | `moenarch-image-analysis-classification` | `moritzbrantner/visual-analysis` | visual | crates.io |
-| cargo | `moenarch-image-analysis-classification-server` | server | `moenarch-image-analysis-classification` | `moenarch-image-analysis-classification` | `moritzbrantner/visual-analysis` | visual | crates.io |
-| cargo | `moenarch-image-analysis-classification-wasm` | WASM | `moenarch-image-analysis-classification` | `moenarch-image-analysis-classification` | `moritzbrantner/visual-analysis` | visual | crates.io |
 | cargo | `moenarch-image-analysis-comfyui` | library | `moenarch-image-analysis-comfyui` | — | `moritzbrantner/rust-packages` | compatibility | crates.io |
 | cargo | `moenarch-image-analysis-comfyui-cli` | CLI | `moenarch-image-analysis-comfyui` | `moenarch-image-analysis-comfyui` | `moritzbrantner/rust-packages` | compatibility | crates.io |
 | cargo | `moenarch-image-analysis-comfyui-server` | server | `moenarch-image-analysis-comfyui` | `moenarch-image-analysis-comfyui` | `moritzbrantner/rust-packages` | compatibility | crates.io |
 | cargo | `moenarch-image-analysis-comfyui-wasm` | WASM | `moenarch-image-analysis-comfyui` | `moenarch-image-analysis-comfyui` | `moritzbrantner/rust-packages` | compatibility | crates.io |
-| cargo | `moenarch-image-analysis-core` | library | `moenarch-image-analysis-core` | — | `moritzbrantner/visual-analysis` | visual | crates.io |
-| cargo | `moenarch-image-analysis-core-cli` | CLI | `moenarch-image-analysis-core` | `moenarch-image-analysis-core` | `moritzbrantner/visual-analysis` | visual | crates.io |
-| cargo | `moenarch-image-analysis-core-server` | server | `moenarch-image-analysis-core` | `moenarch-image-analysis-core` | `moritzbrantner/visual-analysis` | visual | crates.io |
-| cargo | `moenarch-image-analysis-core-wasm` | WASM | `moenarch-image-analysis-core` | `moenarch-image-analysis-core` | `moritzbrantner/visual-analysis` | visual | crates.io |
-| cargo | `moenarch-image-analysis-detection` | library | `moenarch-image-analysis-detection` | — | `moritzbrantner/visual-analysis` | visual | crates.io |
-| cargo | `moenarch-image-analysis-detection-cli` | CLI | `moenarch-image-analysis-detection` | `moenarch-image-analysis-detection` | `moritzbrantner/visual-analysis` | visual | crates.io |
-| cargo | `moenarch-image-analysis-detection-server` | server | `moenarch-image-analysis-detection` | `moenarch-image-analysis-detection` | `moritzbrantner/visual-analysis` | visual | crates.io |
-| cargo | `moenarch-image-analysis-detection-wasm` | WASM | `moenarch-image-analysis-detection` | `moenarch-image-analysis-detection` | `moritzbrantner/visual-analysis` | visual | crates.io |
-| cargo | `moenarch-image-analysis-embeddings` | library | `moenarch-image-analysis-embeddings` | — | `moritzbrantner/visual-analysis` | visual | crates.io |
-| cargo | `moenarch-image-analysis-embeddings-cli` | CLI | `moenarch-image-analysis-embeddings` | `moenarch-image-analysis-embeddings` | `moritzbrantner/visual-analysis` | visual | crates.io |
-| cargo | `moenarch-image-analysis-embeddings-server` | server | `moenarch-image-analysis-embeddings` | `moenarch-image-analysis-embeddings` | `moritzbrantner/visual-analysis` | visual | crates.io |
-| cargo | `moenarch-image-analysis-embeddings-wasm` | WASM | `moenarch-image-analysis-embeddings` | `moenarch-image-analysis-embeddings` | `moritzbrantner/visual-analysis` | visual | crates.io |
-| cargo | `moenarch-image-analysis-io` | library | `moenarch-image-analysis-io` | — | `moritzbrantner/visual-analysis` | visual | crates.io |
-| cargo | `moenarch-image-analysis-io-cli` | CLI | `moenarch-image-analysis-io` | `moenarch-image-analysis-io` | `moritzbrantner/visual-analysis` | visual | crates.io |
-| cargo | `moenarch-image-analysis-io-server` | server | `moenarch-image-analysis-io` | `moenarch-image-analysis-io` | `moritzbrantner/visual-analysis` | visual | crates.io |
-| cargo | `moenarch-image-analysis-io-wasm` | WASM | `moenarch-image-analysis-io` | `moenarch-image-analysis-io` | `moritzbrantner/visual-analysis` | visual | crates.io |
-| cargo | `moenarch-image-analysis-ocr` | library | `moenarch-image-analysis-ocr` | — | `moritzbrantner/visual-analysis` | visual | crates.io |
-| cargo | `moenarch-image-analysis-ocr-cli` | CLI | `moenarch-image-analysis-ocr` | `moenarch-image-analysis-ocr` | `moritzbrantner/visual-analysis` | visual | crates.io |
-| cargo | `moenarch-image-analysis-ocr-server` | server | `moenarch-image-analysis-ocr` | `moenarch-image-analysis-ocr` | `moritzbrantner/visual-analysis` | visual | crates.io |
-| cargo | `moenarch-image-analysis-ocr-wasm` | WASM | `moenarch-image-analysis-ocr` | `moenarch-image-analysis-ocr` | `moritzbrantner/visual-analysis` | visual | crates.io |
-| cargo | `moenarch-image-analysis-processing` | library | `moenarch-image-analysis-processing` | — | `moritzbrantner/visual-analysis` | visual | crates.io |
-| cargo | `moenarch-image-analysis-processing-cli` | CLI | `moenarch-image-analysis-processing` | `moenarch-image-analysis-processing` | `moritzbrantner/visual-analysis` | visual | crates.io |
-| cargo | `moenarch-image-analysis-processing-server` | server | `moenarch-image-analysis-processing` | `moenarch-image-analysis-processing` | `moritzbrantner/visual-analysis` | visual | crates.io |
-| cargo | `moenarch-image-analysis-processing-wasm` | WASM | `moenarch-image-analysis-processing` | `moenarch-image-analysis-processing` | `moritzbrantner/visual-analysis` | visual | crates.io |
-| cargo | `moenarch-image-analysis-segmentation` | library | `moenarch-image-analysis-segmentation` | — | `moritzbrantner/visual-analysis` | visual | crates.io |
-| cargo | `moenarch-image-analysis-segmentation-cli` | CLI | `moenarch-image-analysis-segmentation` | `moenarch-image-analysis-segmentation` | `moritzbrantner/visual-analysis` | visual | crates.io |
-| cargo | `moenarch-image-analysis-segmentation-server` | server | `moenarch-image-analysis-segmentation` | `moenarch-image-analysis-segmentation` | `moritzbrantner/visual-analysis` | visual | crates.io |
-| cargo | `moenarch-image-analysis-segmentation-wasm` | WASM | `moenarch-image-analysis-segmentation` | `moenarch-image-analysis-segmentation` | `moritzbrantner/visual-analysis` | visual | crates.io |
-| cargo | `moenarch-image-analysis-synthesis` | library | `moenarch-image-analysis-synthesis` | — | `moritzbrantner/visual-analysis` | visual | crates.io |
-| cargo | `moenarch-image-analysis-synthesis-cli` | CLI | `moenarch-image-analysis-synthesis` | `moenarch-image-analysis-synthesis` | `moritzbrantner/visual-analysis` | visual | crates.io |
-| cargo | `moenarch-image-analysis-synthesis-server` | server | `moenarch-image-analysis-synthesis` | `moenarch-image-analysis-synthesis` | `moritzbrantner/visual-analysis` | visual | crates.io |
-| cargo | `moenarch-image-analysis-synthesis-wasm` | WASM | `moenarch-image-analysis-synthesis` | `moenarch-image-analysis-synthesis` | `moritzbrantner/visual-analysis` | visual | crates.io |
-| cargo | `moenarch-jobs-core` | library | `moenarch-jobs-core` | — | `moritzbrantner/moenarch-foundation` | foundation | crates.io |
-| cargo | `moenarch-jobs-core-cli` | CLI | `moenarch-jobs-core` | `moenarch-jobs-core` | `moritzbrantner/moenarch-foundation` | foundation | crates.io |
-| cargo | `moenarch-jobs-core-server` | server | `moenarch-jobs-core` | `moenarch-jobs-core` | `moritzbrantner/moenarch-foundation` | foundation | crates.io |
-| cargo | `moenarch-jobs-core-wasm` | WASM | `moenarch-jobs-core` | `moenarch-jobs-core` | `moritzbrantner/moenarch-foundation` | foundation | crates.io |
-| cargo | `moenarch-math-geometry-2d` | library | `moenarch-math-geometry-2d` | — | `moritzbrantner/moenarch-foundation` | foundation | crates.io |
-| cargo | `moenarch-math-geometry-2d-cli` | CLI | `moenarch-math-geometry-2d` | `moenarch-math-geometry-2d` | `moritzbrantner/moenarch-foundation` | foundation | crates.io |
-| cargo | `moenarch-math-geometry-2d-server` | server | `moenarch-math-geometry-2d` | `moenarch-math-geometry-2d` | `moritzbrantner/moenarch-foundation` | foundation | crates.io |
-| cargo | `moenarch-math-geometry-2d-wasm` | WASM | `moenarch-math-geometry-2d` | `moenarch-math-geometry-2d` | `moritzbrantner/moenarch-foundation` | foundation | crates.io |
-| cargo | `moenarch-math-linear` | library | `moenarch-math-linear` | — | `moritzbrantner/moenarch-foundation` | foundation | crates.io |
-| cargo | `moenarch-math-linear-cli` | CLI | `moenarch-math-linear` | `moenarch-math-linear` | `moritzbrantner/moenarch-foundation` | foundation | crates.io |
-| cargo | `moenarch-math-linear-server` | server | `moenarch-math-linear` | `moenarch-math-linear` | `moritzbrantner/moenarch-foundation` | foundation | crates.io |
-| cargo | `moenarch-math-linear-wasm` | WASM | `moenarch-math-linear` | `moenarch-math-linear` | `moritzbrantner/moenarch-foundation` | foundation | crates.io |
-| cargo | `moenarch-math-signal-core` | library | `moenarch-math-signal-core` | — | `moritzbrantner/moenarch-foundation` | foundation | crates.io |
-| cargo | `moenarch-math-signal-core-cli` | CLI | `moenarch-math-signal-core` | `moenarch-math-signal-core` | `moritzbrantner/moenarch-foundation` | foundation | crates.io |
-| cargo | `moenarch-math-signal-core-server` | server | `moenarch-math-signal-core` | `moenarch-math-signal-core` | `moritzbrantner/moenarch-foundation` | foundation | crates.io |
-| cargo | `moenarch-math-signal-core-wasm` | WASM | `moenarch-math-signal-core` | `moenarch-math-signal-core` | `moritzbrantner/moenarch-foundation` | foundation | crates.io |
-| cargo | `moenarch-math-sparse-data` | library | `moenarch-math-sparse-data` | — | `moritzbrantner/moenarch-foundation` | foundation | crates.io |
-| cargo | `moenarch-math-sparse-data-cli` | CLI | `moenarch-math-sparse-data` | `moenarch-math-sparse-data` | `moritzbrantner/moenarch-foundation` | foundation | crates.io |
-| cargo | `moenarch-math-sparse-data-server` | server | `moenarch-math-sparse-data` | `moenarch-math-sparse-data` | `moritzbrantner/moenarch-foundation` | foundation | crates.io |
-| cargo | `moenarch-math-sparse-data-wasm` | WASM | `moenarch-math-sparse-data` | `moenarch-math-sparse-data` | `moritzbrantner/moenarch-foundation` | foundation | crates.io |
-| cargo | `moenarch-math-statistics` | library | `moenarch-math-statistics` | — | `moritzbrantner/moenarch-foundation` | foundation | crates.io |
-| cargo | `moenarch-math-statistics-cli` | CLI | `moenarch-math-statistics` | `moenarch-math-statistics` | `moritzbrantner/moenarch-foundation` | foundation | crates.io |
-| cargo | `moenarch-math-statistics-server` | server | `moenarch-math-statistics` | `moenarch-math-statistics` | `moritzbrantner/moenarch-foundation` | foundation | crates.io |
-| cargo | `moenarch-math-statistics-wasm` | WASM | `moenarch-math-statistics` | `moenarch-math-statistics` | `moritzbrantner/moenarch-foundation` | foundation | crates.io |
-| cargo | `moenarch-model-runtime` | library | `moenarch-model-runtime` | — | `moritzbrantner/moenarch-foundation` | foundation | crates.io |
-| cargo | `moenarch-model-runtime-cli` | CLI | `moenarch-model-runtime` | `moenarch-model-runtime` | `moritzbrantner/moenarch-foundation` | foundation | crates.io |
-| cargo | `moenarch-model-runtime-server` | server | `moenarch-model-runtime` | `moenarch-model-runtime` | `moritzbrantner/moenarch-foundation` | foundation | crates.io |
-| cargo | `moenarch-model-runtime-wasm` | WASM | `moenarch-model-runtime` | `moenarch-model-runtime` | `moritzbrantner/moenarch-foundation` | foundation | crates.io |
-| cargo | `moenarch-numbers-core` | library | `moenarch-numbers-core` | — | `moritzbrantner/moenarch-foundation` | foundation | crates.io |
-| cargo | `moenarch-numbers-core-cli` | CLI | `moenarch-numbers-core` | `moenarch-numbers-core` | `moritzbrantner/moenarch-foundation` | foundation | crates.io |
-| cargo | `moenarch-numbers-core-server` | server | `moenarch-numbers-core` | `moenarch-numbers-core` | `moritzbrantner/moenarch-foundation` | foundation | crates.io |
-| cargo | `moenarch-numbers-core-wasm` | WASM | `moenarch-numbers-core` | `moenarch-numbers-core` | `moritzbrantner/moenarch-foundation` | foundation | crates.io |
-| cargo | `moenarch-runtime-core` | library | `moenarch-runtime-core` | — | `moritzbrantner/moenarch-foundation` | foundation | crates.io |
-| cargo | `moenarch-runtime-onnx` | library | `moenarch-runtime-onnx` | — | `moritzbrantner/moenarch-foundation` | foundation | crates.io |
-| cargo | `moenarch-tensor-data` | library | `moenarch-tensor-data` | — | `moritzbrantner/moenarch-foundation` | foundation | crates.io |
-| cargo | `moenarch-tensor-data-cli` | CLI | `moenarch-tensor-data` | `moenarch-tensor-data` | `moritzbrantner/moenarch-foundation` | foundation | crates.io |
-| cargo | `moenarch-tensor-data-server` | server | `moenarch-tensor-data` | `moenarch-tensor-data` | `moritzbrantner/moenarch-foundation` | foundation | crates.io |
-| cargo | `moenarch-tensor-data-wasm` | WASM | `moenarch-tensor-data` | `moenarch-tensor-data` | `moritzbrantner/moenarch-foundation` | foundation | crates.io |
-| cargo | `moenarch-text-analysis` | library | `moenarch-text-analysis` | — | `moritzbrantner/nlp-stack` | nlp | crates.io |
-| cargo | `moenarch-text-analysis-cli` | CLI | `moenarch-text-analysis` | `moenarch-text-analysis` | `moritzbrantner/nlp-stack` | nlp | crates.io |
-| cargo | `moenarch-text-analysis-server` | server | `moenarch-text-analysis` | `moenarch-text-analysis` | `moritzbrantner/nlp-stack` | nlp | crates.io |
-| cargo | `moenarch-text-analysis-wasm` | WASM | `moenarch-text-analysis` | `moenarch-text-analysis` | `moritzbrantner/nlp-stack` | nlp | crates.io |
-| cargo | `moenarch-text-classification` | library | `moenarch-text-classification` | — | `moritzbrantner/nlp-stack` | nlp | crates.io |
-| cargo | `moenarch-text-classification-cli` | CLI | `moenarch-text-classification` | `moenarch-text-classification` | `moritzbrantner/nlp-stack` | nlp | crates.io |
-| cargo | `moenarch-text-classification-server` | server | `moenarch-text-classification` | `moenarch-text-classification` | `moritzbrantner/nlp-stack` | nlp | crates.io |
-| cargo | `moenarch-text-classification-wasm` | WASM | `moenarch-text-classification` | `moenarch-text-classification` | `moritzbrantner/nlp-stack` | nlp | crates.io |
-| cargo | `moenarch-text-core` | library | `moenarch-text-core` | — | `moritzbrantner/nlp-stack` | nlp | crates.io |
-| cargo | `moenarch-text-core-cli` | CLI | `moenarch-text-core` | `moenarch-text-core` | `moritzbrantner/nlp-stack` | nlp | crates.io |
-| cargo | `moenarch-text-core-server` | server | `moenarch-text-core` | `moenarch-text-core` | `moritzbrantner/nlp-stack` | nlp | crates.io |
-| cargo | `moenarch-text-core-wasm` | WASM | `moenarch-text-core` | `moenarch-text-core` | `moritzbrantner/nlp-stack` | nlp | crates.io |
-| cargo | `moenarch-text-embeddings` | library | `moenarch-text-embeddings` | — | `moritzbrantner/nlp-stack` | nlp | crates.io |
-| cargo | `moenarch-text-embeddings-cli` | CLI | `moenarch-text-embeddings` | `moenarch-text-embeddings` | `moritzbrantner/nlp-stack` | nlp | crates.io |
-| cargo | `moenarch-text-embeddings-server` | server | `moenarch-text-embeddings` | `moenarch-text-embeddings` | `moritzbrantner/nlp-stack` | nlp | crates.io |
-| cargo | `moenarch-text-embeddings-wasm` | WASM | `moenarch-text-embeddings` | `moenarch-text-embeddings` | `moritzbrantner/nlp-stack` | nlp | crates.io |
-| cargo | `moenarch-text-generation` | library | `moenarch-text-generation` | — | `moritzbrantner/nlp-stack` | nlp | crates.io |
-| cargo | `moenarch-text-generation-cli` | CLI | `moenarch-text-generation` | `moenarch-text-generation` | `moritzbrantner/nlp-stack` | nlp | crates.io |
-| cargo | `moenarch-text-generation-linguistics` | library | `moenarch-text-generation-linguistics` | — | `moritzbrantner/nlp-stack` | nlp | crates.io |
-| cargo | `moenarch-text-generation-linguistics-cli` | CLI | `moenarch-text-generation-linguistics` | `moenarch-text-generation-linguistics` | `moritzbrantner/nlp-stack` | nlp | crates.io |
-| cargo | `moenarch-text-generation-linguistics-server` | server | `moenarch-text-generation-linguistics` | `moenarch-text-generation-linguistics` | `moritzbrantner/nlp-stack` | nlp | crates.io |
-| cargo | `moenarch-text-generation-linguistics-wasm` | WASM | `moenarch-text-generation-linguistics` | `moenarch-text-generation-linguistics` | `moritzbrantner/nlp-stack` | nlp | crates.io |
-| cargo | `moenarch-text-generation-server` | server | `moenarch-text-generation` | `moenarch-text-generation` | `moritzbrantner/nlp-stack` | nlp | crates.io |
-| cargo | `moenarch-text-generation-wasm` | WASM | `moenarch-text-generation` | `moenarch-text-generation` | `moritzbrantner/nlp-stack` | nlp | crates.io |
-| cargo | `moenarch-text-index` | library | `moenarch-text-index` | — | `moritzbrantner/nlp-stack` | nlp | crates.io |
-| cargo | `moenarch-text-index-cli` | CLI | `moenarch-text-index` | `moenarch-text-index` | `moritzbrantner/nlp-stack` | nlp | crates.io |
-| cargo | `moenarch-text-index-server` | server | `moenarch-text-index` | `moenarch-text-index` | `moritzbrantner/nlp-stack` | nlp | crates.io |
-| cargo | `moenarch-text-index-wasm` | WASM | `moenarch-text-index` | `moenarch-text-index` | `moritzbrantner/nlp-stack` | nlp | crates.io |
-| cargo | `moenarch-text-lexical` | library | `moenarch-text-lexical` | — | `moritzbrantner/nlp-stack` | nlp | crates.io |
-| cargo | `moenarch-text-lexical-cli` | CLI | `moenarch-text-lexical` | `moenarch-text-lexical` | `moritzbrantner/nlp-stack` | nlp | crates.io |
-| cargo | `moenarch-text-lexical-server` | server | `moenarch-text-lexical` | `moenarch-text-lexical` | `moritzbrantner/nlp-stack` | nlp | crates.io |
-| cargo | `moenarch-text-lexical-wasm` | WASM | `moenarch-text-lexical` | `moenarch-text-lexical` | `moritzbrantner/nlp-stack` | nlp | crates.io |
-| cargo | `moenarch-text-linguistics` | library | `moenarch-text-linguistics` | — | `moritzbrantner/nlp-stack` | nlp | crates.io |
-| cargo | `moenarch-text-linguistics-cli` | CLI | `moenarch-text-linguistics` | `moenarch-text-linguistics` | `moritzbrantner/nlp-stack` | nlp | crates.io |
-| cargo | `moenarch-text-linguistics-server` | server | `moenarch-text-linguistics` | `moenarch-text-linguistics` | `moritzbrantner/nlp-stack` | nlp | crates.io |
-| cargo | `moenarch-text-linguistics-wasm` | WASM | `moenarch-text-linguistics` | `moenarch-text-linguistics` | `moritzbrantner/nlp-stack` | nlp | crates.io |
-| cargo | `moenarch-text-model-runtime` | library | `moenarch-text-model-runtime` | — | `moritzbrantner/nlp-stack` | nlp | crates.io |
-| cargo | `moenarch-text-model-runtime-cli` | CLI | `moenarch-text-model-runtime` | `moenarch-text-model-runtime` | `moritzbrantner/nlp-stack` | nlp | crates.io |
-| cargo | `moenarch-text-model-runtime-server` | server | `moenarch-text-model-runtime` | `moenarch-text-model-runtime` | `moritzbrantner/nlp-stack` | nlp | crates.io |
-| cargo | `moenarch-text-model-runtime-wasm` | WASM | `moenarch-text-model-runtime` | `moenarch-text-model-runtime` | `moritzbrantner/nlp-stack` | nlp | crates.io |
-| cargo | `moenarch-text-question-answering` | library | `moenarch-text-question-answering` | — | `moritzbrantner/nlp-stack` | nlp | crates.io |
-| cargo | `moenarch-text-question-answering-cli` | CLI | `moenarch-text-question-answering` | `moenarch-text-question-answering` | `moritzbrantner/nlp-stack` | nlp | crates.io |
-| cargo | `moenarch-text-question-answering-server` | server | `moenarch-text-question-answering` | `moenarch-text-question-answering` | `moritzbrantner/nlp-stack` | nlp | crates.io |
-| cargo | `moenarch-text-question-answering-wasm` | WASM | `moenarch-text-question-answering` | `moenarch-text-question-answering` | `moritzbrantner/nlp-stack` | nlp | crates.io |
-| cargo | `moenarch-text-retrieval` | library | `moenarch-text-retrieval` | — | `moritzbrantner/nlp-stack` | nlp | crates.io |
-| cargo | `moenarch-text-retrieval-cli` | CLI | `moenarch-text-retrieval` | `moenarch-text-retrieval` | `moritzbrantner/nlp-stack` | nlp | crates.io |
-| cargo | `moenarch-text-retrieval-server` | server | `moenarch-text-retrieval` | `moenarch-text-retrieval` | `moritzbrantner/nlp-stack` | nlp | crates.io |
-| cargo | `moenarch-text-retrieval-wasm` | WASM | `moenarch-text-retrieval` | `moenarch-text-retrieval` | `moritzbrantner/nlp-stack` | nlp | crates.io |
-| cargo | `moenarch-text-transcripts` | library | `moenarch-text-transcripts` | — | `moritzbrantner/nlp-stack` | nlp | crates.io |
-| cargo | `moenarch-text-transcripts-cli` | CLI | `moenarch-text-transcripts` | `moenarch-text-transcripts` | `moritzbrantner/nlp-stack` | nlp | crates.io |
-| cargo | `moenarch-text-transcripts-server` | server | `moenarch-text-transcripts` | `moenarch-text-transcripts` | `moritzbrantner/nlp-stack` | nlp | crates.io |
-| cargo | `moenarch-text-transcripts-wasm` | WASM | `moenarch-text-transcripts` | `moenarch-text-transcripts` | `moritzbrantner/nlp-stack` | nlp | crates.io |
 | cargo | `moenarch-three-d-processing-core` | library | `moenarch-three-d-processing-core` | — | `moritzbrantner/spatial-analysis` | spatial | crates.io |
 | cargo | `moenarch-three-d-processing-core-cli` | CLI | `moenarch-three-d-processing-core` | `moenarch-three-d-processing-core` | `moritzbrantner/spatial-analysis` | spatial | crates.io |
 | cargo | `moenarch-three-d-processing-core-server` | server | `moenarch-three-d-processing-core` | `moenarch-three-d-processing-core` | `moritzbrantner/spatial-analysis` | spatial | crates.io |
@@ -343,60 +89,16 @@ Source: `docs/repository-split/package-ownership.json` at `d032ad2890c1df3c6a5b9
 | cargo | `moenarch-three-d-scene-svg-cli` | CLI | `moenarch-three-d-scene-svg` | `moenarch-three-d-scene-svg` | `moritzbrantner/spatial-analysis` | spatial | crates.io |
 | cargo | `moenarch-three-d-scene-svg-server` | server | `moenarch-three-d-scene-svg` | `moenarch-three-d-scene-svg` | `moritzbrantner/spatial-analysis` | spatial | crates.io |
 | cargo | `moenarch-three-d-scene-svg-wasm` | WASM | `moenarch-three-d-scene-svg` | `moenarch-three-d-scene-svg` | `moritzbrantner/spatial-analysis` | spatial | crates.io |
-| cargo | `moenarch-vector-analysis-core` | library | `moenarch-vector-analysis-core` | — | `moritzbrantner/moenarch-foundation` | foundation | crates.io |
-| cargo | `moenarch-vector-analysis-core-cli` | CLI | `moenarch-vector-analysis-core` | `moenarch-vector-analysis-core` | `moritzbrantner/moenarch-foundation` | foundation | crates.io |
-| cargo | `moenarch-vector-analysis-core-server` | server | `moenarch-vector-analysis-core` | `moenarch-vector-analysis-core` | `moritzbrantner/moenarch-foundation` | foundation | crates.io |
-| cargo | `moenarch-vector-analysis-core-wasm` | WASM | `moenarch-vector-analysis-core` | `moenarch-vector-analysis-core` | `moritzbrantner/moenarch-foundation` | foundation | crates.io |
-| cargo | `moenarch-vector-analysis-index` | library | `moenarch-vector-analysis-index` | — | `moritzbrantner/moenarch-foundation` | foundation | crates.io |
-| cargo | `moenarch-vector-analysis-index-cli` | CLI | `moenarch-vector-analysis-index` | `moenarch-vector-analysis-index` | `moritzbrantner/moenarch-foundation` | foundation | crates.io |
-| cargo | `moenarch-vector-analysis-index-server` | server | `moenarch-vector-analysis-index` | `moenarch-vector-analysis-index` | `moritzbrantner/moenarch-foundation` | foundation | crates.io |
-| cargo | `moenarch-vector-analysis-index-wasm` | WASM | `moenarch-vector-analysis-index` | `moenarch-vector-analysis-index` | `moritzbrantner/moenarch-foundation` | foundation | crates.io |
 | cargo | `moenarch-video-analysis` | facade | `moenarch-video-analysis` | — | `moritzbrantner/rust-packages` | compatibility | crates.io |
 | cargo | `moenarch-video-analysis-cli` | CLI | `moenarch-video-analysis` | `moenarch-video-analysis` | `moritzbrantner/rust-packages` | compatibility | crates.io |
-| cargo | `moenarch-video-analysis-core` | library | `moenarch-video-analysis-core` | — | `moritzbrantner/visual-analysis` | visual | crates.io |
-| cargo | `moenarch-video-analysis-core-cli` | CLI | `moenarch-video-analysis-core` | `moenarch-video-analysis-core` | `moritzbrantner/visual-analysis` | visual | crates.io |
-| cargo | `moenarch-video-analysis-core-server` | server | `moenarch-video-analysis-core` | `moenarch-video-analysis-core` | `moritzbrantner/visual-analysis` | visual | crates.io |
-| cargo | `moenarch-video-analysis-core-wasm` | WASM | `moenarch-video-analysis-core` | `moenarch-video-analysis-core` | `moritzbrantner/visual-analysis` | visual | crates.io |
-| cargo | `moenarch-video-analysis-data` | library | `moenarch-video-analysis-data` | — | `moritzbrantner/visual-analysis` | visual | crates.io |
-| cargo | `moenarch-video-analysis-data-cli` | CLI | `moenarch-video-analysis-data` | `moenarch-video-analysis-data` | `moritzbrantner/visual-analysis` | visual | crates.io |
-| cargo | `moenarch-video-analysis-data-server` | server | `moenarch-video-analysis-data` | `moenarch-video-analysis-data` | `moritzbrantner/visual-analysis` | visual | crates.io |
-| cargo | `moenarch-video-analysis-data-wasm` | WASM | `moenarch-video-analysis-data` | `moenarch-video-analysis-data` | `moritzbrantner/visual-analysis` | visual | crates.io |
-| cargo | `moenarch-video-analysis-dataset` | library | `moenarch-video-analysis-dataset` | — | `moritzbrantner/visual-analysis` | visual | crates.io |
-| cargo | `moenarch-video-analysis-dataset-cli` | CLI | `moenarch-video-analysis-dataset` | `moenarch-video-analysis-dataset` | `moritzbrantner/visual-analysis` | visual | crates.io |
-| cargo | `moenarch-video-analysis-dataset-server` | server | `moenarch-video-analysis-dataset` | `moenarch-video-analysis-dataset` | `moritzbrantner/visual-analysis` | visual | crates.io |
-| cargo | `moenarch-video-analysis-dataset-wasm` | WASM | `moenarch-video-analysis-dataset` | `moenarch-video-analysis-dataset` | `moritzbrantner/visual-analysis` | visual | crates.io |
-| cargo | `moenarch-video-analysis-detectors` | library | `moenarch-video-analysis-detectors` | — | `moritzbrantner/visual-analysis` | visual | crates.io |
-| cargo | `moenarch-video-analysis-detectors-cli` | CLI | `moenarch-video-analysis-detectors` | `moenarch-video-analysis-detectors` | `moritzbrantner/visual-analysis` | visual | crates.io |
-| cargo | `moenarch-video-analysis-detectors-server` | server | `moenarch-video-analysis-detectors` | `moenarch-video-analysis-detectors` | `moritzbrantner/visual-analysis` | visual | crates.io |
-| cargo | `moenarch-video-analysis-detectors-wasm` | WASM | `moenarch-video-analysis-detectors` | `moenarch-video-analysis-detectors` | `moritzbrantner/visual-analysis` | visual | crates.io |
-| cargo | `moenarch-video-analysis-editing` | library | `moenarch-video-analysis-editing` | — | `moritzbrantner/visual-analysis` | visual | crates.io |
-| cargo | `moenarch-video-analysis-editing-cli` | CLI | `moenarch-video-analysis-editing` | `moenarch-video-analysis-editing` | `moritzbrantner/visual-analysis` | visual | crates.io |
-| cargo | `moenarch-video-analysis-editing-server` | server | `moenarch-video-analysis-editing` | `moenarch-video-analysis-editing` | `moritzbrantner/visual-analysis` | visual | crates.io |
-| cargo | `moenarch-video-analysis-editing-wasm` | WASM | `moenarch-video-analysis-editing` | `moenarch-video-analysis-editing` | `moritzbrantner/visual-analysis` | visual | crates.io |
-| cargo | `moenarch-video-analysis-features` | library | `moenarch-video-analysis-features` | — | `moritzbrantner/visual-analysis` | visual | crates.io |
-| cargo | `moenarch-video-analysis-features-cli` | CLI | `moenarch-video-analysis-features` | `moenarch-video-analysis-features` | `moritzbrantner/visual-analysis` | visual | crates.io |
-| cargo | `moenarch-video-analysis-features-server` | server | `moenarch-video-analysis-features` | `moenarch-video-analysis-features` | `moritzbrantner/visual-analysis` | visual | crates.io |
-| cargo | `moenarch-video-analysis-features-wasm` | WASM | `moenarch-video-analysis-features` | `moenarch-video-analysis-features` | `moritzbrantner/visual-analysis` | visual | crates.io |
-| cargo | `moenarch-video-analysis-ffmpeg` | library | `moenarch-video-analysis-ffmpeg` | — | `moritzbrantner/visual-analysis` | visual | crates.io |
-| cargo | `moenarch-video-analysis-ffmpeg-cli` | CLI | `moenarch-video-analysis-ffmpeg` | `moenarch-video-analysis-ffmpeg` | `moritzbrantner/visual-analysis` | visual | crates.io |
-| cargo | `moenarch-video-analysis-ffmpeg-server` | server | `moenarch-video-analysis-ffmpeg` | `moenarch-video-analysis-ffmpeg` | `moritzbrantner/visual-analysis` | visual | crates.io |
-| cargo | `moenarch-video-analysis-ffmpeg-wasm` | WASM | `moenarch-video-analysis-ffmpeg` | `moenarch-video-analysis-ffmpeg` | `moritzbrantner/visual-analysis` | visual | crates.io |
 | cargo | `moenarch-video-analysis-gaussian-splatting` | library | `moenarch-video-analysis-gaussian-splatting` | — | `moritzbrantner/spatial-analysis` | spatial | crates.io |
 | cargo | `moenarch-video-analysis-gaussian-splatting-cli` | CLI | `moenarch-video-analysis-gaussian-splatting` | `moenarch-video-analysis-gaussian-splatting` | `moritzbrantner/spatial-analysis` | spatial | crates.io |
 | cargo | `moenarch-video-analysis-gaussian-splatting-server` | server | `moenarch-video-analysis-gaussian-splatting` | `moenarch-video-analysis-gaussian-splatting` | `moritzbrantner/spatial-analysis` | spatial | crates.io |
 | cargo | `moenarch-video-analysis-gaussian-splatting-wasm` | WASM | `moenarch-video-analysis-gaussian-splatting` | `moenarch-video-analysis-gaussian-splatting` | `moritzbrantner/spatial-analysis` | spatial | crates.io |
-| cargo | `moenarch-video-analysis-ingest` | library | `moenarch-video-analysis-ingest` | — | `moritzbrantner/visual-analysis` | visual | crates.io |
-| cargo | `moenarch-video-analysis-ingest-cli` | CLI | `moenarch-video-analysis-ingest` | `moenarch-video-analysis-ingest` | `moritzbrantner/visual-analysis` | visual | crates.io |
-| cargo | `moenarch-video-analysis-ingest-server` | server | `moenarch-video-analysis-ingest` | `moenarch-video-analysis-ingest` | `moritzbrantner/visual-analysis` | visual | crates.io |
-| cargo | `moenarch-video-analysis-ingest-wasm` | WASM | `moenarch-video-analysis-ingest` | `moenarch-video-analysis-ingest` | `moritzbrantner/visual-analysis` | visual | crates.io |
 | cargo | `moenarch-video-analysis-mvs` | library | `moenarch-video-analysis-mvs` | — | `moritzbrantner/spatial-analysis` | spatial | crates.io |
 | cargo | `moenarch-video-analysis-mvs-cli` | CLI | `moenarch-video-analysis-mvs` | `moenarch-video-analysis-mvs` | `moritzbrantner/spatial-analysis` | spatial | crates.io |
 | cargo | `moenarch-video-analysis-mvs-server` | server | `moenarch-video-analysis-mvs` | `moenarch-video-analysis-mvs` | `moritzbrantner/spatial-analysis` | spatial | crates.io |
 | cargo | `moenarch-video-analysis-mvs-wasm` | WASM | `moenarch-video-analysis-mvs` | `moenarch-video-analysis-mvs` | `moritzbrantner/spatial-analysis` | spatial | crates.io |
-| cargo | `moenarch-video-analysis-output` | library | `moenarch-video-analysis-output` | — | `moritzbrantner/visual-analysis` | visual | crates.io |
-| cargo | `moenarch-video-analysis-output-cli` | CLI | `moenarch-video-analysis-output` | `moenarch-video-analysis-output` | `moritzbrantner/visual-analysis` | visual | crates.io |
-| cargo | `moenarch-video-analysis-output-server` | server | `moenarch-video-analysis-output` | `moenarch-video-analysis-output` | `moritzbrantner/visual-analysis` | visual | crates.io |
-| cargo | `moenarch-video-analysis-output-wasm` | WASM | `moenarch-video-analysis-output` | `moenarch-video-analysis-output` | `moritzbrantner/visual-analysis` | visual | crates.io |
 | cargo | `moenarch-video-analysis-posture` | library | `moenarch-video-analysis-posture` | — | `moritzbrantner/spatial-analysis` | spatial | crates.io |
 | cargo | `moenarch-video-analysis-posture-cli` | CLI | `moenarch-video-analysis-posture` | `moenarch-video-analysis-posture` | `moritzbrantner/spatial-analysis` | spatial | crates.io |
 | cargo | `moenarch-video-analysis-posture-io` | library | `moenarch-video-analysis-posture-io` | — | `moritzbrantner/spatial-analysis` | spatial | crates.io |
@@ -417,47 +119,13 @@ Source: `docs/repository-split/package-ownership.json` at `d032ad2890c1df3c6a5b9
 | cargo | `moenarch-video-analysis-radiance-pipeline-cli` | CLI | `moenarch-video-analysis-radiance-pipeline` | `moenarch-video-analysis-radiance-pipeline` | `moritzbrantner/spatial-analysis` | spatial | crates.io |
 | cargo | `moenarch-video-analysis-radiance-pipeline-server` | server | `moenarch-video-analysis-radiance-pipeline` | `moenarch-video-analysis-radiance-pipeline` | `moritzbrantner/spatial-analysis` | spatial | crates.io |
 | cargo | `moenarch-video-analysis-radiance-pipeline-wasm` | WASM | `moenarch-video-analysis-radiance-pipeline` | `moenarch-video-analysis-radiance-pipeline` | `moritzbrantner/spatial-analysis` | spatial | crates.io |
-| cargo | `moenarch-video-analysis-recognition` | library | `moenarch-video-analysis-recognition` | — | `moritzbrantner/visual-analysis` | visual | crates.io |
-| cargo | `moenarch-video-analysis-recognition-cli` | CLI | `moenarch-video-analysis-recognition` | `moenarch-video-analysis-recognition` | `moritzbrantner/visual-analysis` | visual | crates.io |
-| cargo | `moenarch-video-analysis-recognition-server` | server | `moenarch-video-analysis-recognition` | `moenarch-video-analysis-recognition` | `moritzbrantner/visual-analysis` | visual | crates.io |
-| cargo | `moenarch-video-analysis-recognition-wasm` | WASM | `moenarch-video-analysis-recognition` | `moenarch-video-analysis-recognition` | `moritzbrantner/visual-analysis` | visual | crates.io |
 | cargo | `moenarch-video-analysis-reconstruction` | library | `moenarch-video-analysis-reconstruction` | — | `moritzbrantner/spatial-analysis` | spatial | crates.io |
 | cargo | `moenarch-video-analysis-reconstruction-cli` | CLI | `moenarch-video-analysis-reconstruction` | `moenarch-video-analysis-reconstruction` | `moritzbrantner/spatial-analysis` | spatial | crates.io |
 | cargo | `moenarch-video-analysis-reconstruction-server` | server | `moenarch-video-analysis-reconstruction` | `moenarch-video-analysis-reconstruction` | `moritzbrantner/spatial-analysis` | spatial | crates.io |
 | cargo | `moenarch-video-analysis-reconstruction-wasm` | WASM | `moenarch-video-analysis-reconstruction` | `moenarch-video-analysis-reconstruction` | `moritzbrantner/spatial-analysis` | spatial | crates.io |
-| cargo | `moenarch-video-analysis-segmentation` | library | `moenarch-video-analysis-segmentation` | — | `moritzbrantner/visual-analysis` | visual | crates.io |
-| cargo | `moenarch-video-analysis-segmentation-cli` | CLI | `moenarch-video-analysis-segmentation` | `moenarch-video-analysis-segmentation` | `moritzbrantner/visual-analysis` | visual | crates.io |
-| cargo | `moenarch-video-analysis-segmentation-server` | server | `moenarch-video-analysis-segmentation` | `moenarch-video-analysis-segmentation` | `moritzbrantner/visual-analysis` | visual | crates.io |
-| cargo | `moenarch-video-analysis-segmentation-wasm` | WASM | `moenarch-video-analysis-segmentation` | `moenarch-video-analysis-segmentation` | `moritzbrantner/visual-analysis` | visual | crates.io |
 | cargo | `moenarch-video-analysis-sfm` | library | `moenarch-video-analysis-sfm` | — | `moritzbrantner/spatial-analysis` | spatial | crates.io |
 | cargo | `moenarch-video-analysis-sfm-cli` | CLI | `moenarch-video-analysis-sfm` | `moenarch-video-analysis-sfm` | `moritzbrantner/spatial-analysis` | spatial | crates.io |
 | cargo | `moenarch-video-analysis-sfm-server` | server | `moenarch-video-analysis-sfm` | `moenarch-video-analysis-sfm` | `moritzbrantner/spatial-analysis` | spatial | crates.io |
 | cargo | `moenarch-video-analysis-sfm-wasm` | WASM | `moenarch-video-analysis-sfm` | `moenarch-video-analysis-sfm` | `moritzbrantner/spatial-analysis` | spatial | crates.io |
-| cargo | `moenarch-video-analysis-split` | library | `moenarch-video-analysis-split` | — | `moritzbrantner/visual-analysis` | visual | crates.io |
-| cargo | `moenarch-video-analysis-split-cli` | CLI | `moenarch-video-analysis-split` | `moenarch-video-analysis-split` | `moritzbrantner/visual-analysis` | visual | crates.io |
-| cargo | `moenarch-video-analysis-split-server` | server | `moenarch-video-analysis-split` | `moenarch-video-analysis-split` | `moritzbrantner/visual-analysis` | visual | crates.io |
-| cargo | `moenarch-video-analysis-split-wasm` | WASM | `moenarch-video-analysis-split` | `moenarch-video-analysis-split` | `moritzbrantner/visual-analysis` | visual | crates.io |
-| cargo | `moenarch-video-analysis-storage` | library | `moenarch-video-analysis-storage` | — | `moritzbrantner/visual-analysis` | visual | crates.io |
-| cargo | `moenarch-video-analysis-storage-cli` | CLI | `moenarch-video-analysis-storage` | `moenarch-video-analysis-storage` | `moritzbrantner/visual-analysis` | visual | crates.io |
-| cargo | `moenarch-video-analysis-storage-server` | server | `moenarch-video-analysis-storage` | `moenarch-video-analysis-storage` | `moritzbrantner/visual-analysis` | visual | crates.io |
-| cargo | `moenarch-video-analysis-storage-wasm` | WASM | `moenarch-video-analysis-storage` | `moenarch-video-analysis-storage` | `moritzbrantner/visual-analysis` | visual | crates.io |
-| cargo | `moenarch-video-analysis-synthesis` | library | `moenarch-video-analysis-synthesis` | — | `moritzbrantner/visual-analysis` | visual | crates.io |
-| cargo | `moenarch-video-analysis-synthesis-cli` | CLI | `moenarch-video-analysis-synthesis` | `moenarch-video-analysis-synthesis` | `moritzbrantner/visual-analysis` | visual | crates.io |
-| cargo | `moenarch-video-analysis-synthesis-server` | server | `moenarch-video-analysis-synthesis` | `moenarch-video-analysis-synthesis` | `moritzbrantner/visual-analysis` | visual | crates.io |
-| cargo | `moenarch-video-analysis-synthesis-wasm` | WASM | `moenarch-video-analysis-synthesis` | `moenarch-video-analysis-synthesis` | `moritzbrantner/visual-analysis` | visual | crates.io |
 | cargo | `moenarch-video-analysis-test-support` | test support | `moenarch-video-analysis-test-support` | — | `moritzbrantner/rust-packages` | compatibility | not published |
-| cargo | `moenarch-video-analysis-tracking` | library | `moenarch-video-analysis-tracking` | — | `moritzbrantner/visual-analysis` | visual | crates.io |
-| cargo | `moenarch-video-analysis-tracking-cli` | CLI | `moenarch-video-analysis-tracking` | `moenarch-video-analysis-tracking` | `moritzbrantner/visual-analysis` | visual | crates.io |
-| cargo | `moenarch-video-analysis-tracking-server` | server | `moenarch-video-analysis-tracking` | `moenarch-video-analysis-tracking` | `moritzbrantner/visual-analysis` | visual | crates.io |
-| cargo | `moenarch-video-analysis-tracking-wasm` | WASM | `moenarch-video-analysis-tracking` | `moenarch-video-analysis-tracking` | `moritzbrantner/visual-analysis` | visual | crates.io |
-| cargo | `moenarch-video-analysis-transform` | library | `moenarch-video-analysis-transform` | — | `moritzbrantner/visual-analysis` | visual | crates.io |
-| cargo | `moenarch-video-analysis-transform-cli` | CLI | `moenarch-video-analysis-transform` | `moenarch-video-analysis-transform` | `moritzbrantner/visual-analysis` | visual | crates.io |
-| cargo | `moenarch-video-analysis-transform-server` | server | `moenarch-video-analysis-transform` | `moenarch-video-analysis-transform` | `moritzbrantner/visual-analysis` | visual | crates.io |
-| cargo | `moenarch-video-analysis-transform-wasm` | WASM | `moenarch-video-analysis-transform` | `moenarch-video-analysis-transform` | `moritzbrantner/visual-analysis` | visual | crates.io |
 | cargo | `moenarch-video-analysis-use-cases` | prototype | `moenarch-video-analysis-use-cases` | — | `moritzbrantner/rust-packages` | compatibility | not published |
-| cargo | `moenarch-vision-core` | library | `moenarch-vision-core` | — | `moritzbrantner/visual-analysis` | visual | crates.io |
-| cargo | `moenarch-vision-core-cli` | CLI | `moenarch-vision-core` | `moenarch-vision-core` | `moritzbrantner/visual-analysis` | visual | crates.io |
-| cargo | `moenarch-vision-core-server` | server | `moenarch-vision-core` | `moenarch-vision-core` | `moritzbrantner/visual-analysis` | visual | crates.io |
-| cargo | `moenarch-vision-core-wasm` | WASM | `moenarch-vision-core` | `moenarch-vision-core` | `moritzbrantner/visual-analysis` | visual | crates.io |
-| cargo | `moenarch-media-core` | library | `moenarch-media-core` | — | `moritzbrantner/moenarch-foundation` | foundation | crates.io |
-| cargo | `moenarch-audio-contracts` | library | `moenarch-audio-contracts` | — | `moritzbrantner/moenarch-foundation` | foundation | crates.io |

@@ -19,120 +19,56 @@ python3 scripts/audit_workspace_crates.py --check
 
 ## Counts
 
-- Active workspace packages: 296
+- Active workspace packages: 76
 
 ### Domains
 
 - `animation`: 3
-- `audio`: 1
-- `bindings`: 72
+- `bindings`: 18
 - `comfyui`: 9
-- `data`: 15
-- `image`: 33
-- `jobs`: 3
-- `math`: 15
-- `media`: 1
+- `image`: 3
 - `prototype`: 1
 - `root`: 1
-- `runtime`: 5
 - `test-support`: 1
-- `text`: 39
 - `three-d`: 12
-- `vector`: 6
-- `video`: 76
-- `vision`: 3
+- `video`: 28
 
 ### Kinds
 
-- `cli`: 73
-- `library`: 78
+- `cli`: 19
+- `library`: 20
 - `prototype`: 1
-- `server`: 72
-- `wasm`: 72
+- `server`: 18
+- `wasm`: 18
 
 ### Publish classes
 
 - `internal-test`: 1
-- `public`: 295
+- `public`: 75
 
 | Package | Domain | Kind | Publish | Surface required | Facade expected | Path |
 |---|---|---|---|---|---|---|
 | `moenarch-animation-core-cli` | animation | cli | public | no | no | `crates/animation/animation-core-cli` |
 | `moenarch-animation-core` | animation | library | public | yes | yes | `crates/animation/animation-core` |
 | `moenarch-animation-core-server` | animation | server | public | no | no | `crates/animation/animation-core-server` |
-| `moenarch-audio-contracts` | audio | library | public | yes | yes | `crates/audio/audio-contracts` |
 | `moenarch-animation-core-wasm` | bindings | wasm | public | no | no | `crates/bindings/animation-core-wasm` |
 | `moenarch-comfyui-data-wasm` | bindings | wasm | public | no | no | `crates/bindings/comfyui-data-wasm` |
 | `moenarch-comfyui-latents-wasm` | bindings | wasm | public | no | no | `crates/bindings/comfyui-latents-wasm` |
 | `moenarch-comfyui-models-wasm` | bindings | wasm | public | no | no | `crates/bindings/comfyui-models-wasm` |
-| `moenarch-data-inversion-core-wasm` | bindings | wasm | public | no | no | `crates/bindings/data-inversion-core-wasm` |
-| `moenarch-dense-data-wasm` | bindings | wasm | public | no | no | `crates/bindings/dense-data-wasm` |
-| `moenarch-graph-analysis-core-wasm` | bindings | wasm | public | no | no | `crates/bindings/graph-analysis-core-wasm` |
-| `moenarch-image-analysis-captioning-wasm` | bindings | wasm | public | no | no | `crates/bindings/image-analysis-captioning-wasm` |
-| `moenarch-image-analysis-classification-wasm` | bindings | wasm | public | no | no | `crates/bindings/image-analysis-classification-wasm` |
 | `moenarch-image-analysis-comfyui-wasm` | bindings | wasm | public | no | no | `crates/bindings/image-analysis-comfyui-wasm` |
-| `moenarch-image-analysis-core-wasm` | bindings | wasm | public | no | no | `crates/bindings/image-analysis-core-wasm` |
-| `moenarch-image-analysis-detection-wasm` | bindings | wasm | public | no | no | `crates/bindings/image-analysis-detection-wasm` |
-| `moenarch-image-analysis-embeddings-wasm` | bindings | wasm | public | no | no | `crates/bindings/image-analysis-embeddings-wasm` |
-| `moenarch-image-analysis-io-wasm` | bindings | wasm | public | no | no | `crates/bindings/image-analysis-io-wasm` |
-| `moenarch-image-analysis-ocr-wasm` | bindings | wasm | public | no | no | `crates/bindings/image-analysis-ocr-wasm` |
-| `moenarch-image-analysis-processing-wasm` | bindings | wasm | public | no | no | `crates/bindings/image-analysis-processing-wasm` |
-| `moenarch-image-analysis-segmentation-wasm` | bindings | wasm | public | no | no | `crates/bindings/image-analysis-segmentation-wasm` |
-| `moenarch-image-analysis-synthesis-wasm` | bindings | wasm | public | no | no | `crates/bindings/image-analysis-synthesis-wasm` |
-| `moenarch-jobs-core-wasm` | bindings | wasm | public | no | no | `crates/bindings/jobs-core-wasm` |
-| `moenarch-math-geometry-2d-wasm` | bindings | wasm | public | no | no | `crates/bindings/math-geometry-2d-wasm` |
-| `moenarch-math-linear-wasm` | bindings | wasm | public | no | no | `crates/bindings/math-linear-wasm` |
-| `moenarch-math-signal-core-wasm` | bindings | wasm | public | no | no | `crates/bindings/math-signal-core-wasm` |
-| `moenarch-math-sparse-data-wasm` | bindings | wasm | public | no | no | `crates/bindings/math-sparse-data-wasm` |
-| `moenarch-math-statistics-wasm` | bindings | wasm | public | no | no | `crates/bindings/math-statistics-wasm` |
-| `moenarch-model-runtime-wasm` | bindings | wasm | public | no | no | `crates/bindings/model-runtime-wasm` |
-| `moenarch-numbers-core-wasm` | bindings | wasm | public | no | no | `crates/bindings/numbers-core-wasm` |
-| `moenarch-tensor-data-wasm` | bindings | wasm | public | no | no | `crates/bindings/tensor-data-wasm` |
-| `moenarch-text-analysis-wasm` | bindings | wasm | public | no | no | `crates/bindings/text-analysis-wasm` |
-| `moenarch-text-classification-wasm` | bindings | wasm | public | no | no | `crates/bindings/text-classification-wasm` |
-| `moenarch-text-core-wasm` | bindings | wasm | public | no | no | `crates/bindings/text-core-wasm` |
-| `moenarch-text-embeddings-wasm` | bindings | wasm | public | no | no | `crates/bindings/text-embeddings-wasm` |
-| `moenarch-text-generation-linguistics-wasm` | bindings | wasm | public | no | no | `crates/bindings/text-generation-linguistics-wasm` |
-| `moenarch-text-generation-wasm` | bindings | wasm | public | no | no | `crates/bindings/text-generation-wasm` |
-| `moenarch-text-index-wasm` | bindings | wasm | public | no | no | `crates/bindings/text-index-wasm` |
-| `moenarch-text-lexical-wasm` | bindings | wasm | public | no | no | `crates/bindings/text-lexical-wasm` |
-| `moenarch-text-linguistics-wasm` | bindings | wasm | public | no | no | `crates/bindings/text-linguistics-wasm` |
-| `moenarch-text-model-runtime-wasm` | bindings | wasm | public | no | no | `crates/bindings/text-model-runtime-wasm` |
-| `moenarch-text-question-answering-wasm` | bindings | wasm | public | no | no | `crates/bindings/text-question-answering-wasm` |
-| `moenarch-text-retrieval-wasm` | bindings | wasm | public | no | no | `crates/bindings/text-retrieval-wasm` |
-| `moenarch-text-transcripts-wasm` | bindings | wasm | public | no | no | `crates/bindings/text-transcripts-wasm` |
 | `moenarch-three-d-processing-core-wasm` | bindings | wasm | public | no | no | `crates/bindings/three-d-processing-core-wasm` |
 | `moenarch-three-d-processing-io-wasm` | bindings | wasm | public | no | no | `crates/bindings/three-d-processing-io-wasm` |
 | `moenarch-three-d-processing-mesh-wasm` | bindings | wasm | public | no | no | `crates/bindings/three-d-processing-mesh-wasm` |
 | `moenarch-three-d-scene-svg-wasm` | bindings | wasm | public | no | no | `crates/bindings/three-d-scene-svg-wasm` |
-| `moenarch-vector-analysis-core-wasm` | bindings | wasm | public | no | no | `crates/bindings/vector-analysis-core-wasm` |
-| `moenarch-vector-analysis-index-wasm` | bindings | wasm | public | no | no | `crates/bindings/vector-analysis-index-wasm` |
-| `moenarch-video-analysis-core-wasm` | bindings | wasm | public | no | no | `crates/bindings/video-analysis-core-wasm` |
-| `moenarch-video-analysis-data-wasm` | bindings | wasm | public | no | no | `crates/bindings/video-analysis-data-wasm` |
-| `moenarch-video-analysis-dataset-wasm` | bindings | wasm | public | no | no | `crates/bindings/video-analysis-dataset-wasm` |
-| `moenarch-video-analysis-detectors-wasm` | bindings | wasm | public | no | no | `crates/bindings/video-analysis-detectors-wasm` |
-| `moenarch-video-analysis-editing-wasm` | bindings | wasm | public | no | no | `crates/bindings/video-analysis-editing-wasm` |
-| `moenarch-video-analysis-features-wasm` | bindings | wasm | public | no | no | `crates/bindings/video-analysis-features-wasm` |
-| `moenarch-video-analysis-ffmpeg-wasm` | bindings | wasm | public | no | no | `crates/bindings/video-analysis-ffmpeg-wasm` |
 | `moenarch-video-analysis-gaussian-splatting-wasm` | bindings | wasm | public | no | no | `crates/bindings/video-analysis-gaussian-splatting-wasm` |
-| `moenarch-video-analysis-ingest-wasm` | bindings | wasm | public | no | no | `crates/bindings/video-analysis-ingest-wasm` |
 | `moenarch-video-analysis-mvs-wasm` | bindings | wasm | public | no | no | `crates/bindings/video-analysis-mvs-wasm` |
-| `moenarch-video-analysis-output-wasm` | bindings | wasm | public | no | no | `crates/bindings/video-analysis-output-wasm` |
 | `moenarch-video-analysis-posture-io-wasm` | bindings | wasm | public | no | no | `crates/bindings/video-analysis-posture-io-wasm` |
 | `moenarch-video-analysis-posture-wasm` | bindings | wasm | public | no | no | `crates/bindings/video-analysis-posture-wasm` |
 | `moenarch-video-analysis-radiance-fields-wasm` | bindings | wasm | public | no | no | `crates/bindings/video-analysis-radiance-fields-wasm` |
 | `moenarch-video-analysis-radiance-io-wasm` | bindings | wasm | public | no | no | `crates/bindings/video-analysis-radiance-io-wasm` |
 | `moenarch-video-analysis-radiance-pipeline-wasm` | bindings | wasm | public | no | no | `crates/bindings/video-analysis-radiance-pipeline-wasm` |
-| `moenarch-video-analysis-recognition-wasm` | bindings | wasm | public | no | no | `crates/bindings/video-analysis-recognition-wasm` |
 | `moenarch-video-analysis-reconstruction-wasm` | bindings | wasm | public | no | no | `crates/bindings/video-analysis-reconstruction-wasm` |
-| `moenarch-video-analysis-segmentation-wasm` | bindings | wasm | public | no | no | `crates/bindings/video-analysis-segmentation-wasm` |
 | `moenarch-video-analysis-sfm-wasm` | bindings | wasm | public | no | no | `crates/bindings/video-analysis-sfm-wasm` |
-| `moenarch-video-analysis-split-wasm` | bindings | wasm | public | no | no | `crates/bindings/video-analysis-split-wasm` |
-| `moenarch-video-analysis-storage-wasm` | bindings | wasm | public | no | no | `crates/bindings/video-analysis-storage-wasm` |
-| `moenarch-video-analysis-synthesis-wasm` | bindings | wasm | public | no | no | `crates/bindings/video-analysis-synthesis-wasm` |
-| `moenarch-video-analysis-tracking-wasm` | bindings | wasm | public | no | no | `crates/bindings/video-analysis-tracking-wasm` |
-| `moenarch-video-analysis-transform-wasm` | bindings | wasm | public | no | no | `crates/bindings/video-analysis-transform-wasm` |
-| `moenarch-vision-core-wasm` | bindings | wasm | public | no | no | `crates/bindings/vision-core-wasm` |
 | `moenarch-comfyui-data-cli` | comfyui | cli | public | no | no | `crates/comfyui/comfyui-data-cli` |
 | `moenarch-comfyui-latents-cli` | comfyui | cli | public | no | no | `crates/comfyui/comfyui-latents-cli` |
 | `moenarch-comfyui-models-cli` | comfyui | cli | public | no | no | `crates/comfyui/comfyui-models-cli` |
@@ -142,120 +78,12 @@ python3 scripts/audit_workspace_crates.py --check
 | `moenarch-comfyui-data-server` | comfyui | server | public | no | no | `crates/comfyui/comfyui-data-server` |
 | `moenarch-comfyui-latents-server` | comfyui | server | public | no | no | `crates/comfyui/comfyui-latents-server` |
 | `moenarch-comfyui-models-server` | comfyui | server | public | no | no | `crates/comfyui/comfyui-models-server` |
-| `moenarch-data-inversion-core-cli` | data | cli | public | no | no | `crates/data/data-inversion-core-cli` |
-| `moenarch-dense-data-cli` | data | cli | public | no | no | `crates/data/dense-data-cli` |
-| `moenarch-graph-analysis-core-cli` | data | cli | public | no | no | `crates/data/graph-analysis-core-cli` |
-| `moenarch-numbers-core-cli` | data | cli | public | no | no | `crates/data/numbers-core-cli` |
-| `moenarch-tensor-data-cli` | data | cli | public | no | no | `crates/data/tensor-data-cli` |
-| `moenarch-data-inversion-core` | data | library | public | yes | yes | `crates/data/data-inversion-core` |
-| `moenarch-dense-data` | data | library | public | yes | yes | `crates/data/dense-data` |
-| `moenarch-graph-analysis-core` | data | library | public | yes | yes | `crates/data/graph-analysis-core` |
-| `moenarch-numbers-core` | data | library | public | yes | yes | `crates/data/numbers-core` |
-| `moenarch-tensor-data` | data | library | public | yes | yes | `crates/data/tensor-data` |
-| `moenarch-data-inversion-core-server` | data | server | public | no | no | `crates/data/data-inversion-core-server` |
-| `moenarch-dense-data-server` | data | server | public | no | no | `crates/data/dense-data-server` |
-| `moenarch-graph-analysis-core-server` | data | server | public | no | no | `crates/data/graph-analysis-core-server` |
-| `moenarch-numbers-core-server` | data | server | public | no | no | `crates/data/numbers-core-server` |
-| `moenarch-tensor-data-server` | data | server | public | no | no | `crates/data/tensor-data-server` |
-| `moenarch-image-analysis-captioning-cli` | image | cli | public | no | no | `crates/image/image-analysis-captioning-cli` |
-| `moenarch-image-analysis-classification-cli` | image | cli | public | no | no | `crates/image/image-analysis-classification-cli` |
 | `moenarch-image-analysis-comfyui-cli` | image | cli | public | no | no | `crates/image/image-analysis-comfyui-cli` |
-| `moenarch-image-analysis-core-cli` | image | cli | public | no | no | `crates/image/image-analysis-core-cli` |
-| `moenarch-image-analysis-detection-cli` | image | cli | public | no | no | `crates/image/image-analysis-detection-cli` |
-| `moenarch-image-analysis-embeddings-cli` | image | cli | public | no | no | `crates/image/image-analysis-embeddings-cli` |
-| `moenarch-image-analysis-io-cli` | image | cli | public | no | no | `crates/image/image-analysis-io-cli` |
-| `moenarch-image-analysis-ocr-cli` | image | cli | public | no | no | `crates/image/image-analysis-ocr-cli` |
-| `moenarch-image-analysis-processing-cli` | image | cli | public | no | no | `crates/image/image-analysis-processing-cli` |
-| `moenarch-image-analysis-segmentation-cli` | image | cli | public | no | no | `crates/image/image-analysis-segmentation-cli` |
-| `moenarch-image-analysis-synthesis-cli` | image | cli | public | no | no | `crates/image/image-analysis-synthesis-cli` |
-| `moenarch-image-analysis-captioning` | image | library | public | yes | yes | `crates/image/image-analysis-captioning` |
-| `moenarch-image-analysis-classification` | image | library | public | yes | yes | `crates/image/image-analysis-classification` |
 | `moenarch-image-analysis-comfyui` | image | library | public | yes | yes | `crates/image/image-analysis-comfyui` |
-| `moenarch-image-analysis-core` | image | library | public | yes | yes | `crates/image/image-analysis-core` |
-| `moenarch-image-analysis-detection` | image | library | public | yes | yes | `crates/image/image-analysis-detection` |
-| `moenarch-image-analysis-embeddings` | image | library | public | yes | yes | `crates/image/image-analysis-embeddings` |
-| `moenarch-image-analysis-io` | image | library | public | yes | yes | `crates/image/image-analysis-io` |
-| `moenarch-image-analysis-ocr` | image | library | public | yes | yes | `crates/image/image-analysis-ocr` |
-| `moenarch-image-analysis-processing` | image | library | public | yes | yes | `crates/image/image-analysis-processing` |
-| `moenarch-image-analysis-segmentation` | image | library | public | yes | yes | `crates/image/image-analysis-segmentation` |
-| `moenarch-image-analysis-synthesis` | image | library | public | yes | yes | `crates/image/image-analysis-synthesis` |
-| `moenarch-image-analysis-captioning-server` | image | server | public | no | no | `crates/image/image-analysis-captioning-server` |
-| `moenarch-image-analysis-classification-server` | image | server | public | no | no | `crates/image/image-analysis-classification-server` |
 | `moenarch-image-analysis-comfyui-server` | image | server | public | no | no | `crates/image/image-analysis-comfyui-server` |
-| `moenarch-image-analysis-core-server` | image | server | public | no | no | `crates/image/image-analysis-core-server` |
-| `moenarch-image-analysis-detection-server` | image | server | public | no | no | `crates/image/image-analysis-detection-server` |
-| `moenarch-image-analysis-embeddings-server` | image | server | public | no | no | `crates/image/image-analysis-embeddings-server` |
-| `moenarch-image-analysis-io-server` | image | server | public | no | no | `crates/image/image-analysis-io-server` |
-| `moenarch-image-analysis-ocr-server` | image | server | public | no | no | `crates/image/image-analysis-ocr-server` |
-| `moenarch-image-analysis-processing-server` | image | server | public | no | no | `crates/image/image-analysis-processing-server` |
-| `moenarch-image-analysis-segmentation-server` | image | server | public | no | no | `crates/image/image-analysis-segmentation-server` |
-| `moenarch-image-analysis-synthesis-server` | image | server | public | no | no | `crates/image/image-analysis-synthesis-server` |
-| `moenarch-jobs-core-cli` | jobs | cli | public | no | no | `crates/jobs/jobs-core-cli` |
-| `moenarch-jobs-core` | jobs | library | public | yes | yes | `crates/jobs/jobs-core` |
-| `moenarch-jobs-core-server` | jobs | server | public | no | no | `crates/jobs/jobs-core-server` |
-| `moenarch-math-geometry-2d-cli` | math | cli | public | no | no | `crates/math/math-geometry-2d-cli` |
-| `moenarch-math-linear-cli` | math | cli | public | no | no | `crates/math/math-linear-cli` |
-| `moenarch-math-signal-core-cli` | math | cli | public | no | no | `crates/math/math-signal-core-cli` |
-| `moenarch-math-sparse-data-cli` | math | cli | public | no | no | `crates/math/math-sparse-data-cli` |
-| `moenarch-math-statistics-cli` | math | cli | public | no | no | `crates/math/math-statistics-cli` |
-| `moenarch-math-geometry-2d` | math | library | public | yes | yes | `crates/math/math-geometry-2d` |
-| `moenarch-math-linear` | math | library | public | yes | yes | `crates/math/math-linear` |
-| `moenarch-math-signal-core` | math | library | public | yes | yes | `crates/math/math-signal-core` |
-| `moenarch-math-sparse-data` | math | library | public | yes | yes | `crates/math/math-sparse-data` |
-| `moenarch-math-statistics` | math | library | public | yes | yes | `crates/math/math-statistics` |
-| `moenarch-math-geometry-2d-server` | math | server | public | no | no | `crates/math/math-geometry-2d-server` |
-| `moenarch-math-linear-server` | math | server | public | no | no | `crates/math/math-linear-server` |
-| `moenarch-math-signal-core-server` | math | server | public | no | no | `crates/math/math-signal-core-server` |
-| `moenarch-math-sparse-data-server` | math | server | public | no | no | `crates/math/math-sparse-data-server` |
-| `moenarch-math-statistics-server` | math | server | public | no | no | `crates/math/math-statistics-server` |
-| `moenarch-media-core` | media | library | public | yes | yes | `crates/media/media-core` |
 | `moenarch-video-analysis-use-cases` | prototype | prototype | public | no | no | `prototypes/rust/video-analysis-use-cases` |
 | `moenarch-video-analysis` | root | library | public | yes | no | `.` |
-| `moenarch-model-runtime-cli` | runtime | cli | public | no | no | `crates/runtime/model-runtime-cli` |
-| `moenarch-model-runtime` | runtime | library | public | yes | yes | `crates/runtime/model-runtime` |
-| `moenarch-runtime-core` | runtime | library | public | no | yes | `crates/runtime/runtime-core` |
-| `moenarch-runtime-onnx` | runtime | library | public | yes | yes | `crates/runtime/runtime-onnx` |
-| `moenarch-model-runtime-server` | runtime | server | public | no | no | `crates/runtime/model-runtime-server` |
 | `moenarch-video-analysis-test-support` | test-support | library | internal-test | no | no | `crates/test-support/video-analysis-test-support` |
-| `moenarch-text-analysis-cli` | text | cli | public | no | no | `crates/text/text-analysis-cli` |
-| `moenarch-text-classification-cli` | text | cli | public | no | no | `crates/text/text-classification-cli` |
-| `moenarch-text-core-cli` | text | cli | public | no | no | `crates/text/text-core-cli` |
-| `moenarch-text-embeddings-cli` | text | cli | public | no | no | `crates/text/text-embeddings-cli` |
-| `moenarch-text-generation-cli` | text | cli | public | no | no | `crates/text/text-generation-cli` |
-| `moenarch-text-generation-linguistics-cli` | text | cli | public | no | no | `crates/text/text-generation-linguistics-cli` |
-| `moenarch-text-index-cli` | text | cli | public | no | no | `crates/text/text-index-cli` |
-| `moenarch-text-lexical-cli` | text | cli | public | no | no | `crates/text/text-lexical-cli` |
-| `moenarch-text-linguistics-cli` | text | cli | public | no | no | `crates/text/text-linguistics-cli` |
-| `moenarch-text-model-runtime-cli` | text | cli | public | no | no | `crates/text/text-model-runtime-cli` |
-| `moenarch-text-question-answering-cli` | text | cli | public | no | no | `crates/text/text-question-answering-cli` |
-| `moenarch-text-retrieval-cli` | text | cli | public | no | no | `crates/text/text-retrieval-cli` |
-| `moenarch-text-transcripts-cli` | text | cli | public | no | no | `crates/text/text-transcripts-cli` |
-| `moenarch-text-analysis` | text | library | public | yes | yes | `crates/text/text-analysis` |
-| `moenarch-text-classification` | text | library | public | yes | yes | `crates/text/text-classification` |
-| `moenarch-text-core` | text | library | public | yes | yes | `crates/text/text-core` |
-| `moenarch-text-embeddings` | text | library | public | yes | yes | `crates/text/text-embeddings` |
-| `moenarch-text-generation` | text | library | public | yes | yes | `crates/text/text-generation` |
-| `moenarch-text-generation-linguistics` | text | library | public | yes | yes | `crates/text/text-generation-linguistics` |
-| `moenarch-text-index` | text | library | public | yes | yes | `crates/text/text-index` |
-| `moenarch-text-lexical` | text | library | public | yes | yes | `crates/text/text-lexical` |
-| `moenarch-text-linguistics` | text | library | public | yes | yes | `crates/text/text-linguistics` |
-| `moenarch-text-model-runtime` | text | library | public | yes | yes | `crates/text/text-model-runtime` |
-| `moenarch-text-question-answering` | text | library | public | yes | yes | `crates/text/text-question-answering` |
-| `moenarch-text-retrieval` | text | library | public | yes | yes | `crates/text/text-retrieval` |
-| `moenarch-text-transcripts` | text | library | public | yes | yes | `crates/text/text-transcripts` |
-| `moenarch-text-analysis-server` | text | server | public | no | no | `crates/text/text-analysis-server` |
-| `moenarch-text-classification-server` | text | server | public | no | no | `crates/text/text-classification-server` |
-| `moenarch-text-core-server` | text | server | public | no | no | `crates/text/text-core-server` |
-| `moenarch-text-embeddings-server` | text | server | public | no | no | `crates/text/text-embeddings-server` |
-| `moenarch-text-generation-linguistics-server` | text | server | public | no | no | `crates/text/text-generation-linguistics-server` |
-| `moenarch-text-generation-server` | text | server | public | no | no | `crates/text/text-generation-server` |
-| `moenarch-text-index-server` | text | server | public | no | no | `crates/text/text-index-server` |
-| `moenarch-text-lexical-server` | text | server | public | no | no | `crates/text/text-lexical-server` |
-| `moenarch-text-linguistics-server` | text | server | public | no | no | `crates/text/text-linguistics-server` |
-| `moenarch-text-model-runtime-server` | text | server | public | no | no | `crates/text/text-model-runtime-server` |
-| `moenarch-text-question-answering-server` | text | server | public | no | no | `crates/text/text-question-answering-server` |
-| `moenarch-text-retrieval-server` | text | server | public | no | no | `crates/text/text-retrieval-server` |
-| `moenarch-text-transcripts-server` | text | server | public | no | no | `crates/text/text-transcripts-server` |
 | `moenarch-three-d-processing-core-cli` | three-d | cli | public | no | no | `crates/three-d/three-d-processing-core-cli` |
 | `moenarch-three-d-processing-io-cli` | three-d | cli | public | no | no | `crates/three-d/three-d-processing-io-cli` |
 | `moenarch-three-d-processing-mesh-cli` | three-d | cli | public | no | no | `crates/three-d/three-d-processing-mesh-cli` |
@@ -268,88 +96,31 @@ python3 scripts/audit_workspace_crates.py --check
 | `moenarch-three-d-processing-io-server` | three-d | server | public | no | no | `crates/three-d/three-d-processing-io-server` |
 | `moenarch-three-d-processing-mesh-server` | three-d | server | public | no | no | `crates/three-d/three-d-processing-mesh-server` |
 | `moenarch-three-d-scene-svg-server` | three-d | server | public | no | no | `crates/three-d/three-d-scene-svg-server` |
-| `moenarch-vector-analysis-core-cli` | vector | cli | public | no | no | `crates/vector/vector-analysis-core-cli` |
-| `moenarch-vector-analysis-index-cli` | vector | cli | public | no | no | `crates/vector/vector-analysis-index-cli` |
-| `moenarch-vector-analysis-core` | vector | library | public | yes | yes | `crates/vector/vector-analysis-core` |
-| `moenarch-vector-analysis-index` | vector | library | public | yes | yes | `crates/vector/vector-analysis-index` |
-| `moenarch-vector-analysis-core-server` | vector | server | public | no | no | `crates/vector/vector-analysis-core-server` |
-| `moenarch-vector-analysis-index-server` | vector | server | public | no | no | `crates/vector/vector-analysis-index-server` |
 | `moenarch-video-analysis-cli` | video | cli | public | no | no | `crates/video/video-analysis-cli` |
-| `moenarch-video-analysis-core-cli` | video | cli | public | no | no | `crates/video/video-analysis-core-cli` |
-| `moenarch-video-analysis-data-cli` | video | cli | public | no | no | `crates/video/video-analysis-data-cli` |
-| `moenarch-video-analysis-dataset-cli` | video | cli | public | no | no | `crates/video/video-analysis-dataset-cli` |
-| `moenarch-video-analysis-detectors-cli` | video | cli | public | no | no | `crates/video/video-analysis-detectors-cli` |
-| `moenarch-video-analysis-editing-cli` | video | cli | public | no | no | `crates/video/video-analysis-editing-cli` |
-| `moenarch-video-analysis-features-cli` | video | cli | public | no | no | `crates/video/video-analysis-features-cli` |
-| `moenarch-video-analysis-ffmpeg-cli` | video | cli | public | no | no | `crates/video/video-analysis-ffmpeg-cli` |
 | `moenarch-video-analysis-gaussian-splatting-cli` | video | cli | public | no | no | `crates/video/video-analysis-gaussian-splatting-cli` |
-| `moenarch-video-analysis-ingest-cli` | video | cli | public | no | no | `crates/video/video-analysis-ingest-cli` |
 | `moenarch-video-analysis-mvs-cli` | video | cli | public | no | no | `crates/video/video-analysis-mvs-cli` |
-| `moenarch-video-analysis-output-cli` | video | cli | public | no | no | `crates/video/video-analysis-output-cli` |
 | `moenarch-video-analysis-posture-cli` | video | cli | public | no | no | `crates/video/video-analysis-posture-cli` |
 | `moenarch-video-analysis-posture-io-cli` | video | cli | public | no | no | `crates/video/video-analysis-posture-io-cli` |
 | `moenarch-video-analysis-radiance-fields-cli` | video | cli | public | no | no | `crates/video/video-analysis-radiance-fields-cli` |
 | `moenarch-video-analysis-radiance-io-cli` | video | cli | public | no | no | `crates/video/video-analysis-radiance-io-cli` |
 | `moenarch-video-analysis-radiance-pipeline-cli` | video | cli | public | no | no | `crates/video/video-analysis-radiance-pipeline-cli` |
-| `moenarch-video-analysis-recognition-cli` | video | cli | public | no | no | `crates/video/video-analysis-recognition-cli` |
 | `moenarch-video-analysis-reconstruction-cli` | video | cli | public | no | no | `crates/video/video-analysis-reconstruction-cli` |
-| `moenarch-video-analysis-segmentation-cli` | video | cli | public | no | no | `crates/video/video-analysis-segmentation-cli` |
 | `moenarch-video-analysis-sfm-cli` | video | cli | public | no | no | `crates/video/video-analysis-sfm-cli` |
-| `moenarch-video-analysis-split-cli` | video | cli | public | no | no | `crates/video/video-analysis-split-cli` |
-| `moenarch-video-analysis-storage-cli` | video | cli | public | no | no | `crates/video/video-analysis-storage-cli` |
-| `moenarch-video-analysis-synthesis-cli` | video | cli | public | no | no | `crates/video/video-analysis-synthesis-cli` |
-| `moenarch-video-analysis-tracking-cli` | video | cli | public | no | no | `crates/video/video-analysis-tracking-cli` |
-| `moenarch-video-analysis-transform-cli` | video | cli | public | no | no | `crates/video/video-analysis-transform-cli` |
-| `moenarch-video-analysis-core` | video | library | public | yes | yes | `crates/video/video-analysis-core` |
-| `moenarch-video-analysis-data` | video | library | public | yes | yes | `crates/video/video-analysis-data` |
-| `moenarch-video-analysis-dataset` | video | library | public | yes | yes | `crates/video/video-analysis-dataset` |
-| `moenarch-video-analysis-detectors` | video | library | public | yes | yes | `crates/video/video-analysis-detectors` |
-| `moenarch-video-analysis-editing` | video | library | public | yes | yes | `crates/video/video-analysis-editing` |
-| `moenarch-video-analysis-features` | video | library | public | yes | yes | `crates/video/video-analysis-features` |
-| `moenarch-video-analysis-ffmpeg` | video | library | public | yes | yes | `crates/video/video-analysis-ffmpeg` |
 | `moenarch-video-analysis-gaussian-splatting` | video | library | public | yes | yes | `crates/video/video-analysis-gaussian-splatting` |
-| `moenarch-video-analysis-ingest` | video | library | public | yes | yes | `crates/video/video-analysis-ingest` |
 | `moenarch-video-analysis-mvs` | video | library | public | yes | yes | `crates/video/video-analysis-mvs` |
-| `moenarch-video-analysis-output` | video | library | public | yes | yes | `crates/video/video-analysis-output` |
 | `moenarch-video-analysis-posture` | video | library | public | yes | yes | `crates/video/video-analysis-posture` |
 | `moenarch-video-analysis-posture-io` | video | library | public | yes | yes | `crates/video/video-analysis-posture-io` |
 | `moenarch-video-analysis-radiance-fields` | video | library | public | yes | yes | `crates/video/video-analysis-radiance-fields` |
 | `moenarch-video-analysis-radiance-io` | video | library | public | yes | yes | `crates/video/video-analysis-radiance-io` |
 | `moenarch-video-analysis-radiance-pipeline` | video | library | public | yes | yes | `crates/video/video-analysis-radiance-pipeline` |
-| `moenarch-video-analysis-recognition` | video | library | public | yes | yes | `crates/video/video-analysis-recognition` |
 | `moenarch-video-analysis-reconstruction` | video | library | public | yes | yes | `crates/video/video-analysis-reconstruction` |
-| `moenarch-video-analysis-segmentation` | video | library | public | yes | yes | `crates/video/video-analysis-segmentation` |
 | `moenarch-video-analysis-sfm` | video | library | public | yes | yes | `crates/video/video-analysis-sfm` |
-| `moenarch-video-analysis-split` | video | library | public | yes | yes | `crates/video/video-analysis-split` |
-| `moenarch-video-analysis-storage` | video | library | public | yes | yes | `crates/video/video-analysis-storage` |
-| `moenarch-video-analysis-synthesis` | video | library | public | yes | yes | `crates/video/video-analysis-synthesis` |
-| `moenarch-video-analysis-tracking` | video | library | public | yes | yes | `crates/video/video-analysis-tracking` |
-| `moenarch-video-analysis-transform` | video | library | public | yes | yes | `crates/video/video-analysis-transform` |
-| `moenarch-video-analysis-core-server` | video | server | public | no | no | `crates/video/video-analysis-core-server` |
-| `moenarch-video-analysis-data-server` | video | server | public | no | no | `crates/video/video-analysis-data-server` |
-| `moenarch-video-analysis-dataset-server` | video | server | public | no | no | `crates/video/video-analysis-dataset-server` |
-| `moenarch-video-analysis-detectors-server` | video | server | public | no | no | `crates/video/video-analysis-detectors-server` |
-| `moenarch-video-analysis-editing-server` | video | server | public | no | no | `crates/video/video-analysis-editing-server` |
-| `moenarch-video-analysis-features-server` | video | server | public | no | no | `crates/video/video-analysis-features-server` |
-| `moenarch-video-analysis-ffmpeg-server` | video | server | public | no | no | `crates/video/video-analysis-ffmpeg-server` |
 | `moenarch-video-analysis-gaussian-splatting-server` | video | server | public | no | no | `crates/video/video-analysis-gaussian-splatting-server` |
-| `moenarch-video-analysis-ingest-server` | video | server | public | no | no | `crates/video/video-analysis-ingest-server` |
 | `moenarch-video-analysis-mvs-server` | video | server | public | no | no | `crates/video/video-analysis-mvs-server` |
-| `moenarch-video-analysis-output-server` | video | server | public | no | no | `crates/video/video-analysis-output-server` |
 | `moenarch-video-analysis-posture-io-server` | video | server | public | no | no | `crates/video/video-analysis-posture-io-server` |
 | `moenarch-video-analysis-posture-server` | video | server | public | no | no | `crates/video/video-analysis-posture-server` |
 | `moenarch-video-analysis-radiance-fields-server` | video | server | public | no | no | `crates/video/video-analysis-radiance-fields-server` |
 | `moenarch-video-analysis-radiance-io-server` | video | server | public | no | no | `crates/video/video-analysis-radiance-io-server` |
 | `moenarch-video-analysis-radiance-pipeline-server` | video | server | public | no | no | `crates/video/video-analysis-radiance-pipeline-server` |
-| `moenarch-video-analysis-recognition-server` | video | server | public | no | no | `crates/video/video-analysis-recognition-server` |
 | `moenarch-video-analysis-reconstruction-server` | video | server | public | no | no | `crates/video/video-analysis-reconstruction-server` |
-| `moenarch-video-analysis-segmentation-server` | video | server | public | no | no | `crates/video/video-analysis-segmentation-server` |
 | `moenarch-video-analysis-sfm-server` | video | server | public | no | no | `crates/video/video-analysis-sfm-server` |
-| `moenarch-video-analysis-split-server` | video | server | public | no | no | `crates/video/video-analysis-split-server` |
-| `moenarch-video-analysis-storage-server` | video | server | public | no | no | `crates/video/video-analysis-storage-server` |
-| `moenarch-video-analysis-synthesis-server` | video | server | public | no | no | `crates/video/video-analysis-synthesis-server` |
-| `moenarch-video-analysis-tracking-server` | video | server | public | no | no | `crates/video/video-analysis-tracking-server` |
-| `moenarch-video-analysis-transform-server` | video | server | public | no | no | `crates/video/video-analysis-transform-server` |
-| `moenarch-vision-core-cli` | vision | cli | public | no | no | `crates/vision/vision-core-cli` |
-| `moenarch-vision-core` | vision | library | public | yes | yes | `crates/vision/vision-core` |
-| `moenarch-vision-core-server` | vision | server | public | no | no | `crates/vision/vision-core-server` |

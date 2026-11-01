@@ -229,7 +229,7 @@ mod tests {
         let catalog = package_catalog();
         assert!(catalog
             .iter()
-            .any(|pkg| pkg.name == "moenarch-video-analysis-core"));
+            .any(|pkg| pkg.name == "moenarch-comfyui-models"));
         assert!(catalog
             .iter()
             .any(|pkg| pkg.name == "moenarch-video-analysis-cli"));

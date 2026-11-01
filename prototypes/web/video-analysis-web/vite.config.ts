@@ -9,24 +9,13 @@ import { loadWorkspaceArchitecture } from "./workspaceArchitectureLoader";
 const workspaceRoot = fileURLToPath(new URL("../../..", import.meta.url));
 const packagesRoot = fileURLToPath(new URL("../../../packages", import.meta.url));
 const uiSourceRoot = fileURLToPath(new URL("../../../packages/video-analysis-ui/src", import.meta.url));
-const textCoreWasmEntry = fileURLToPath(
-  new URL("../../../packages/text-core-wasm/index.js", import.meta.url),
-);
-const textLinguisticsWasmEntry = fileURLToPath(
-  new URL("../../../packages/text-linguistics-wasm/index.js", import.meta.url),
-);
 const require = createRequire(import.meta.url);
 
 export default defineConfig({
   base: process.env.PAGES_BASE_PATH ?? "/",
   plugins: [react(), workspaceArchitectureApi()],
-  optimizeDeps: {
-    exclude: ["@moritzbrantner/text-core-wasm", "@moritzbrantner/text-linguistics-wasm"],
-  },
   resolve: {
     alias: [
-      { find: /^@moritzbrantner\/text-core-wasm$/, replacement: textCoreWasmEntry },
-      { find: /^@moritzbrantner\/text-linguistics-wasm$/, replacement: textLinguisticsWasmEntry },
       ...workspaceWasmAliases(),
       { find: /^@moritzbrantner\/video-analysis-ui$/, replacement: `${uiSourceRoot}/index.ts` },
       {

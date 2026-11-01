@@ -89,7 +89,7 @@ UI routing/build behavior, release readiness, or external-tool integration.
 
 ## Local Setup
 
-Install the Rust WASM build prerequisites used by `@moritzbrantner/text-core-wasm`:
+Install the Rust WASM build prerequisites used by the `packages/*-wasm` wrappers:
 
 ```bash
 rustup target add wasm32-unknown-unknown

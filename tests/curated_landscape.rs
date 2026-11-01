@@ -84,35 +84,6 @@ fn declared_surfaces_expose_valid_curated_landscape_metadata() {
 
 fn expected_operations() -> BTreeMap<&'static str, Vec<&'static str>> {
     BTreeMap::from([
-        ("moenarch-text-core", vec!["text.tokenize"]),
-        (
-            "moenarch-text-transcripts",
-            vec!["transcripts.toTextSegments"],
-        ),
-        ("moenarch-image-analysis-core", vec!["image.core.summary"]),
-        (
-            "moenarch-vision-core",
-            vec!["vision.validateDetection", "vision.validateEmbedding"],
-        ),
-        ("moenarch-vector-analysis-core", vec!["vector.normalize"]),
-        ("moenarch-tensor-data", vec!["tensor.validate"]),
-        ("moenarch-numbers-core", vec!["numbers.summary"]),
-        ("moenarch-math-geometry-2d", vec!["geometry.transform"]),
-        ("moenarch-text-analysis", vec!["analysis.document"]),
-        ("moenarch-text-retrieval", vec!["retrieval.search"]),
-        (
-            "moenarch-image-analysis-detection",
-            vec!["image.detection.colorBlob"],
-        ),
-        ("moenarch-video-analysis-core", vec!["video.core.timecode"]),
-        (
-            "moenarch-video-analysis-detectors",
-            vec!["video.detectors.compositePlan"],
-        ),
-        (
-            "moenarch-video-analysis-output",
-            vec!["video.output.csvPlan"],
-        ),
         ("moenarch-video-analysis-sfm", vec!["video.sfm.matchPlan"]),
         (
             "moenarch-video-analysis-radiance-fields",
@@ -127,20 +98,6 @@ fn expected_operations() -> BTreeMap<&'static str, Vec<&'static str>> {
 
 fn declared_surfaces() -> Vec<PackageSurface> {
     vec![
-        text_core::surface::package_surface(),
-        text_transcripts::surface::package_surface(),
-        image_analysis_core::surface::package_surface(),
-        vision_core::surface::package_surface(),
-        vector_analysis_core::surface::package_surface(),
-        tensor_data::surface::package_surface(),
-        numbers_core::surface::package_surface(),
-        math_geometry_2d::surface::package_surface(),
-        text_analysis::surface::package_surface(),
-        text_retrieval::surface::package_surface(),
-        image_analysis_detection::surface::package_surface(),
-        video_analysis_core::surface::package_surface(),
-        video_analysis_detectors::surface::package_surface(),
-        video_analysis_output::surface::package_surface(),
         video_analysis_sfm::surface::package_surface(),
         video_analysis_radiance_fields::surface::package_surface(),
         video_analysis_radiance_pipeline::surface::package_surface(),

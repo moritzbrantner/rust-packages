@@ -81,9 +81,9 @@ See [docs/agents/domain.md](docs/agents/domain.md). Domain context starts with
   * Build outputs are not checked in.
   * Regenerate `packages/video-analysis-ui/dist/` with `bun run ui:build`.
 
-* `packages/text-core-wasm/`: WASM package generated through `wasm-pack`.
+* `packages/*-wasm/`: WASM packages generated through `wasm-pack`.
 
-  * `packages/text-core-wasm/pkg/` is generated output.
+  * `packages/*-wasm/pkg/` is generated output.
   * Regenerate through the package build flow.
 
 * `prototypes/`: runnable experiments and local app surfaces.

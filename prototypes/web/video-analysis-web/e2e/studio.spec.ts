@@ -6,17 +6,17 @@ test("renders the wrapper catalog home page", async ({ page }) => {
   await expect(page.getByRole("heading", { name: "Wrapper frontends" })).toBeVisible();
   await expect(page.getByRole("navigation", { name: "Wrapper categories" })).toBeVisible();
   await expect(page.getByRole("heading", { name: "Image" })).toBeVisible();
-  await expect(page.getByRole("link", { name: /image-analysis-core/ })).toBeVisible();
+  await expect(page.getByRole("link", { name: /image-analysis-comfyui/ })).toBeVisible();
 });
 
 test("opens a wrapper route with the package frontend inside the overview shell", async ({ page }) => {
   await page.goto("/");
-  await page.getByRole("link", { name: /image-analysis-core/ }).click();
+  await page.getByRole("link", { name: /image-analysis-comfyui/ }).click();
 
-  await expect(page).toHaveURL(/\/wrappers\/image-analysis-core\//);
-  await expect(page.getByRole("heading", { name: "image-analysis-core" })).toBeVisible();
+  await expect(page).toHaveURL(/\/wrappers\/image-analysis-comfyui\//);
+  await expect(page.getByRole("heading", { name: "image-analysis-comfyui" })).toBeVisible();
   await expect(page.getByRole("heading", { name: "Frontend" })).toBeVisible();
-  await expect(page.getByRole("heading", { name: "Image Analysis Core" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Image Analysis Comfyui" })).toBeVisible();
 });
 
 test("opens the direct video category route", async ({ page }) => {

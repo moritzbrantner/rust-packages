@@ -3,7 +3,7 @@
 ## Setup
 
 Install the pinned Rust toolchain from `rust-toolchain.toml`, then add the WASM
-target and helper used by `packages/text-core-wasm`:
+target and helper used by `packages/*-wasm`:
 
 ```bash
 rustup target add wasm32-unknown-unknown

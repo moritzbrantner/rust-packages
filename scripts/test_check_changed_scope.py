@@ -48,67 +48,67 @@ class CheckChangedScopeTests(unittest.TestCase):
             )
 
     def test_rust_library_change_maps_to_one_package(self) -> None:
-        scope = self.classify(["crates/text/text-core/src/lib.rs"])
+        scope = self.classify(["crates/comfyui/comfyui-models/src/lib.rs"])
         self.assertEqual(scope["rust_scope"], "changed")
         self.assertEqual(
             scope["rust_packages"],
             [
-                "moenarch-text-core",
-                "moenarch-text-core-cli",
-                "moenarch-text-core-server",
-                "moenarch-text-core-wasm",
+                "moenarch-comfyui-models",
+                "moenarch-comfyui-models-cli",
+                "moenarch-comfyui-models-server",
+                "moenarch-comfyui-models-wasm",
             ],
         )
         self.assertEqual(scope["progress_scope"], "changed")
-        self.assertEqual(scope["progress_packages"], ["moenarch-text-core"])
+        self.assertEqual(scope["progress_packages"], ["moenarch-comfyui-models"])
 
     def test_cli_adapter_change_maps_to_adapter_package(self) -> None:
-        scope = self.classify(["crates/text/text-core-cli/src/main.rs"])
+        scope = self.classify(["crates/comfyui/comfyui-models-cli/src/main.rs"])
         self.assertEqual(scope["rust_scope"], "changed")
-        self.assertEqual(scope["rust_packages"], ["moenarch-text-core-cli"])
+        self.assertEqual(scope["rust_packages"], ["moenarch-comfyui-models-cli"])
         self.assertNotEqual(scope["rust_scope"], "workspace")
-        self.assertEqual(scope["progress_packages"], ["moenarch-text-core"])
+        self.assertEqual(scope["progress_packages"], ["moenarch-comfyui-models"])
 
     def test_server_adapter_change_maps_to_adapter_package(self) -> None:
-        scope = self.classify(["crates/text/text-core-server/src/lib.rs"])
-        self.assertEqual(scope["rust_packages"], ["moenarch-text-core-server"])
+        scope = self.classify(["crates/comfyui/comfyui-models-server/src/lib.rs"])
+        self.assertEqual(scope["rust_packages"], ["moenarch-comfyui-models-server"])
         self.assertNotEqual(scope["rust_scope"], "workspace")
 
     def test_wasm_binding_change_maps_to_rust_and_bun_package(self) -> None:
-        scope = self.classify(["crates/bindings/text-core-wasm/src/lib.rs"])
-        self.assertEqual(scope["rust_packages"], ["moenarch-text-core-wasm"])
+        scope = self.classify(["crates/bindings/comfyui-models-wasm/src/lib.rs"])
+        self.assertEqual(scope["rust_packages"], ["moenarch-comfyui-models-wasm"])
         self.assertEqual(scope["frontend_scope"], "changed")
         self.assertEqual(
             scope["frontend_commands"],
             [
-                "bun run --cwd packages/text-core-wasm build",
-                "bun run --cwd packages/text-core-wasm test",
+                "bun run --cwd packages/comfyui-models-wasm build",
+                "bun run --cwd packages/comfyui-models-wasm test",
             ],
         )
-        self.assertEqual(scope["progress_packages"], ["moenarch-text-core"])
+        self.assertEqual(scope["progress_packages"], ["moenarch-comfyui-models"])
 
     def test_wasm_package_change_runs_matching_bun_test(self) -> None:
-        scope = self.classify(["packages/text-core-wasm/tests/package.test.ts"])
+        scope = self.classify(["packages/comfyui-models-wasm/tests/package.test.ts"])
         self.assertEqual(scope["frontend_scope"], "changed")
         self.assertEqual(
             scope["frontend_commands"],
             [
-                "bun run --cwd packages/text-core-wasm build",
-                "bun run --cwd packages/text-core-wasm test",
+                "bun run --cwd packages/comfyui-models-wasm build",
+                "bun run --cwd packages/comfyui-models-wasm test",
             ],
         )
-        self.assertEqual(scope["progress_packages"], ["moenarch-text-core"])
+        self.assertEqual(scope["progress_packages"], ["moenarch-comfyui-models"])
 
-    def test_text_app_change_runs_text_app_typecheck(self) -> None:
-        scope = self.classify(["packages/text-core-app/src/App.tsx"])
+    def test_app_change_runs_app_typecheck(self) -> None:
+        scope = self.classify(["packages/comfyui-models-app/src/App.tsx"])
         self.assertEqual(scope["frontend_scope"], "changed")
         self.assertEqual(
             scope["frontend_commands"],
-            ["bun run --cwd packages/text-core-app typecheck"],
+            ["bun run --cwd packages/comfyui-models-app typecheck"],
         )
-        self.assertEqual(scope["progress_packages"], ["moenarch-text-core"])
+        self.assertEqual(scope["progress_packages"], ["moenarch-comfyui-models"])
 
-    def test_non_text_app_change_has_an_executable_typecheck(self) -> None:
+    def test_unlisted_app_change_has_an_executable_typecheck(self) -> None:
         scope = self.classify(
             ["packages/audio-analysis-core-app/src/App.tsx"],
             package_json_paths=[
@@ -179,18 +179,27 @@ class CheckChangedScopeTests(unittest.TestCase):
         self.assertFalse(plan["browser_e2e_checks"])
 
     def test_wasm_ci_plan_is_separate_from_application_frontend(self) -> None:
-        plan = self.classify(["packages/text-core-wasm/tests/package.test.ts"])["ci_plan"]
+        plan = self.classify(["packages/comfyui-models-wasm/tests/package.test.ts"])["ci_plan"]
         self.assertTrue(plan["wasm_checks"])
         self.assertFalse(plan["frontend_checks"])
 
     def test_wasm_without_package_build_script_builds_binding_crate(self) -> None:
-        scope = self.classify(
-            ["packages/vision-core-wasm/index.js"],
-            package_json_paths=[
-                *self.package_json_paths(),
-                "packages/vision-core-wasm/package.json",
-            ],
-        )
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            binding = root / "crates/bindings/vision-core-wasm"
+            binding.mkdir(parents=True)
+            (binding / "Cargo.toml").write_text(
+                '[package]\nname = "moenarch-vision-core-wasm"\n', encoding="utf-8"
+            )
+            scope = scope_mod.classify_changed_files(
+                changed_files=["packages/vision-core-wasm/index.js"],
+                packages=self.packages(),
+                package_json_paths=[
+                    *self.package_json_paths(),
+                    "packages/vision-core-wasm/package.json",
+                ],
+                root=root,
+            ).to_json()
         self.assertIn(
             "cargo build --package moenarch-vision-core-wasm --target wasm32-unknown-unknown",
             scope["frontend_commands"],
@@ -210,7 +219,7 @@ class CheckChangedScopeTests(unittest.TestCase):
         plan = self.classify(
             [
                 "packages/video-analysis-ui/src/core/index.tsx",
-                "packages/text-core-wasm/src/index.ts",
+                "packages/comfyui-models-wasm/src/index.ts",
             ]
         )["ci_plan"]
         self.assertTrue(plan["storybook_checks"])
@@ -221,7 +230,7 @@ class CheckChangedScopeTests(unittest.TestCase):
         plan = self.classify(
             [
                 "prototypes/web/video-analysis-web/src/main.tsx",
-                "packages/text-core-wasm/src/index.ts",
+                "packages/comfyui-models-wasm/src/index.ts",
             ]
         )["ci_plan"]
         self.assertTrue(plan["browser_e2e_checks"])
@@ -230,9 +239,9 @@ class CheckChangedScopeTests(unittest.TestCase):
 
     def test_every_selected_changed_frontend_surface_has_commands(self) -> None:
         fixtures = (
-            ["crates/bindings/text-core-wasm/src/lib.rs"],
-            ["packages/text-core-wasm/src/index.ts"],
-            ["packages/text-core-app/src/App.tsx"],
+            ["crates/bindings/comfyui-models-wasm/src/lib.rs"],
+            ["packages/comfyui-models-wasm/src/index.ts"],
+            ["packages/comfyui-models-app/src/App.tsx"],
             ["packages/video-analysis-ui/src/core/index.tsx"],
             ["prototypes/web/video-analysis-web/src/main.tsx"],
         )
@@ -285,34 +294,34 @@ class CheckChangedScopeTests(unittest.TestCase):
         return [
                 scope_mod.CargoPackage("moenarch-video-analysis", ".", "Cargo.toml"),
                 scope_mod.CargoPackage(
-                    "moenarch-text-core",
-                    "crates/text/text-core",
-                    "crates/text/text-core/Cargo.toml",
+                    "moenarch-comfyui-models",
+                    "crates/comfyui/comfyui-models",
+                    "crates/comfyui/comfyui-models/Cargo.toml",
                 ),
                 scope_mod.CargoPackage(
-                    "moenarch-text-core-cli",
-                    "crates/text/text-core-cli",
-                    "crates/text/text-core-cli/Cargo.toml",
-                    ("moenarch-text-core",),
+                    "moenarch-comfyui-models-cli",
+                    "crates/comfyui/comfyui-models-cli",
+                    "crates/comfyui/comfyui-models-cli/Cargo.toml",
+                    ("moenarch-comfyui-models",),
                 ),
                 scope_mod.CargoPackage(
-                    "moenarch-text-core-server",
-                    "crates/text/text-core-server",
-                    "crates/text/text-core-server/Cargo.toml",
-                    ("moenarch-text-core",),
+                    "moenarch-comfyui-models-server",
+                    "crates/comfyui/comfyui-models-server",
+                    "crates/comfyui/comfyui-models-server/Cargo.toml",
+                    ("moenarch-comfyui-models",),
                 ),
                 scope_mod.CargoPackage(
-                    "moenarch-text-core-wasm",
-                    "crates/bindings/text-core-wasm",
-                    "crates/bindings/text-core-wasm/Cargo.toml",
-                    ("moenarch-text-core",),
+                    "moenarch-comfyui-models-wasm",
+                    "crates/bindings/comfyui-models-wasm",
+                    "crates/bindings/comfyui-models-wasm/Cargo.toml",
+                    ("moenarch-comfyui-models",),
                 ),
             ]
 
     def package_json_paths(self) -> list[str]:
         return [
-                "packages/text-core-wasm/package.json",
-                "packages/text-core-app/package.json",
+                "packages/comfyui-models-wasm/package.json",
+                "packages/comfyui-models-app/package.json",
                 "packages/video-analysis-ui/package.json",
                 "prototypes/web/video-analysis-web/package.json",
             ]
