@@ -134,7 +134,7 @@ ns-export
 | Runtime/model spine | `moritzbrantner-model-runtime`, `moritzbrantner-runtime-onnx`, `moritzbrantner-video-analysis` |
 | Image ONNX/models | `moritzbrantner-image-analysis-classification`, `moritzbrantner-image-analysis-captioning`, `moritzbrantner-image-analysis-detection`, `moritzbrantner-image-analysis-embeddings`, `moritzbrantner-image-analysis-ocr`, `moritzbrantner-image-analysis-comfyui` |
 | Text native/models | `moritzbrantner-text-model-runtime`, `moritzbrantner-text-embeddings`, `moritzbrantner-text-linguistics`, `moritzbrantner-text-classification`, `moritzbrantner-text-question-answering`, `moritzbrantner-text-analysis`, `moritzbrantner-text-transcripts` |
-| Video native/models | `moritzbrantner-video-analysis-ffmpeg`, `moritzbrantner-video-analysis-split`, `moritzbrantner-video-analysis-posture`, `moritzbrantner-video-analysis-recognition`, `moritzbrantner-video-analysis-cli` |
+| Video native/models | `moritzbrantner-video-analysis-ffmpeg`, `moritzbrantner-video-analysis-split`, `moritzbrantner-video-analysis-recognition`, `moritzbrantner-video-analysis-cli` |
 | Radiance / reconstruction | `moritzbrantner-video-analysis-radiance-fields`, `moritzbrantner-video-analysis-radiance-io`, `moritzbrantner-video-analysis-radiance-pipeline`, `moritzbrantner-video-analysis-sfm`, `moritzbrantner-video-analysis-mvs`, `moritzbrantner-video-analysis-reconstruction` |
 | Workflow integration | `moritzbrantner-video-analysis-use-cases` |
 
@@ -149,9 +149,6 @@ The strict gate does not mark undocumented gaps as successful, and it now
 distinguishes setup blockers from missing coverage. Current setup-dependent rows
 are:
 
-- `moritzbrantner-video-analysis-posture`: requires `ORT_DYLIB_PATH` and
-  `POSTURE_ONNX_MODEL_BUNDLE`, normally
-  `.model-runtime/xenova-yolov8n-pose-onnx/main`.
 - `moritzbrantner-video-analysis-mvs`: requires COLMAP, sparse text output
   under `COLMAP_SPARSE_TEXT_DIR`, source frames under `COLMAP_MVS_IMAGE_DIR`,
   and sparse binary output under `COLMAP_MVS_SPARSE_DIR`.

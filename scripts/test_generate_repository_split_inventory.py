@@ -21,7 +21,7 @@ class RepositorySplitInventoryTests(unittest.TestCase):
     def test_live_reviewed_authority_matches_manifests(self) -> None:
         authority, _, _, errors = generate()
         self.assertEqual(errors, [])
-        self.assertEqual(len(authority["packages"]), 114)
+        self.assertEqual(len(authority["packages"]), 102)
         self.assertEqual(authority["post_baseline_packages"], [])
         self.assertEqual(authority["resolved_boundary_violations"], [])
         self.assertEqual(authority["schema_version"], 2)

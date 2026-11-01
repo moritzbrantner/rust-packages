@@ -265,7 +265,6 @@ fn runtime_backend_defaults_stay_empty_and_opt_in() {
         "crates/image/image-analysis-captioning/Cargo.toml",
         "crates/image/image-analysis-detection/Cargo.toml",
         "crates/image/image-analysis-embeddings/Cargo.toml",
-        "crates/video/video-analysis-posture/Cargo.toml",
         "crates/video/video-analysis-recognition/Cargo.toml",
         "crates/video/video-analysis-cli/Cargo.toml",
     ] {
@@ -390,7 +389,6 @@ fn model_access_scan_is_allowed(path: &str) -> bool {
         || path.starts_with("crates/image/image-analysis-captioning/")
         || path.starts_with("crates/image/image-analysis-detection/")
         || path.starts_with("crates/image/image-analysis-embeddings/")
-        || path.starts_with("crates/video/video-analysis-posture/")
         || path.starts_with("crates/video/video-analysis-recognition/")
         || path.starts_with("crates/text/text-model-runtime/")
         || path.starts_with("crates/video/video-analysis-recognition/src/external_command.rs")

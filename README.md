@@ -36,7 +36,8 @@ licensed under [LICENSE-MIT](LICENSE-MIT) or [LICENSE-APACHE](LICENSE-APACHE).
   `animation-core`, `three-d-processing-*`, `three-d-scene-svg`,
   `video-analysis-{sfm,mvs,reconstruction}`,
   `video-analysis-radiance-{fields,io,pipeline}`,
-  `video-analysis-gaussian-splatting` and `video-analysis-posture{,-io}`.
+  and `video-analysis-gaussian-splatting`. Posture (`video-analysis-posture{,-io}`)
+  moved to `visual-analysis`; `vanalyze` consumes it from there.
 - Root facade `moenarch-video-analysis`: re-exports the crates above behind the
   `comfyui`, `animation`, `three-d` and `spatial` features, and ships the
   `video-analysis-overview-server` used by the web prototype.
