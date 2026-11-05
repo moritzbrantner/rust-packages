@@ -88,21 +88,21 @@ text-core = { package = "moenarch-text-core", version = "=0.1.1" }
 scenedetect-core = "=0.1.0"
 text-lexical = { package = "moenarch-text-lexical", version = "=0.1.1" }
 text-transcripts = { package = "moenarch-text-transcripts", version = "=0.1.3" }
-image-analysis-core = { package = "moenarch-image-analysis-core", git = "https://github.com/moritzbrantner/visual-analysis", rev = "be782cee52506785b46e2c471a003f879508275b" }
-image-analysis-detection = { package = "moenarch-image-analysis-detection", git = "https://github.com/moritzbrantner/visual-analysis", rev = "be782cee52506785b46e2c471a003f879508275b" }
-image-analysis-io = { package = "moenarch-image-analysis-io", git = "https://github.com/moritzbrantner/visual-analysis", rev = "be782cee52506785b46e2c471a003f879508275b" }
-image-analysis-processing = { package = "moenarch-image-analysis-processing", git = "https://github.com/moritzbrantner/visual-analysis", rev = "be782cee52506785b46e2c471a003f879508275b" }
-video-analysis-core = { package = "moenarch-video-analysis-core", git = "https://github.com/moritzbrantner/visual-analysis", rev = "be782cee52506785b46e2c471a003f879508275b" }
-video-analysis-data = { package = "moenarch-video-analysis-data", git = "https://github.com/moritzbrantner/visual-analysis", rev = "be782cee52506785b46e2c471a003f879508275b" }
-video-analysis-dataset = { package = "moenarch-video-analysis-dataset", git = "https://github.com/moritzbrantner/visual-analysis", rev = "be782cee52506785b46e2c471a003f879508275b" }
-video-analysis-detectors = { package = "moenarch-video-analysis-detectors", git = "https://github.com/moritzbrantner/visual-analysis", rev = "be782cee52506785b46e2c471a003f879508275b" }
-video-analysis-ffmpeg = { package = "moenarch-video-analysis-ffmpeg", git = "https://github.com/moritzbrantner/visual-analysis", rev = "be782cee52506785b46e2c471a003f879508275b" }
-video-analysis-ingest = { package = "moenarch-video-analysis-ingest", git = "https://github.com/moritzbrantner/visual-analysis", rev = "be782cee52506785b46e2c471a003f879508275b" }
-video-analysis-output = { package = "moenarch-video-analysis-output", git = "https://github.com/moritzbrantner/visual-analysis", rev = "be782cee52506785b46e2c471a003f879508275b" }
-video-analysis-posture = { package = "moenarch-video-analysis-posture", git = "https://github.com/moritzbrantner/visual-analysis", rev = "be782cee52506785b46e2c471a003f879508275b" }
-video-analysis-posture-io = { package = "moenarch-video-analysis-posture-io", git = "https://github.com/moritzbrantner/visual-analysis", rev = "be782cee52506785b46e2c471a003f879508275b" }
-video-analysis-recognition = { package = "moenarch-video-analysis-recognition", git = "https://github.com/moritzbrantner/visual-analysis", rev = "be782cee52506785b46e2c471a003f879508275b" }
-video-analysis-split = { package = "moenarch-video-analysis-split", git = "https://github.com/moritzbrantner/visual-analysis", rev = "be782cee52506785b46e2c471a003f879508275b" }
+image-analysis-core = { package = "moenarch-image-analysis-core", git = "https://github.com/moritzbrantner/visual-analysis", rev = "ef820b3c0f0b0c5306274f484c1d26582bd655c4" }
+image-analysis-detection = { package = "moenarch-image-analysis-detection", git = "https://github.com/moritzbrantner/visual-analysis", rev = "ef820b3c0f0b0c5306274f484c1d26582bd655c4" }
+image-analysis-io = { package = "moenarch-image-analysis-io", git = "https://github.com/moritzbrantner/visual-analysis", rev = "ef820b3c0f0b0c5306274f484c1d26582bd655c4" }
+image-analysis-processing = { package = "moenarch-image-analysis-processing", git = "https://github.com/moritzbrantner/visual-analysis", rev = "ef820b3c0f0b0c5306274f484c1d26582bd655c4" }
+video-analysis-core = { package = "moenarch-video-analysis-core", git = "https://github.com/moritzbrantner/visual-analysis", rev = "ef820b3c0f0b0c5306274f484c1d26582bd655c4" }
+video-analysis-data = { package = "moenarch-video-analysis-data", git = "https://github.com/moritzbrantner/visual-analysis", rev = "ef820b3c0f0b0c5306274f484c1d26582bd655c4" }
+video-analysis-dataset = { package = "moenarch-video-analysis-dataset", git = "https://github.com/moritzbrantner/visual-analysis", rev = "ef820b3c0f0b0c5306274f484c1d26582bd655c4" }
+video-analysis-detectors = { package = "moenarch-video-analysis-detectors", git = "https://github.com/moritzbrantner/visual-analysis", rev = "ef820b3c0f0b0c5306274f484c1d26582bd655c4" }
+video-analysis-ffmpeg = { package = "moenarch-video-analysis-ffmpeg", git = "https://github.com/moritzbrantner/visual-analysis", rev = "ef820b3c0f0b0c5306274f484c1d26582bd655c4" }
+video-analysis-ingest = { package = "moenarch-video-analysis-ingest", git = "https://github.com/moritzbrantner/visual-analysis", rev = "ef820b3c0f0b0c5306274f484c1d26582bd655c4" }
+video-analysis-output = { package = "moenarch-video-analysis-output", git = "https://github.com/moritzbrantner/visual-analysis", rev = "ef820b3c0f0b0c5306274f484c1d26582bd655c4" }
+video-analysis-posture = { package = "moenarch-video-analysis-posture", git = "https://github.com/moritzbrantner/visual-analysis", rev = "ef820b3c0f0b0c5306274f484c1d26582bd655c4" }
+video-analysis-posture-io = { package = "moenarch-video-analysis-posture-io", git = "https://github.com/moritzbrantner/visual-analysis", rev = "ef820b3c0f0b0c5306274f484c1d26582bd655c4" }
+video-analysis-recognition = { package = "moenarch-video-analysis-recognition", git = "https://github.com/moritzbrantner/visual-analysis", rev = "ef820b3c0f0b0c5306274f484c1d26582bd655c4" }
+video-analysis-split = { package = "moenarch-video-analysis-split", git = "https://github.com/moritzbrantner/visual-analysis", rev = "ef820b3c0f0b0c5306274f484c1d26582bd655c4" }
 video-analysis-test-support = { package = "moenarch-video-analysis-test-support", version = "0.1.0", path = "crates/test-support/video-analysis-test-support" }
 image-analysis-comfyui = { package = "moenarch-image-analysis-comfyui", version = "0.1.0", path = "crates/image/image-analysis-comfyui" }
 three-d-processing-core = { package = "moenarch-three-d-processing-core", version = "0.1.0", path = "crates/three-d/three-d-processing-core" }
