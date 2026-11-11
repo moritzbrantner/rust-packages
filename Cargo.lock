@@ -101,6 +101,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "arrayvec"
+version = "0.7.8"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d3fb67a6e08acf24fdeccbac2cb6ac4305825bd1f117462e0e6f2f193345ad56"
+
+[[package]]
 name = "autocfg"
 version = "1.5.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -125,6 +131,30 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3078c7629b62d3f0439517fa394996acacc5cbc91c5a20d8c658e77abd503a71"
 dependencies = [
  "generic-array",
+]
+
+[[package]]
+name = "borsh"
+version = "1.8.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "553c5d846a6ba5150c65e3b1b8ec073bcf1abc20f9b7220de384a4443ea4e20a"
+dependencies = [
+ "borsh-derive",
+ "bytes",
+ "cfg_aliases",
+]
+
+[[package]]
+name = "borsh-derive"
+version = "1.8.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "12cdfe656708a01f89b451a7d36466e6fe6c414de0aa18fc54f864f6f9ca9f56"
+dependencies = [
+ "once_cell",
+ "proc-macro-crate",
+ "proc-macro2",
+ "quote",
+ "syn 3.0.9",
 ]
 
 [[package]]
@@ -172,6 +202,12 @@ name = "cfg-if"
 version = "1.0.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "4e7648175b45a9a48536d676f68d918270699102aa8dab5496df06904c914600"
+
+[[package]]
+name = "cfg_aliases"
+version = "0.2.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f079e83a288787bcd14a6aea84cee5c87a67c5a3e660c30f557a3d24761b3527"
 
 [[package]]
 name = "chrono"
@@ -702,7 +738,7 @@ dependencies = [
  "indicatif",
  "libc",
  "log",
- "rand",
+ "rand 0.9.5",
  "serde",
  "serde_json",
  "thiserror",
@@ -1077,11 +1113,11 @@ dependencies = [
 
 [[package]]
 name = "moenarch-audio-contracts"
-version = "0.1.0"
+version = "0.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "578562b77a0815b1653a3413d52aea623707b640d27aad38019667028056f65e"
+checksum = "c3c686476f42bb9a19810b69bff92ceb8b0d1e54fca67ec3f38359e45e01c813"
 dependencies = [
- "moenarch-media-core",
+ "moenarch-media-core 0.2.0",
 ]
 
 [[package]]
@@ -1089,7 +1125,7 @@ name = "moenarch-comfyui-data"
 version = "0.1.0"
 dependencies = [
  "moenarch-runtime-core",
- "moenarch-tensor-data",
+ "moenarch-tensor-data 0.1.1",
  "serde",
  "serde_json",
  "thiserror",
@@ -1133,7 +1169,7 @@ name = "moenarch-comfyui-latents"
 version = "0.1.0"
 dependencies = [
  "moenarch-runtime-core",
- "moenarch-tensor-data",
+ "moenarch-tensor-data 0.1.1",
  "moenarch-video-analysis-core",
  "serde",
  "serde_json",
@@ -1264,10 +1300,10 @@ dependencies = [
 [[package]]
 name = "moenarch-image-analysis-core"
 version = "0.1.0"
-source = "git+https://github.com/moritzbrantner/visual-analysis?rev=ef820b3c0f0b0c5306274f484c1d26582bd655c4#ef820b3c0f0b0c5306274f484c1d26582bd655c4"
+source = "git+https://github.com/moritzbrantner/visual-analysis?rev=f5a670e35b942be22dac8530e9d558b89eea65be#f5a670e35b942be22dac8530e9d558b89eea65be"
 dependencies = [
  "moenarch-runtime-core",
- "moenarch-tensor-data",
+ "moenarch-tensor-data 0.2.0",
  "moenarch-video-analysis-core",
  "serde",
  "serde_json",
@@ -1276,7 +1312,7 @@ dependencies = [
 [[package]]
 name = "moenarch-image-analysis-detection"
 version = "0.1.0"
-source = "git+https://github.com/moritzbrantner/visual-analysis?rev=ef820b3c0f0b0c5306274f484c1d26582bd655c4#ef820b3c0f0b0c5306274f484c1d26582bd655c4"
+source = "git+https://github.com/moritzbrantner/visual-analysis?rev=f5a670e35b942be22dac8530e9d558b89eea65be#f5a670e35b942be22dac8530e9d558b89eea65be"
 dependencies = [
  "moenarch-image-analysis-core",
  "moenarch-image-analysis-io",
@@ -1294,7 +1330,7 @@ dependencies = [
 [[package]]
 name = "moenarch-image-analysis-io"
 version = "0.1.0"
-source = "git+https://github.com/moritzbrantner/visual-analysis?rev=ef820b3c0f0b0c5306274f484c1d26582bd655c4#ef820b3c0f0b0c5306274f484c1d26582bd655c4"
+source = "git+https://github.com/moritzbrantner/visual-analysis?rev=f5a670e35b942be22dac8530e9d558b89eea65be#f5a670e35b942be22dac8530e9d558b89eea65be"
 dependencies = [
  "image",
  "moenarch-image-analysis-core",
@@ -1307,12 +1343,12 @@ dependencies = [
 [[package]]
 name = "moenarch-image-analysis-processing"
 version = "0.1.0"
-source = "git+https://github.com/moritzbrantner/visual-analysis?rev=ef820b3c0f0b0c5306274f484c1d26582bd655c4#ef820b3c0f0b0c5306274f484c1d26582bd655c4"
+source = "git+https://github.com/moritzbrantner/visual-analysis?rev=f5a670e35b942be22dac8530e9d558b89eea65be#f5a670e35b942be22dac8530e9d558b89eea65be"
 dependencies = [
  "image",
  "moenarch-image-analysis-core",
  "moenarch-math-geometry-2d",
- "moenarch-math-linear",
+ "moenarch-math-linear 0.2.0",
  "moenarch-runtime-core",
  "moenarch-video-analysis-core",
  "serde",
@@ -1322,7 +1358,7 @@ dependencies = [
 [[package]]
 name = "moenarch-image-analysis-segmentation"
 version = "0.1.0"
-source = "git+https://github.com/moritzbrantner/visual-analysis?rev=ef820b3c0f0b0c5306274f484c1d26582bd655c4#ef820b3c0f0b0c5306274f484c1d26582bd655c4"
+source = "git+https://github.com/moritzbrantner/visual-analysis?rev=f5a670e35b942be22dac8530e9d558b89eea65be#f5a670e35b942be22dac8530e9d558b89eea65be"
 dependencies = [
  "moenarch-image-analysis-core",
  "moenarch-model-runtime",
@@ -1347,11 +1383,11 @@ dependencies = [
 
 [[package]]
 name = "moenarch-math-geometry-2d"
-version = "0.1.1"
+version = "0.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a0ff066f6d921f8eed639cda9a3bc5417da987720ac66babda4591eac3db25b7"
+checksum = "e12a9a3f9cff9e58d82b123f67030dca10efbdc55acc471e8391bb207714b426"
 dependencies = [
- "moenarch-media-core",
+ "moenarch-media-core 0.2.0",
  "moenarch-runtime-core",
  "serde",
  "serde_json",
@@ -1363,10 +1399,25 @@ version = "0.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "4b5f3869f538efc98fec1faa771cfc140ff2d5de9030ec8bebfa065b6bbb7659"
 dependencies = [
- "moenarch-media-core",
+ "moenarch-media-core 0.1.0",
  "moenarch-runtime-core",
- "moenarch-tensor-data",
- "moenarch-vector-analysis-core",
+ "moenarch-tensor-data 0.1.1",
+ "moenarch-vector-analysis-core 0.1.1",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "moenarch-math-linear"
+version = "0.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ac71230f722505817c305c1e8f35bee5bd20a64125061fbde5584c74fb0cd4d3"
+dependencies = [
+ "moenarch-media-core 0.2.0",
+ "moenarch-numbers-core 0.2.0",
+ "moenarch-runtime-core",
+ "moenarch-tensor-data 0.2.0",
+ "moenarch-vector-analysis-core 0.2.0",
  "serde",
  "serde_json",
 ]
@@ -1377,11 +1428,11 @@ version = "0.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ee51ba648e2bbf68781d00e4b52b95d53a8b315b71ab443ba049408ce73d12ab"
 dependencies = [
- "moenarch-math-linear",
- "moenarch-media-core",
- "moenarch-numbers-core",
+ "moenarch-math-linear 0.1.1",
+ "moenarch-media-core 0.1.0",
+ "moenarch-numbers-core 0.1.1",
  "moenarch-runtime-core",
- "moenarch-vector-analysis-core",
+ "moenarch-vector-analysis-core 0.1.1",
  "serde",
  "serde_json",
 ]
@@ -1391,6 +1442,16 @@ name = "moenarch-media-core"
 version = "0.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9f350ffff17cc08783d9fef753e1533c35c2372f9acce357870d58ed794c0585"
+
+[[package]]
+name = "moenarch-media-core"
+version = "0.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "671d82131dd4a342353fdecf82056c883e1e4db2a5960584698eca12f0d3ecb1"
+dependencies = [
+ "serde",
+ "serde_json",
+]
 
 [[package]]
 name = "moenarch-model-runtime"
@@ -1412,10 +1473,24 @@ version = "0.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c633ffed2e3a7f3d5bf77c0abc55c32685135c882eb431adca3076448da198a3"
 dependencies = [
- "moenarch-media-core",
+ "moenarch-media-core 0.1.0",
  "moenarch-runtime-core",
  "serde",
  "serde_json",
+]
+
+[[package]]
+name = "moenarch-numbers-core"
+version = "0.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "946ba7f1839bf01bbdb148bd8d9d0625b0913f731e22b7797fbaf5a97e21d02d"
+dependencies = [
+ "moenarch-media-core 0.2.0",
+ "moenarch-runtime-core",
+ "rust_decimal",
+ "serde",
+ "serde_json",
+ "thiserror",
 ]
 
 [[package]]
@@ -1455,7 +1530,19 @@ version = "0.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e427dc74aa15980c5de41730256b2a2a4d48c012ea00353fed70294a4bd8cf3e"
 dependencies = [
- "moenarch-media-core",
+ "moenarch-media-core 0.1.0",
+ "moenarch-runtime-core",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "moenarch-tensor-data"
+version = "0.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "5451b1075701eb3772d1ea3c12aec6c8637a7b232cfab97ef02a0befd6f850c2"
+dependencies = [
+ "moenarch-media-core 0.2.0",
  "moenarch-runtime-core",
  "serde",
  "serde_json",
@@ -1468,7 +1555,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "71c5789282ef323dd8905e54abe6b7ebacdb9b49362f9b38284f5eb14b1c27a4"
 dependencies = [
  "moenarch-jobs-core",
- "moenarch-media-core",
+ "moenarch-media-core 0.1.0",
  "moenarch-runtime-core",
  "serde",
  "serde_json",
@@ -1689,7 +1776,20 @@ version = "0.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "de15a4cd8baa74e92cb2a262f7bebc44889402d8a480a73da59ce8e5e1b352f5"
 dependencies = [
- "moenarch-media-core",
+ "moenarch-media-core 0.1.0",
+ "moenarch-runtime-core",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "moenarch-vector-analysis-core"
+version = "0.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f7e146fd70ca0378eff98f70251452b7338e4d7e34d733332ea17d2453741226"
+dependencies = [
+ "moenarch-media-core 0.2.0",
+ "moenarch-numbers-core 0.2.0",
  "moenarch-runtime-core",
  "serde",
  "serde_json",
@@ -1706,7 +1806,7 @@ dependencies = [
  "moenarch-comfyui-models",
  "moenarch-image-analysis-comfyui",
  "moenarch-runtime-core",
- "moenarch-tensor-data",
+ "moenarch-tensor-data 0.1.1",
  "moenarch-three-d-processing-core",
  "moenarch-three-d-processing-io",
  "moenarch-three-d-processing-mesh",
@@ -1753,11 +1853,11 @@ dependencies = [
 [[package]]
 name = "moenarch-video-analysis-core"
 version = "0.1.3"
-source = "git+https://github.com/moritzbrantner/visual-analysis?rev=ef820b3c0f0b0c5306274f484c1d26582bd655c4#ef820b3c0f0b0c5306274f484c1d26582bd655c4"
+source = "git+https://github.com/moritzbrantner/visual-analysis?rev=f5a670e35b942be22dac8530e9d558b89eea65be#f5a670e35b942be22dac8530e9d558b89eea65be"
 dependencies = [
  "moenarch-audio-contracts",
  "moenarch-math-geometry-2d",
- "moenarch-media-core",
+ "moenarch-media-core 0.2.0",
  "moenarch-runtime-core",
  "moenarch-text-core",
  "num-rational",
@@ -1770,9 +1870,9 @@ dependencies = [
 [[package]]
 name = "moenarch-video-analysis-data"
 version = "0.1.0"
-source = "git+https://github.com/moritzbrantner/visual-analysis?rev=ef820b3c0f0b0c5306274f484c1d26582bd655c4#ef820b3c0f0b0c5306274f484c1d26582bd655c4"
+source = "git+https://github.com/moritzbrantner/visual-analysis?rev=f5a670e35b942be22dac8530e9d558b89eea65be#f5a670e35b942be22dac8530e9d558b89eea65be"
 dependencies = [
- "moenarch-numbers-core",
+ "moenarch-numbers-core 0.2.0",
  "moenarch-runtime-core",
  "moenarch-video-analysis-core",
  "serde_json",
@@ -1781,8 +1881,9 @@ dependencies = [
 [[package]]
 name = "moenarch-video-analysis-dataset"
 version = "0.1.0"
-source = "git+https://github.com/moritzbrantner/visual-analysis?rev=ef820b3c0f0b0c5306274f484c1d26582bd655c4#ef820b3c0f0b0c5306274f484c1d26582bd655c4"
+source = "git+https://github.com/moritzbrantner/visual-analysis?rev=f5a670e35b942be22dac8530e9d558b89eea65be#f5a670e35b942be22dac8530e9d558b89eea65be"
 dependencies = [
+ "moenarch-media-core 0.2.0",
  "moenarch-runtime-core",
  "moenarch-video-analysis-core",
  "serde",
@@ -1792,7 +1893,7 @@ dependencies = [
 [[package]]
 name = "moenarch-video-analysis-detectors"
 version = "0.1.0"
-source = "git+https://github.com/moritzbrantner/visual-analysis?rev=ef820b3c0f0b0c5306274f484c1d26582bd655c4#ef820b3c0f0b0c5306274f484c1d26582bd655c4"
+source = "git+https://github.com/moritzbrantner/visual-analysis?rev=f5a670e35b942be22dac8530e9d558b89eea65be#f5a670e35b942be22dac8530e9d558b89eea65be"
 dependencies = [
  "moenarch-runtime-core",
  "moenarch-video-analysis-core",
@@ -1804,7 +1905,7 @@ dependencies = [
 [[package]]
 name = "moenarch-video-analysis-ffmpeg"
 version = "0.1.1"
-source = "git+https://github.com/moritzbrantner/visual-analysis?rev=ef820b3c0f0b0c5306274f484c1d26582bd655c4#ef820b3c0f0b0c5306274f484c1d26582bd655c4"
+source = "git+https://github.com/moritzbrantner/visual-analysis?rev=f5a670e35b942be22dac8530e9d558b89eea65be#f5a670e35b942be22dac8530e9d558b89eea65be"
 dependencies = [
  "moenarch-runtime-core",
  "moenarch-video-analysis-core",
@@ -1861,7 +1962,7 @@ dependencies = [
 [[package]]
 name = "moenarch-video-analysis-ingest"
 version = "0.1.0"
-source = "git+https://github.com/moritzbrantner/visual-analysis?rev=ef820b3c0f0b0c5306274f484c1d26582bd655c4#ef820b3c0f0b0c5306274f484c1d26582bd655c4"
+source = "git+https://github.com/moritzbrantner/visual-analysis?rev=f5a670e35b942be22dac8530e9d558b89eea65be#f5a670e35b942be22dac8530e9d558b89eea65be"
 dependencies = [
  "moenarch-runtime-core",
  "moenarch-video-analysis-core",
@@ -1921,7 +2022,7 @@ dependencies = [
 [[package]]
 name = "moenarch-video-analysis-output"
 version = "0.1.0"
-source = "git+https://github.com/moritzbrantner/visual-analysis?rev=ef820b3c0f0b0c5306274f484c1d26582bd655c4#ef820b3c0f0b0c5306274f484c1d26582bd655c4"
+source = "git+https://github.com/moritzbrantner/visual-analysis?rev=f5a670e35b942be22dac8530e9d558b89eea65be#f5a670e35b942be22dac8530e9d558b89eea65be"
 dependencies = [
  "moenarch-runtime-core",
  "moenarch-video-analysis-core",
@@ -1932,7 +2033,7 @@ dependencies = [
 [[package]]
 name = "moenarch-video-analysis-posture"
 version = "0.1.0"
-source = "git+https://github.com/moritzbrantner/visual-analysis?rev=ef820b3c0f0b0c5306274f484c1d26582bd655c4#ef820b3c0f0b0c5306274f484c1d26582bd655c4"
+source = "git+https://github.com/moritzbrantner/visual-analysis?rev=f5a670e35b942be22dac8530e9d558b89eea65be#f5a670e35b942be22dac8530e9d558b89eea65be"
 dependencies = [
  "moenarch-image-analysis-core",
  "moenarch-image-analysis-processing",
@@ -1948,7 +2049,7 @@ dependencies = [
 [[package]]
 name = "moenarch-video-analysis-posture-io"
 version = "0.1.0"
-source = "git+https://github.com/moritzbrantner/visual-analysis?rev=ef820b3c0f0b0c5306274f484c1d26582bd655c4#ef820b3c0f0b0c5306274f484c1d26582bd655c4"
+source = "git+https://github.com/moritzbrantner/visual-analysis?rev=f5a670e35b942be22dac8530e9d558b89eea65be#f5a670e35b942be22dac8530e9d558b89eea65be"
 dependencies = [
  "base64",
  "moenarch-runtime-core",
@@ -2100,7 +2201,7 @@ dependencies = [
 [[package]]
 name = "moenarch-video-analysis-recognition"
 version = "0.1.0"
-source = "git+https://github.com/moritzbrantner/visual-analysis?rev=ef820b3c0f0b0c5306274f484c1d26582bd655c4#ef820b3c0f0b0c5306274f484c1d26582bd655c4"
+source = "git+https://github.com/moritzbrantner/visual-analysis?rev=f5a670e35b942be22dac8530e9d558b89eea65be#f5a670e35b942be22dac8530e9d558b89eea65be"
 dependencies = [
  "base64",
  "moenarch-image-analysis-core",
@@ -2208,7 +2309,7 @@ dependencies = [
 [[package]]
 name = "moenarch-video-analysis-split"
 version = "0.1.0"
-source = "git+https://github.com/moritzbrantner/visual-analysis?rev=ef820b3c0f0b0c5306274f484c1d26582bd655c4#ef820b3c0f0b0c5306274f484c1d26582bd655c4"
+source = "git+https://github.com/moritzbrantner/visual-analysis?rev=f5a670e35b942be22dac8530e9d558b89eea65be#f5a670e35b942be22dac8530e9d558b89eea65be"
 dependencies = [
  "moenarch-runtime-core",
  "moenarch-video-analysis-core",
@@ -2262,7 +2363,7 @@ dependencies = [
 [[package]]
 name = "moenarch-vision-core"
 version = "0.1.0"
-source = "git+https://github.com/moritzbrantner/visual-analysis?rev=ef820b3c0f0b0c5306274f484c1d26582bd655c4#ef820b3c0f0b0c5306274f484c1d26582bd655c4"
+source = "git+https://github.com/moritzbrantner/visual-analysis?rev=f5a670e35b942be22dac8530e9d558b89eea65be#f5a670e35b942be22dac8530e9d558b89eea65be"
 dependencies = [
  "moenarch-math-geometry-2d",
  "moenarch-runtime-core",
@@ -2520,6 +2621,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "proc-macro-crate"
+version = "3.5.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e67ba7e9b2b56446f1d419b1d807906278ffa1a658a8a5d8a39dcb1f5a78614f"
+dependencies = [
+ "toml_edit",
+]
+
+[[package]]
 name = "proc-macro2"
 version = "1.0.107"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2563,12 +2673,33 @@ checksum = "f8dcc9c7d52a811697d2151c701e0d08956f92b0e24136cf4cf27b57a6a0d9bf"
 
 [[package]]
 name = "rand"
+version = "0.8.8"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e058c7de0b26af77780c769414d6257830bb240f3c38477dbc2c16e5f54d6d4c"
+dependencies = [
+ "libc",
+ "rand_chacha 0.3.1",
+ "rand_core 0.6.4",
+]
+
+[[package]]
+name = "rand"
 version = "0.9.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b9ef1d0d795eb7d84685bca4f72f3649f064e6641543d3a8c415898726a57b41"
 dependencies = [
- "rand_chacha",
- "rand_core",
+ "rand_chacha 0.9.0",
+ "rand_core 0.9.5",
+]
+
+[[package]]
+name = "rand_chacha"
+version = "0.3.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e6c10a63a0fa32252be49d21e7709d4d4baf8d231c2dbce1eaa8141b9b127d88"
+dependencies = [
+ "ppv-lite86",
+ "rand_core 0.6.4",
 ]
 
 [[package]]
@@ -2578,7 +2709,16 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d3022b5f1df60f26e1ffddd6c66e8aa15de382ae63b3a0c1bfc0e4d3e3f325cb"
 dependencies = [
  "ppv-lite86",
- "rand_core",
+ "rand_core 0.9.5",
+]
+
+[[package]]
+name = "rand_core"
+version = "0.6.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ec0be4795e2f6a28069bec0b5ff3e2ac9bafc99e6a9a7dc3547996c5c816922c"
+dependencies = [
+ "getrandom 0.2.17",
 ]
 
 [[package]]
@@ -2691,6 +2831,23 @@ dependencies = [
  "libsqlite3-sys",
  "smallvec",
  "sqlite-wasm-rs",
+]
+
+[[package]]
+name = "rust_decimal"
+version = "1.43.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7653272e75dcac41dc199fbea6f5797633994fafd339943c06c9af16bf29cd3a"
+dependencies = [
+ "arrayvec",
+ "borsh",
+ "bytes",
+ "num-traits",
+ "rand 0.8.8",
+ "rand 0.9.5",
+ "serde",
+ "serde_json",
+ "wasm-bindgen",
 ]
 
 [[package]]
@@ -3041,6 +3198,36 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "fd3ca314f692efd6c868f8408f53fe444634a845f96c028b97d35f6a1f79f0ee"
 
 [[package]]
+name = "toml_datetime"
+version = "1.1.3+spec-1.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "173f25c883cd2176a2d8212155638c0a60d484a9d84546d270866f40f56b6e49"
+dependencies = [
+ "serde_core",
+]
+
+[[package]]
+name = "toml_edit"
+version = "0.25.19+spec-1.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "dd43688c4858d7264ae1cf9a9f874a67c3feb74a883b1cd7bebd6a4ea8307218"
+dependencies = [
+ "indexmap",
+ "toml_datetime",
+ "toml_parser",
+ "winnow",
+]
+
+[[package]]
+name = "toml_parser"
+version = "1.1.5+spec-1.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "baa693a8032d7e1cada7d0041e96126df243179ff061456783ac7f12bda4744c"
+dependencies = [
+ "winnow",
+]
+
+[[package]]
 name = "tracing"
 version = "0.1.44"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3220,6 +3407,7 @@ checksum = "a0181c14ddd6c7b8b0b0132a5f1ea2f32be0d893cd3ea97b6e3b28886b8a3d1c"
 dependencies = [
  "cfg-if",
  "rustversion",
+ "serde",
  "wasm-bindgen-macro",
  "wasm-bindgen-shared",
 ]
@@ -3466,6 +3654,15 @@ name = "windows_x86_64_msvc"
 version = "0.52.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "589f6da84c646204747d1270a2a5661ea66ed1cced2631d546fdfb155959f9ec"
+
+[[package]]
+name = "winnow"
+version = "1.0.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8c3b93199df0ab874cdf0c6a94f0a0dc3423fe41f1cafb62b8bd7b1deb277aef"
+dependencies = [
+ "memchr",
+]
 
 [[package]]
 name = "wit-bindgen"
