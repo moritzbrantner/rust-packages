@@ -104,4 +104,3 @@ These are repository-layout defaults, not requirements that every repository cre
 - For those GitHub Actions repositories, enable only the profile roles the repository actually needs; prefer jobs and matrices inside canonical caller workflows over adding another top-level workflow file.
 - Any workflow outside the selected profile is an explicit repository-local exception with a concrete reason.
 - Repository-owned commands and deterministic tooling continue to own validation semantics; the shared workflow profile owns only GitHub workflow topology, canonical caller roles, and reusable hosted mechanics.
-
