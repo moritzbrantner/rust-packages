@@ -229,6 +229,51 @@ class PackageSurfaceAuditTests(unittest.TestCase):
 
         self.assertEqual(audit.classify_operation(operation), "support")
 
+    def test_invalid_cli_error_is_found_after_long_cargo_warning_prefix(self) -> None:
+        warnings = "warning: `cargo::redundant_homepage` is set to `warn` by default\n" * 40
+        unsupported = audit.subprocess.CompletedProcess(
+            args=[],
+            returncode=1,
+            stdout="",
+            stderr=warnings
+            + 'Error: Custom { kind: Other, error: "unsupported operation `x` for demo" }',
+        )
+        malformed = audit.subprocess.CompletedProcess(
+            args=[],
+            returncode=1,
+            stdout="",
+            stderr=warnings + "Error: EOF while parsing an object",
+        )
+        failures: list[str] = []
+        with mock.patch.object(
+            audit.subprocess, "run", side_effect=[unsupported, malformed]
+        ), mock.patch.object(
+            audit, "public_package_name", return_value="moenarch-demo-cli"
+        ):
+            audit.validate_cli_invalid_behavior("moenarch-demo", failures)
+
+        self.assertEqual(failures, [])
+
+    def test_invalid_cli_without_clear_error_still_fails(self) -> None:
+        unclear = audit.subprocess.CompletedProcess(
+            args=[], returncode=1, stdout="", stderr="warning: something\n"
+        )
+        failures: list[str] = []
+        with mock.patch.object(
+            audit.subprocess, "run", side_effect=[unclear, unclear]
+        ), mock.patch.object(
+            audit, "public_package_name", return_value="moenarch-demo-cli"
+        ):
+            audit.validate_cli_invalid_behavior("moenarch-demo", failures)
+
+        self.assertEqual(
+            failures,
+            [
+                "moenarch-demo: unsupported operation error is unclear",
+                "moenarch-demo: malformed JSON error is unclear",
+            ],
+        )
+
 
 if __name__ == "__main__":
     unittest.main()
