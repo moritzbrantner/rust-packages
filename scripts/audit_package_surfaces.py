@@ -592,7 +592,7 @@ def validate_cli_invalid_behavior(crate: str, failures: list[str]) -> None:
     )
     if unsupported.returncode == 0:
         failures.append(f"{crate}: unsupported operation unexpectedly succeeded")
-    elif "unsupported operation" not in compact_process_output(unsupported).lower():
+    elif "unsupported operation" not in process_output_text(unsupported).lower():
         failures.append(f"{crate}: unsupported operation error is unclear")
 
     malformed = subprocess.run(
@@ -616,7 +616,7 @@ def validate_cli_invalid_behavior(crate: str, failures: list[str]) -> None:
     if malformed.returncode == 0:
         failures.append(f"{crate}: malformed JSON unexpectedly succeeded")
     elif not any(
-        marker in compact_process_output(malformed).lower()
+        marker in process_output_text(malformed).lower()
         for marker in ["json", "parse", "parsing", "eof", "error"]
     ):
         failures.append(f"{crate}: malformed JSON error is unclear")
@@ -779,9 +779,18 @@ def quoted_values(text: str) -> list[str]:
     return re.findall(r"[\"']([^\"']+)[\"']", text)
 
 
-def compact_process_output(completed: subprocess.CompletedProcess[str]) -> str:
+def process_output_text(completed: subprocess.CompletedProcess[str]) -> str:
+    """Whole stdout+stderr, whitespace-normalized, for content assertions.
+
+    Cargo prints manifest warnings before the program's own error even with
+    `--quiet`, so assertions must not look only at a truncated prefix.
+    """
     output = f"{completed.stdout}\n{completed.stderr}".strip()
-    return " ".join(output.split())[:600]
+    return " ".join(output.split())
+
+
+def compact_process_output(completed: subprocess.CompletedProcess[str]) -> str:
+    return process_output_text(completed)[:600]
 
 
 def tick(value: str) -> str:
